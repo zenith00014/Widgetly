@@ -28,13 +28,7 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
-        <receiver android:name=".QuickNoteWidgetReceiver" android:exported="true">
-            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/quick_note_widget_info" />
-        </receiver>
-        <receiver android:name=".RetroClockWidgetReceiver" android:exported="true">
-            <intent-filter><action android:name="android.appwidget.action.APPWIDGET_UPDATE" /></intent-filter>
-            <meta-data android:name="android.appwidget.provider" android:resource="@xml/retro_clock_widget_info" />
-        </receiver>
+        
+        
     </application>
 </manifest>
