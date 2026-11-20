@@ -756,7 +756,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      try{
       val refreshed=withContext(Dispatchers.IO){
        val resolved=LibreTubePlayback.resolveMedia(input,audioOnly,maxHeight,maxBitrate,preferMp4)
-       val captions=if(audioOnly)emptyList() else runCatching { LibreTubePlayback.resolveSubtitles(input) }.getOrDefault(emptyList())
+       val captions=if(audioOnly)emptyList() else resolved.subtitles
        val subtitleConfigs=captions.map{subtitle->
         androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
          .setMimeType(subtitle.mimeType)
@@ -867,7 +867,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      }else{
       val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format)}
       resolvedQuality=resolved.qualityLabel
-      val captions=if(audio)emptyList() else withContext(Dispatchers.IO){runCatching { LibreTubePlayback.resolveSubtitles(url) }.getOrDefault(emptyList())}
+      val captions=if(audio)emptyList() else resolved.subtitles
       val subtitleConfigs=captions.map{subtitle->
        androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
         .setMimeType(subtitle.mimeType)
