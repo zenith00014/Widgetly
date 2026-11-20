@@ -410,13 +410,19 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
   } else if(tracks.isNotEmpty()){
    Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
     Button(enabled=!downloading,onClick={scope.launch{
-    downloading=true;downloadMessage="Queueing MP4 video downloads…"
-    val count=queueVideoDownloads(context,tracks)
-    downloadMessage="Queued $count of ${tracks.size} video downloads."
-    downloading=false
-   }},colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Download videos (MP4)")}
-    TextButton(onClick={tracks.forEach(enqueue);downloadMessage="Added ${tracks.size} videos to the queue."}){Text("Queue all",color=magenta)}
+     downloading=true;downloadMessage="Queueing MP4 video downloads…"
+     val count=queueVideoDownloads(context,tracks)
+     downloadMessage="Queued $count of ${tracks.size} MP4 downloads."
+     downloading=false
+    }},colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Download MP4")}
+    OutlinedButton(enabled=!downloading,onClick={scope.launch{
+     downloading=true;downloadMessage="Extracting MP3 audio…"
+     val count=queueMusicDownloads(context,tracks,true)
+     downloadMessage="Queued $count of ${tracks.size} MP3 downloads."
+     downloading=false
+    }}){Text("Download MP3")}
    }
+   TextButton(onClick={tracks.forEach(enqueue);downloadMessage="Added ${tracks.size} videos to the queue."}){Text("Queue all",color=magenta)}
    if(downloadMessage.isNotBlank())Text(downloadMessage,color=muted,fontSize=10.sp)
   }
   if(tracks.isNotEmpty()){
