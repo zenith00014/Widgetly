@@ -712,7 +712,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   dismissButton={TextButton(onClick={showCreate=false;playlistName=""}){Text("Cancel")}}
  )
 }
-@Composable private fun RushPlayer(item:Pick,light:Boolean,back:()->Unit,queue:List<Pick>,onTrackChanged:(String)->Unit){
+@Composable private fun RushPlayer(item:Pick,light:Boolean,back:()->Unit,queue:List<Pick>,onTrackChanged:(String)->Unit,isInPipMode:Boolean=false){
  val context=androidx.compose.ui.platform.LocalContext.current;val scope=rememberCoroutineScope()
  val playerPrefs=remember(context){context.getSharedPreferences("rush_prefs",Context.MODE_PRIVATE)}
  val localFileAvailable=item.localPath?.let{java.io.File(it).isFile}==true
@@ -733,6 +733,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
  var speed by remember(item.id){mutableFloatStateOf(playerPrefs.getFloat("playback_speed",1f))}
  var captionsEnabled by remember(item.id){mutableStateOf(playerPrefs.getBoolean("captions_enabled",true))}
  var status by remember(item.id){mutableStateOf(if(localFileAvailable)"Downloaded file ready." else "Paste a YouTube link or video ID to play.")}
+ var isPlaying by remember(item.id){mutableStateOf(false)}
  var playingTitle by remember(item.id){mutableStateOf(item.title)}
  var playingCreator by remember(item.id){mutableStateOf(item.creator)}
  var retriedMediaIds by remember(item.id){mutableStateOf(emptySet<String>())}
@@ -749,6 +750,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     playingCreator=mediaItem?.mediaMetadata?.artist?.toString()?.ifBlank{item.creator}?:item.creator
     mediaItem?.mediaId?.takeIf{it.isNotBlank()}?.let(latestOnTrackChanged)
    }
+   override fun onIsPlayingChanged(isPlayingNow:Boolean){isPlaying=isPlayingNow}
    override fun onPlayerError(error:androidx.media3.common.PlaybackException){
     val player=controller?:return
     val current=player.currentMediaItem?:return
@@ -798,7 +800,8 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    }
   }
   controller?.addListener(listener)
-  onDispose{controller?.removeListener(listener)}
+  isPlaying=controller?.isPlaying==true
+  onDispose{controller?.removeListener(listener);isPlaying=false}
  }
  var shuffleEnabled by remember(item.id){mutableStateOf(playerPrefs.getBoolean("shuffle_enabled",false))}
  var repeatMode by remember(item.id){mutableIntStateOf(playerPrefs.getInt("repeat_mode",androidx.media3.common.Player.REPEAT_MODE_OFF))}
@@ -853,8 +856,18 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
  }
  val ink=if(light)Color(0xFF241B32)else paper;val muted=if(light)Color(0xFF70677D)else mutedDark;val surface=if(light)Color.White else panelDark
 
- Column(Modifier.fillMaxSize().padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){
-  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("← Back",color=muted,modifier=Modifier.clickable{back()}.padding(8.dp));Text(if(audio)"Music player"else"Video player",color=mint)}
+ if(isInPipMode&&!audio){
+  androidx.compose.ui.viewinterop.AndroidView(
+   factory={ctx->androidx.media3.ui.PlayerView(ctx).apply{player=controller;useController=true}},
+   update={it.player=controller},
+   modifier=Modifier.fillMaxSize()
+  )
+ }else Column(Modifier.fillMaxSize().padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+   Text("← Back",color=muted,modifier=Modifier.clickable{back()}.padding(8.dp))
+   Text(if(audio)"Music player"else"Video player",color=mint)
+   if(!audio&&isPlaying&&android.os.Build.VERSION.SDK_INT>=26)TextButton(onClick={(context as? MainActivity)?.enterPlayerPip()}){Text("PiP",color=magenta)}
+  }
   Spacer(Modifier.weight(.2f))
   if(audio)Disc(item,Modifier.size(240.dp))else Cover(item,Modifier.fillMaxWidth().height(190.dp))
   Text(playingTitle,color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold);Text(playingCreator,color=muted)
