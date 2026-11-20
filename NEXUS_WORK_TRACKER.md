@@ -12,7 +12,7 @@ Nexus is a private, single-owner Android app. Keep it native, local-first, light
 ## Remaining work — implementation order
 
 ### P0 — Build and core reliability
-- [ ] Run a final Android debug APK build after the offline-reader change. Earlier music, contacts, inbox, settings, backup and daily-budget code passed GitHub Actions.
+- [ ] Run a final Android debug APK build after the latest source-selection and cleanup changes. Offline reader and earlier music, contacts, inbox, settings, backup and daily-budget code passed GitHub Actions.
 - [ ] Fix any compile/runtime errors found by build and device testing.
 - [ ] Verify Discover feeds, thumbnails, embedded video/article/movie viewing, and back navigation.
 - [x] Improve Inbox: search, app filters, clear individual/all history, timestamps, and expired-reply fallback.
@@ -21,14 +21,14 @@ Nexus is a private, single-owner Android app. Keep it native, local-first, light
 ### P1 — Personal media and communication
 - [x] Music: local audio picker, saved track list, playback, pause/resume, seek, next/previous. Background notification controls remain a separate enhancement.
 - [x] Contacts: Android system phone-contact picker with local shortcuts for Call and SMS app hand-off; no broad contact-book permission.
-- [ ] Settings: source selection, theme, notification access help, and further privacy controls. (Local session/daily item/time limits and privacy explanations are implemented and build-checked.)
+- [x] Settings: source selection for curated feeds, notification-access shortcut/help, local session/daily item/time limits, privacy explanations, JSON backup/restore, and clear-all-data confirmation. Theme remains the fixed SLAB//GLASS dark appearance.
 
 ### P2 — Anti-doomscrolling and data ownership
 - [x] Add a daily Discover item budget with a clear stop screen. Daily time budget has now been coded with lifecycle-aware tracking; latest build verification is pending.
 - [ ] Add optional break reminders; no streaks, rewards, autoplay, or engagement tracking.
-- [ ] Add offline article saving/reading and bounded image/content cache. (Text-only article save/read and a 50-article cap are coded; build verification pending. General image/content cache remains.)
+- [ ] Add offline article saving/reading and bounded image/content cache. (Text-only article save/read with a 50-article cap is coded and passed an earlier build; general image/content cache remains.)
 - [x] Add local JSON export/import for personal notes, saved items, settings, selected contacts and Inbox history; transient notification action tokens are not exported.
-- [ ] Add reset/clear-data controls and explain exactly what is removed.
+- [x] Add reset/clear-data controls and explain exactly what is removed.
 
 ### P3 — Quality and release readiness
 - [ ] Add accessibility labels, adequate touch targets, and reduced-motion behavior.
