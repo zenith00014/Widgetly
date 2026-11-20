@@ -1,6 +1,12 @@
 package com.widgetly.app
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.content.Context
+import android.os.Build
+import android.content.pm.ServiceInfo
+import androidx.core.app.NotificationCompat
+import androidx.work.ForegroundInfo
 import com.arthenica.ffmpegkit.FFmpegKit
 import com.arthenica.ffmpegkit.ReturnCode
 import androidx.work.Constraints
@@ -85,6 +91,7 @@ object OfflineDownloads {
                     .putString(OfflineDownloadWorker.KEY_ID, safeId)
                     .putString(OfflineDownloadWorker.KEY_URL, media.url)
                     .putString(OfflineDownloadWorker.KEY_EXTENSION, media.extension)
+                    .putString(OfflineDownloadWorker.KEY_TITLE, title)
                     .putBoolean(OfflineDownloadWorker.KEY_TRANSCODE_MP3, transcodeToMp3)
                     .build()
             )
@@ -185,12 +192,15 @@ class OfflineDownloadWorker(
     parameters: WorkerParameters
 ) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
+        appContext = applicationContext
         val id = inputData.getString(KEY_ID) ?: return@withContext Result.failure()
         val url = inputData.getString(KEY_URL) ?: return@withContext Result.failure()
         val extension = inputData.getString(KEY_EXTENSION)?.takeIf { it.matches(Regex("[A-Za-z0-9]{1,8}")) }
             ?: return@withContext Result.failure()
         val transcodeToMp3 = inputData.getBoolean(KEY_TRANSCODE_MP3, false)
+        val title = inputData.getString(KEY_TITLE).orEmpty().ifBlank { "Media file" }
 
+        setForeground(createForegroundInfo(id, title, 0, false))
         val directory = File(applicationContext.filesDir, "offline-media").apply { mkdirs() }
         val partial = File(directory, "$id.$extension.part")
         val destination = File(directory, "$id.$extension")
@@ -227,6 +237,7 @@ class OfflineDownloadWorker(
                                 lastReported = downloaded
                                 val percent = if (expectedBytes > 0) ((downloaded * 100 / expectedBytes).toInt()).coerceIn(0, 99) else 0
                                 setProgress(Data.Builder().putInt("progress", percent).putLong("bytes", downloaded).build())
+                                setForeground(createForegroundInfo(id, title, percent, false))
                             }
                         }
                         output.flush()
@@ -250,6 +261,7 @@ class OfflineDownloadWorker(
                         .putString("stage", "Converting to MP3")
                         .build()
                 )
+                setForeground(createForegroundInfo(id, title, 100, true))
                 val converted = File(directory, "$id.converting.mp3")
                 converted.delete()
                 val command = "-y -i ${quote(destination.absolutePath)} -vn -map_metadata 0 -codec:a libmp3lame -b:a 192k ${quote(converted.absolutePath)}"
@@ -288,7 +300,40 @@ class OfflineDownloadWorker(
         const val KEY_ID = "download_id"
         const val KEY_URL = "stream_url"
         const val KEY_EXTENSION = "extension"
+        const val KEY_TITLE = "title"
         const val KEY_TRANSCODE_MP3 = "transcode_mp3"
+
+        private fun createForegroundInfo(id: String, title: String, progress: Int, converting: Boolean): ForegroundInfo {
+            val context = appContext
+            val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                manager.createNotificationChannel(
+                    NotificationChannel(
+                        DOWNLOAD_CHANNEL,
+                        "Offline downloads",
+                        NotificationManager.IMPORTANCE_LOW
+                    )
+                )
+            }
+            val notification = NotificationCompat.Builder(context, DOWNLOAD_CHANNEL)
+                .setSmallIcon(android.R.drawable.stat_sys_download)
+                .setContentTitle(if (converting) "Converting to MP3" else "Downloading media")
+                .setContentText(title)
+                .setProgress(100, progress.coerceIn(0, 100), converting)
+                .setOngoing(true)
+                .setOnlyAlertOnce(true)
+                .setPriority(NotificationCompat.PRIORITY_LOW)
+                .build()
+            val notificationId = (id.hashCode() and 0x7fffffff).coerceAtLeast(1)
+            return ForegroundInfo(
+                notificationId,
+                notification,
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC
+            )
+        }
+
+        private const val DOWNLOAD_CHANNEL = "rush_offline_downloads"
+        private lateinit var appContext: Context
 
         private suspend fun runFfmpeg(command: String): Boolean =
             suspendCancellableCoroutine { continuation ->
