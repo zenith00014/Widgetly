@@ -38,6 +38,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  var tab by remember{mutableStateOf("Home")};var light by remember{mutableStateOf(prefs.getBoolean("light",false))}
  var active by remember{mutableStateOf<Pick?>(null)}
  var playbackQueue by remember{mutableStateOf<List<Pick>>(emptyList())}
+ var queuedIds by remember{mutableStateOf(QueueStore.load(prefs))}
  var saved by remember{mutableStateOf(prefs.getStringSet("saved",emptySet())?.toSet()?:emptySet())}
  var history by remember{mutableStateOf(loadHistory(prefs))}
  var metadata by remember{mutableStateOf(loadPickMetadata(prefs))}
@@ -71,10 +72,10 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
     }
     Box(Modifier.weight(1f)){
      when(tab){
-      "Discover"->LiveDiscover(ink,muted,surface,saved,storeResult,saveResult,playResult)
+      "Discover"->LiveDiscover(ink,muted,surface,saved,storeResult,saveResult,playResult,{result->storeResult(result);queuedIds=QueueStore.add(prefs,result.videoId)})
       "Downloads"->DownloadsScreen(ink,muted,surface,{media->active=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath)})
       "Subscriptions"->SubscriptionsScreen(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Latest upload");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};persistHistory(prefs,history)})
-      "Library"->Library(saved,history,metadata,prefs,ink,muted,surface,{id->metadata[id]?.let{playbackQueue=emptyList();active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()},{queue->playbackQueue=queue;active=queue.firstOrNull()},{history=emptyList();persistHistory(prefs,history)})
+      "Library"->Library(saved,history,metadata,prefs,queuedIds,ink,muted,surface,{id->metadata[id]?.let{playbackQueue=emptyList();active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()},{queue->playbackQueue=queue;queuedIds=queue.map{it.id};QueueStore.replace(prefs,queuedIds);active=queue.firstOrNull()},{ids->queuedIds=ids;QueueStore.replace(prefs,ids)},{history=emptyList();persistHistory(prefs,history)})
       else->Home(ink,muted,surface,prefs,saved,metadata,history,{pick->persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};persistHistory(prefs,history)},{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()},{tab="Discover"})
      }
     }
@@ -181,7 +182,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   items(recent,key={it.id}){pick->CardRow(pick,ink,muted,surface,saved,{play(pick)},{save(it)})}
  }
 }
-@Composable private fun LiveDiscover(ink:Color,muted:Color,surface:Color,saved:Set<String>,store:(YouTubeSearchResult)->Unit,save:(YouTubeSearchResult)->Unit,play:(YouTubeSearchResult)->Unit){
+@Composable private fun LiveDiscover(ink:Color,muted:Color,surface:Color,saved:Set<String>,store:(YouTubeSearchResult)->Unit,save:(YouTubeSearchResult)->Unit,play:(YouTubeSearchResult)->Unit,enqueue:(YouTubeSearchResult)->Unit){
  var query by remember { mutableStateOf("") }
  var filter by remember { mutableStateOf("Videos") }
  var results by remember { mutableStateOf<List<YouTubeSearchResult>>(emptyList()) }
@@ -229,7 +230,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
        Text(when{result.isChannel->result.creator.ifBlank{"YouTube channel"};result.isCollection->result.creator.ifBlank{"Artist / album"};else->result.creator + if(result.duration.isNotBlank()) " · ${result.duration}" else ""},color=muted,fontSize=11.sp,maxLines=1)
       }
       if(result.isChannel||result.isCollection) Text("Open",color=magenta,fontSize=12.sp)
-      else Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result)}.padding(4.dp));Text("＋",color=magenta,modifier=Modifier.clickable{playlistTarget=result}.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
+      else Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result)}.padding(4.dp));Text("＋",color=magenta,modifier=Modifier.clickable{playlistTarget=result}.padding(4.dp));Text("↥",color=magenta,modifier=Modifier.clickable{enqueue(result)}.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
      }
     }
    }
@@ -426,7 +427,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  }
 }
 
-@Composable private fun Library(saved:Set<String>,history:List<String>,metadata:Map<String,Pick>,prefs:android.content.SharedPreferences,ink:Color,muted:Color,surface:Color,play:(String)->Unit,remove:(String)->Unit,playQueue:(List<Pick>)->Unit,clearHistory:()->Unit){
+@Composable private fun Library(saved:Set<String>,history:List<String>,metadata:Map<String,Pick>,prefs:android.content.SharedPreferences,queueIds:List<String>,ink:Color,muted:Color,surface:Color,play:(String)->Unit,remove:(String)->Unit,playQueue:(List<Pick>)->Unit,updateQueue:(List<String>)->Unit,clearHistory:()->Unit){
  val context=androidx.compose.ui.platform.LocalContext.current
  val all=metadata
  val kept=saved.mapNotNull{all[it]};val recent=history.distinct().mapNotNull{all[it]}
@@ -436,6 +437,24 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  var playlistMessage by remember{mutableStateOf("")}
  val scope=rememberCoroutineScope()
  LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+  item{
+   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+    Shelf("Up next","Persistent queue",ink)
+    if(queueIds.isNotEmpty())TextButton(onClick={updateQueue(emptyList())}){Text("Clear",color=muted,fontSize=10.sp)}
+   }
+  }
+  val queued=queueIds.mapNotNull{all[it]}
+  if(queued.isNotEmpty()){
+   item{TextButton(onClick={playQueue(queued)}){Text("Play queue · ${queued.size} items",color=magenta)}}
+   itemsIndexed(queued){index,track->
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(surface).padding(horizontal=10.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically){
+     Text("${index+1}.",color=muted,fontSize=11.sp)
+     Text(track.title,color=ink,fontSize=11.sp,modifier=Modifier.weight(1f).padding(horizontal=8.dp),maxLines=1,overflow=TextOverflow.Ellipsis)
+     Text("▶",color=magenta,modifier=Modifier.clickable{play(track.id)}.padding(5.dp))
+     Text("×",color=muted,modifier=Modifier.clickable{updateQueue(queueIds.filterNotIndexed{position,_->position==index})}.padding(5.dp))
+    }
+   }
+  }else item{Text("Add tracks from Discover using the queue icon to build an Up next list.",color=muted,fontSize=10.sp)}
   item{
    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
     Shelf("Playlists","Your collections",ink)
