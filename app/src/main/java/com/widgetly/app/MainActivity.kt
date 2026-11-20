@@ -40,6 +40,7 @@ private val picks=listOf(
  Pick("m2","Blue Hour Tapes","Niko Vale",true,listOf(Color(0xFF235D68),Color(0xFF79B5A8)),"A mellow collection for slow evenings."),
  Pick("m3","Soft Focus","The Sunday Club",true,listOf(Color(0xFF4C477F),Color(0xFFB7A4E8)),"Gentle sounds with room to breathe.")
 )
+private data class SubscribedChannel(val id:String,val title:String,val subscriberCount:String)
 private data class Story(val title:String,val publisher:String,val source:String,val read:String,val summary:String,val why:String)
 private val stories=listOf(
  Story("Independent creators are building smaller, closer communities","The Culture Desk","Independent","4 min","A shift toward direct relationships is changing how creators publish and collaborate.","Selected for its focus on creative culture."),
@@ -60,19 +61,20 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
    if(active!=null)RushPlayer(active!!,light){active=null}
    else{
     Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=14.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
-     Column{Text("RUSH",color=if(light)magenta else mint,fontSize=12.sp,fontWeight=FontWeight.Bold,letterSpacing=3.sp);Text(when(tab){"Discover"->"Find your next favourite";"Downloads"->"Offline library";"Library"->"Your collection";else->"Your daily signal"},color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold)}
+     Column{Text("RUSH",color=if(light)magenta else mint,fontSize=12.sp,fontWeight=FontWeight.Bold,letterSpacing=3.sp);Text(when(tab){"Discover"->"Find your next favourite";"Downloads"->"Offline library";"Subscriptions"->"Latest uploads";"Library"->"Your collection";else->"Your daily signal"},color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold)}
      TextButton(onClick={light=!light;prefs.edit().putBoolean("light",light).apply()}){Text(if(light)"Dark theme" else "Light theme",color=muted)}
     }
     Box(Modifier.weight(1f)){
      when(tab){
       "Discover"->LiveDiscover(ink,muted,surface,saved,{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()},{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Live YouTube result");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};prefs.edit().putStringSet("history",history.toSet()).apply()})
       "Downloads"->DownloadsScreen(ink,muted,surface,{media->active=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath)})
+      "Subscriptions"->SubscriptionsScreen(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Latest upload");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};prefs.edit().putStringSet("history",history.toSet()).apply()})
       "Library"->Library(saved,history,metadata,ink,muted,surface,{id->(metadata[id]?:picks.find{it.id==id})?.let{active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()})
       else->Home(ink,muted,surface,saved,{open(it){active=it;history=listOf(it.id)+history.filterNot{x->x==it.id};prefs.edit().putStringSet("history",history.toSet()).apply()}},{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()})
      }
     }
     if(history.isNotEmpty())picks.find{it.id==history.first()}?.let{recent->Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=5.dp).clip(RoundedCornerShape(15.dp)).background(surface).clickable{active=recent}.padding(9.dp),verticalAlignment=Alignment.CenterVertically){Cover(recent,Modifier.size(40.dp));Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text("PICK UP WHERE YOU LEFT OFF",fontSize=9.sp,color=muted);Text(recent.title,fontSize=13.sp,color=ink)};Text("▶",color=magenta)}}
-    NavigationBar(containerColor=surface){listOf("Home","Discover","Downloads","Library").forEach{dest->NavigationBarItem(selected=tab==dest,onClick={tab=dest;query=""},icon={Text(when(dest){"Home"->"⌂";"Discover"->"⌕";"Downloads"->"⇩";else->"▣"},fontSize=19.sp)},label={Text(dest,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedIconColor=magenta,selectedTextColor=magenta,indicatorColor=if(light)Color(0xFFF8DCE8)else raised,unselectedIconColor=muted,unselectedTextColor=muted))}}
+    NavigationBar(containerColor=surface){listOf("Home","Discover","Subscriptions","Downloads","Library").forEach{dest->NavigationBarItem(selected=tab==dest,onClick={tab=dest;query=""},icon={Text(when(dest){"Home"->"⌂";"Discover"->"⌕";"Downloads"->"⇩";"Subscriptions"->"◉";else->"▣"},fontSize=19.sp)},label={Text(dest,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedIconColor=magenta,selectedTextColor=magenta,indicatorColor=if(light)Color(0xFFF8DCE8)else raised,unselectedIconColor=muted,unselectedTextColor=muted))}}
    }
   }}
  }
@@ -89,6 +91,16 @@ private fun loadPickMetadata(prefs:android.content.SharedPreferences):Map<String
   result[id]=Pick(id,item.optString("title"),item.optString("creator"),item.optBoolean("music"),listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Saved from YouTube")
  }
  return result
+}
+private fun loadSubscribedChannels(prefs:android.content.SharedPreferences):List<SubscribedChannel>{
+ val ids=prefs.getStringSet("subscriptions",emptySet())?.toList().orEmpty()
+ val root=runCatching{org.json.JSONObject(prefs.getString("channel_metadata","{}")?:"{}")}.getOrDefault(org.json.JSONObject())
+ return ids.mapNotNull{id->val item=root.optJSONObject(id)?:return@mapNotNull null;SubscribedChannel(id,item.optString("title","YouTube channel"),item.optString("subscribers",""))}
+}
+private fun persistChannelMetadata(prefs:android.content.SharedPreferences,channel:YouTubeSearchResult){
+ val root=runCatching{org.json.JSONObject(prefs.getString("channel_metadata","{}")?:"{}")}.getOrDefault(org.json.JSONObject())
+ root.put(channel.channelId,org.json.JSONObject().put("title",channel.title).put("subscribers",channel.creator))
+ prefs.edit().putString("channel_metadata",root.toString()).apply()
 }
 private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pick){
  val root=runCatching{org.json.JSONObject(prefs.getString("item_metadata","{}")?:"{}")}.getOrDefault(org.json.JSONObject())
@@ -184,6 +196,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    Text("← Back",color=muted,modifier=Modifier.clickable{back()}.padding(8.dp))
    Button(onClick={
     subscriptions=if(subscribed)subscriptions-channel.channelId else subscriptions+channel.channelId
+    if(!subscribed)persistChannelMetadata(prefs,channel)
     prefs.edit().putStringSet("subscriptions",subscriptions).apply()
    }){Text(if(subscribed)"Subscribed" else "Subscribe")}
   }
@@ -209,6 +222,48 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   item{Text("That's the briefing.",color=ink,fontSize=16.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(12.dp))}
  }
 }
+@Composable private fun SubscriptionsScreen(ink:Color,muted:Color,surface:Color,play:(YouTubeSearchResult)->Unit){
+ val context=androidx.compose.ui.platform.LocalContext.current
+ val prefs=remember(context){context.getSharedPreferences("rush_prefs",Context.MODE_PRIVATE)}
+ var channels by remember{mutableStateOf(loadSubscribedChannels(prefs))}
+ var uploads by remember{mutableStateOf<List<YouTubeSearchResult>>(emptyList())}
+ var status by remember{mutableStateOf("Latest uploads from channels you follow.")}
+ var loading by remember{mutableStateOf(false)}
+ LaunchedEffect(channels.map{it.id}) {
+  loading=true
+  try {
+   uploads=withContext(Dispatchers.IO){channels.flatMap{channel->runCatching{LiveYouTubeSearch.latestUploads(channel.id)}.getOrDefault(emptyList())}.distinctBy{it.videoId}.take(60)}
+   status=if(uploads.isEmpty())"No recent public uploads found." else "${uploads.size} recent uploads"
+  } catch(e:Exception){status=e.localizedMessage?:"Could not refresh subscriptions."}
+  finally{loading=false}
+ }
+ LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
+  item{
+   Text("Subscriptions",color=ink,fontSize=20.sp,fontWeight=FontWeight.Bold)
+   Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(top=5.dp))
+  }
+  if(channels.isEmpty())item{Text("No subscriptions yet. Search for a channel in Discover and subscribe to it.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(surface).padding(16.dp))}
+  items(channels,key={it.id}){channel->
+   Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(surface).padding(horizontal=12.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){
+    Column(Modifier.weight(1f)){Text(channel.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold);if(channel.subscriberCount.isNotBlank())Text(channel.subscriberCount,color=muted,fontSize=10.sp)}
+    TextButton(onClick={
+     val ids=prefs.getStringSet("subscriptions",emptySet())?.toMutableSet()?:mutableSetOf()
+     ids.remove(channel.id);prefs.edit().putStringSet("subscriptions",ids).apply();channels=channels.filterNot{it.id==channel.id}
+    }){Text("Unsubscribe",color=muted,fontSize=10.sp)}
+   }
+  }
+  item{Shelf("Latest uploads","From subscribed channels",ink)}
+  if(uploads.isEmpty()&&!loading)item{Text("Upload feed is empty.",color=muted)}
+  items(uploads,key={it.videoId}){video->
+   Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(surface).clickable{play(video)}.padding(11.dp),verticalAlignment=Alignment.CenterVertically){
+    Box(Modifier.size(45.dp).clip(RoundedCornerShape(9.dp)).background(raised),contentAlignment=Alignment.Center){Text("▶",color=mint)}
+    Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text(video.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2);Text(video.creator+" · "+video.duration,color=muted,fontSize=10.sp,maxLines=1)}
+    Text("Play",color=magenta,fontSize=11.sp)
+   }
+  }
+ }
+}
+
 @Composable private fun DownloadsScreen(ink:Color,muted:Color,surface:Color,play:(OfflineMedia)->Unit){
  val context=androidx.compose.ui.platform.LocalContext.current
  var downloads by remember { mutableStateOf<List<OfflineMedia>>(emptyList()) }
