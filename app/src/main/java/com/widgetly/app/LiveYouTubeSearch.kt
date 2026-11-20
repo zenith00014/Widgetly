@@ -16,7 +16,9 @@ data class YouTubeSearchResult(
     val duration: String,
     val isMusic: Boolean,
     val isChannel: Boolean = false,
-    val channelId: String = ""
+    val channelId: String = "",
+    val isCollection: Boolean = false,
+    val collectionId: String = ""
 )
 
 object LiveYouTubeSearch {
@@ -108,6 +110,31 @@ object LiveYouTubeSearch {
         }
     }
 
+    @Throws(IOException::class)
+    fun browseMusicCollection(browseId: String): List<YouTubeSearchResult> {
+        require(browseId.isNotBlank()) { "Invalid music collection." }
+        val body = JSONObject()
+            .put("context", JSONObject().put("client", JSONObject()
+                .put("clientName", "WEB_REMIX")
+                .put("clientVersion", "1.20261119.01.00")))
+            .put("browseId", browseId)
+            .toString()
+        val request = Request.Builder()
+            .url("https://music.youtube.com/youtubei/v1/browse")
+            .post(body.toRequestBody(jsonType))
+            .header("User-Agent", USER_AGENT)
+            .header("Origin", "https://music.youtube.com")
+            .header("Referer", "https://music.youtube.com/")
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("Could not load music collection (HTTP ${response.code}).")
+            val root = JSONObject(response.body?.string().orEmpty())
+            val found = LinkedHashMap<String, YouTubeSearchResult>()
+            collect(root, found, true, false)
+            return found.values.filter { it.videoId.isNotBlank() }.take(100)
+        }
+    }
+
     private fun addMusic(item: JSONObject, out: MutableMap<String, YouTubeSearchResult>) {
         val flex = columnTexts(item.optJSONArray("flexColumns"))
         val fixed = columnTexts(item.optJSONArray("fixedColumns"))
@@ -117,14 +144,34 @@ object LiveYouTubeSearch {
             ?.optJSONObject("text")
             ?.optJSONArray("runs")
             ?.optJSONObject(0)
+        val firstEndpoint = firstRun?.optJSONObject("navigationEndpoint")
+        val browseId = item.optJSONObject("navigationEndpoint")
+            ?.optJSONObject("browseEndpoint")
+            ?.optString("browseId").orEmpty()
+            .ifBlank { firstEndpoint?.optJSONObject("browseEndpoint")?.optString("browseId").orEmpty() }
         val id = item.optJSONObject("playlistItemData")?.optString("videoId").orEmpty()
-            .ifBlank { firstRun?.optJSONObject("navigationEndpoint")?.optJSONObject("watchEndpoint")?.optString("videoId").orEmpty() }
+            .ifBlank { firstEndpoint?.optJSONObject("watchEndpoint")?.optString("videoId").orEmpty() }
             .ifBlank { item.optString("videoId") }
         val title = flex.firstOrNull().orEmpty().ifBlank { text(item.optJSONObject("title")) }
-        if (id.isBlank() || title.isBlank()) return
+        if (title.isBlank()) return
         val creator = flex.getOrNull(1).orEmpty().ifBlank { "YouTube Music" }
         val duration = fixed.firstOrNull().orEmpty()
-        out.putIfAbsent(id, YouTubeSearchResult(id, title, creator, duration, true))
+        if (id.isNotBlank()) {
+            out.putIfAbsent(id, YouTubeSearchResult(id, title, creator, duration, true))
+        } else if (browseId.isNotBlank()) {
+            out.putIfAbsent(
+                "collection:$browseId",
+                YouTubeSearchResult(
+                    videoId = "",
+                    title = title,
+                    creator = creator,
+                    duration = "",
+                    isMusic = true,
+                    isCollection = true,
+                    collectionId = browseId
+                )
+            )
+        }
     }
 
     private fun columnTexts(array: JSONArray?): List<String> {
