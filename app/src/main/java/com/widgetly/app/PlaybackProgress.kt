@@ -5,8 +5,12 @@ import android.content.Context
 object PlaybackProgress {
     private const val PREFS = "rush_prefs"
 
-    fun positionMs(context: Context, mediaId: String): Long =
-        preferences(context).getLong(positionKey(mediaId), 0L).coerceAtLeast(0L)
+    fun positionMs(context: Context, mediaId: String): Long {
+        val prefs = preferences(context)
+        val position = prefs.getLong(positionKey(mediaId), 0L).coerceAtLeast(0L)
+        val duration = prefs.getLong(durationKey(mediaId), 0L).coerceAtLeast(0L)
+        return if (duration > 0L && position >= duration - 15_000L) 0L else position
+    }
 
     fun durationMs(context: Context, mediaId: String): Long =
         preferences(context).getLong(durationKey(mediaId), 0L).coerceAtLeast(0L)
