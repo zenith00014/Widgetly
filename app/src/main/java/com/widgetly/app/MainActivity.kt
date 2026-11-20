@@ -43,6 +43,8 @@ private val Panel2=Color(0xFF252F27)
 private val Lime=Color(0xFFC8F169)
 private val Muted=Color(0xFF9AA69A)
 private val Paper=Color(0xFFF2F5EF)
+internal const val PREFS_NAME="widgetly_prefs"
+internal const val NOTE_KEY="quick_note"
 private const val PREFS="nexus_prefs"
 
 class MainActivity:ComponentActivity() {
