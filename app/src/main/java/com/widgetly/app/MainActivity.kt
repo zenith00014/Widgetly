@@ -69,7 +69,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
       "Discover"->LiveDiscover(ink,muted,surface,saved,{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()},{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Live YouTube result");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};prefs.edit().putStringSet("history",history.toSet()).apply()})
       "Downloads"->DownloadsScreen(ink,muted,surface,{media->active=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath)})
       "Subscriptions"->SubscriptionsScreen(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Latest upload");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};prefs.edit().putStringSet("history",history.toSet()).apply()})
-      "Library"->Library(saved,history,metadata,ink,muted,surface,{id->(metadata[id]?:picks.find{it.id==id})?.let{active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()})
+      "Library"->Library(saved,history,metadata,prefs,ink,muted,surface,{id->(metadata[id]?:picks.find{it.id==id})?.let{active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()})
       else->Home(ink,muted,surface,prefs,saved,metadata,history,{pick->persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};prefs.edit().putStringSet("history",history.toSet()).apply()},{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()},{tab="Discover"})
      }
     }
@@ -379,17 +379,51 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  }
 }
 
-@Composable private fun Library(saved:Set<String>,history:List<String>,metadata:Map<String,Pick>,ink:Color,muted:Color,surface:Color,play:(String)->Unit,remove:(String)->Unit){
+@Composable private fun Library(saved:Set<String>,history:List<String>,metadata:Map<String,Pick>,prefs:android.content.SharedPreferences,ink:Color,muted:Color,surface:Color,play:(String)->Unit,remove:(String)->Unit){
  val all=picks.associateBy{it.id}+metadata
  val kept=saved.mapNotNull{all[it]};val recent=history.distinct().mapNotNull{all[it]}
+ var playlists by remember{mutableStateOf(PlaylistStore.load(prefs))}
+ var showCreate by remember{mutableStateOf(false)}
+ var playlistName by remember{mutableStateOf("")}
  LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
-  item{Shelf("Your shelf","Saved items",ink)}
-  if(kept.isEmpty())item{Text("Nothing here yet. Use the heart in any player to save it.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(18.dp))}
+  item{
+   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+    Shelf("Playlists","Your collections",ink)
+    TextButton(onClick={showCreate=true}){Text("＋ New",color=magenta)}
+   }
+  }
+  if(playlists.isEmpty())item{Text("Create a playlist, then add videos or music from Discover.",color=muted,fontSize=11.sp)}
+  items(playlists,key={it.id}){playlist->
+   Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(surface).padding(12.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
+    Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+     Column(Modifier.weight(1f)){Text(playlist.name,color=ink,fontSize=14.sp,fontWeight=FontWeight.Bold);Text("${playlist.itemIds.size} items",color=muted,fontSize=10.sp)}
+     TextButton(onClick={playlists=PlaylistStore.delete(prefs,playlist.id)}){Text("Delete",color=muted,fontSize=10.sp)}
+    }
+    val tracks=playlist.itemIds.mapNotNull{all[it]}
+    if(tracks.isEmpty())Text("No items yet. Add videos or music from Discover.",color=muted,fontSize=10.sp)
+    tracks.forEach{track->
+     Row(Modifier.fillMaxWidth().clickable{play(track.id)}.padding(vertical=5.dp),verticalAlignment=Alignment.CenterVertically){
+      Text(track.title,color=ink,fontSize=11.sp,modifier=Modifier.weight(1f),maxLines=2,overflow=TextOverflow.Ellipsis)
+      Text("▶",color=magenta,modifier=Modifier.padding(horizontal=6.dp))
+      Text("×",color=muted,modifier=Modifier.clickable{playlists=PlaylistStore.remove(prefs,playlist.id,track.id)}.padding(5.dp))
+     }
+    }
+   }
+  }
+  item{Shelf("Saved items","Bookmarks",ink)}
+  if(kept.isEmpty())item{Text("Saved videos and music will appear here.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(18.dp))}
   items(kept){pick->CardRow(pick,ink,muted,surface,saved,{play(pick.id)},{remove(pick.id)})}
   item{Shelf("Recently played","History",ink)}
-  if(recent.isEmpty())item{Text("Your listening and viewing history will appear here.",color=muted)}
+  if(recent.isEmpty())item{Text("Your viewing and listening history will appear here.",color=muted)}
   items(recent){pick->CardRow(pick,ink,muted,surface,saved,{play(pick.id)},{})}
  }
+ if(showCreate)AlertDialog(
+  onDismissRequest={showCreate=false;playlistName=""},
+  title={Text("Create playlist")},
+  text={OutlinedTextField(value=playlistName,onValueChange={playlistName=it},label={Text("Playlist name")},singleLine=true)},
+  confirmButton={TextButton(enabled=playlistName.isNotBlank(),onClick={playlists=PlaylistStore.create(prefs,playlistName);playlistName="";showCreate=false}){Text("Create")}},
+  dismissButton={TextButton(onClick={showCreate=false;playlistName=""}){Text("Cancel")}}
+ )
 }
 @Composable private fun RushPlayer(item:Pick,light:Boolean,back:()->Unit){
  val context=androidx.compose.ui.platform.LocalContext.current;val scope=rememberCoroutineScope()
