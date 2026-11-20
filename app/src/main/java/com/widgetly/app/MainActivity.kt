@@ -220,7 +220,8 @@ private fun open(p:Pick,cb:(Pick)->Unit){cb(p)}
   onDispose { androidx.media3.session.MediaController.releaseFuture(controllerFuture) }
  }
  var url by remember(item.id){mutableStateOf(item.id.takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}.orEmpty())};var audio by remember(item.id){mutableStateOf(item.music)}
- var status by remember(item.id){mutableStateOf("Paste a YouTube link or video ID to play.")}
+ var quality by remember(item.id){mutableIntStateOf(0)}
+ var status by remember(item.id){mutableStateOf(if(item.localPath!=null)"Downloaded file ready." else "Paste a YouTube link or video ID to play.")}
  val ink=if(light)Color(0xFF241B32)else paper;val muted=if(light)Color(0xFF70677D)else mutedDark;val surface=if(light)Color.White else panelDark
 
  Column(Modifier.fillMaxSize().padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){
@@ -228,11 +229,32 @@ private fun open(p:Pick,cb:(Pick)->Unit){cb(p)}
   Spacer(Modifier.weight(.2f))
   if(audio)Disc(item,Modifier.size(240.dp))else Cover(item,Modifier.fillMaxWidth().height(190.dp))
   Text(item.title,color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold);Text(item.creator,color=muted)
-  Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=audio,onClick={audio=true},label={Text("Audio only")});FilterChip(selected=!audio,onClick={audio=false},label={Text("Video")})}
-  BasicTextField(url,{url=it},modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(surface).padding(15.dp),textStyle=TextStyle(color=ink),singleLine=true,decorationBox={inner->if(url.isEmpty())Text("YouTube URL or video ID",color=muted);inner()})
-  Button(onClick={val activePlayer=controller;if(activePlayer==null){status="Connecting to playback service…"}else scope.launch{status="Resolving stream…";try{val stream=withContext(Dispatchers.IO){LibreTubePlayback.resolve(url,audio)};activePlayer.setMediaItem(androidx.media3.common.MediaItem.fromUri(stream));activePlayer.prepare();activePlayer.play();status="Stream ready"}catch(e:Exception){status=e.localizedMessage?:"Unable to load this stream."}}},enabled=controller!=null,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Load and play",color=Color.White)}
-  androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).apply{this.player=player;useController=true}},update={it.player=controller},modifier=Modifier.fillMaxWidth().height(if(audio)70.dp else 180.dp))
-  Text(status,color=muted,fontSize=11.sp);Text("Stream availability depends on YouTube and extractor compatibility.",color=muted,fontSize=10.sp)
+  if(item.localPath==null) {
+   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=audio,onClick={audio=true},label={Text("Audio only")});FilterChip(selected=!audio,onClick={audio=false},label={Text("Video")})}
+   if(!audio) Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",720 to "720p",480 to "480p",360 to "360p").forEach{(height,label)->FilterChip(selected=quality==height,onClick={quality=height},label={Text(label)})}}
+   BasicTextField(url,{url=it},modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(surface).padding(15.dp),textStyle=TextStyle(color=ink),singleLine=true,decorationBox={inner->if(url.isEmpty())Text("YouTube URL or video ID",color=muted);inner()})
+  }
+  Button(onClick={
+   val activePlayer=controller
+   if(activePlayer==null){status="Connecting to playback service…"}
+   else scope.launch{
+    status="Resolving stream…"
+    try{
+     val stream=if(item.localPath!=null)java.io.File(item.localPath).toURI().toString() else withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,quality.takeIf{it>0}).url}
+     activePlayer.setMediaItem(androidx.media3.common.MediaItem.fromUri(stream));activePlayer.prepare();activePlayer.play();status=if(item.localPath!=null)"Playing offline" else "Stream ready"
+    }catch(e:Exception){status=e.localizedMessage?:"Unable to load this stream."}
+   }
+  },enabled=controller!=null,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text(if(item.localPath!=null)"Play offline" else "Load and play",color=Color.White)}
+  if(item.localPath==null) Button(onClick={scope.launch{
+   status="Preparing offline download…"
+   try{
+    val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,quality.takeIf{it>0})}
+    withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,item.id,item.title,item.creator,audio,media)}
+    status="Download queued · ${media.qualityLabel} · .${media.extension}"
+   }catch(e:Exception){status=e.localizedMessage?:"Could not start download."}
+  }},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=raised)){Text("Download offline",color=ink)}
+  androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).apply{this.player=controller;useController=true}},update={it.player=controller},modifier=Modifier.fillMaxWidth().height(if(audio)70.dp else 180.dp))
+  Text(status,color=muted,fontSize=11.sp);Text("Use offline downloads only where permitted. Formats and quality depend on the source.",color=muted,fontSize=10.sp)
   Spacer(Modifier.weight(.5f))
  }
 }
