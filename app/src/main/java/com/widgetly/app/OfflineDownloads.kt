@@ -192,7 +192,6 @@ class OfflineDownloadWorker(
     parameters: WorkerParameters
 ) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
-        appContext = applicationContext
         val id = inputData.getString(KEY_ID) ?: return@withContext Result.failure()
         val url = inputData.getString(KEY_URL) ?: return@withContext Result.failure()
         val extension = inputData.getString(KEY_EXTENSION)?.takeIf { it.matches(Regex("[A-Za-z0-9]{1,8}")) }
@@ -200,7 +199,7 @@ class OfflineDownloadWorker(
         val transcodeToMp3 = inputData.getBoolean(KEY_TRANSCODE_MP3, false)
         val title = inputData.getString(KEY_TITLE).orEmpty().ifBlank { "Media file" }
 
-        setForeground(createForegroundInfo(id, title, 0, false))
+        setForeground(createForegroundInfo(applicationContext, id, title, 0, false))
         val directory = File(applicationContext.filesDir, "offline-media").apply { mkdirs() }
         val partial = File(directory, "$id.$extension.part")
         val destination = File(directory, "$id.$extension")
@@ -237,7 +236,7 @@ class OfflineDownloadWorker(
                                 lastReported = downloaded
                                 val percent = if (expectedBytes > 0) ((downloaded * 100 / expectedBytes).toInt()).coerceIn(0, 99) else 0
                                 setProgress(Data.Builder().putInt("progress", percent).putLong("bytes", downloaded).build())
-                                setForeground(createForegroundInfo(id, title, percent, false))
+                                setForeground(createForegroundInfo(applicationContext, id, title, percent, false))
                             }
                         }
                         output.flush()
@@ -261,7 +260,7 @@ class OfflineDownloadWorker(
                         .putString("stage", "Converting to MP3")
                         .build()
                 )
-                setForeground(createForegroundInfo(id, title, 100, true))
+                setForeground(createForegroundInfo(applicationContext, id, title, 100, true))
                 val converted = File(directory, "$id.converting.mp3")
                 converted.delete()
                 val command = "-y -i ${quote(destination.absolutePath)} -vn -map_metadata 0 -codec:a libmp3lame -b:a 192k ${quote(converted.absolutePath)}"
@@ -303,8 +302,7 @@ class OfflineDownloadWorker(
         const val KEY_TITLE = "title"
         const val KEY_TRANSCODE_MP3 = "transcode_mp3"
 
-        private fun createForegroundInfo(id: String, title: String, progress: Int, converting: Boolean): ForegroundInfo {
-            val context = appContext
+        private fun createForegroundInfo(context: Context, id: String, title: String, progress: Int, converting: Boolean): ForegroundInfo {
             val manager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
                 manager.createNotificationChannel(
@@ -333,8 +331,6 @@ class OfflineDownloadWorker(
         }
 
         private const val DOWNLOAD_CHANNEL = "rush_offline_downloads"
-        private lateinit var appContext: Context
-
         private suspend fun runFfmpeg(command: String): Boolean =
             suspendCancellableCoroutine { continuation ->
                 val session = FFmpegKit.executeAsync(command) { result ->
