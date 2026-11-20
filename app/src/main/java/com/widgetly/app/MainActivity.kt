@@ -671,13 +671,65 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
  var status by remember(item.id){mutableStateOf(if(item.localPath!=null)"Downloaded file ready." else "Paste a YouTube link or video ID to play.")}
  var playingTitle by remember(item.id){mutableStateOf(item.title)}
  var playingCreator by remember(item.id){mutableStateOf(item.creator)}
+ var retriedMediaIds by remember(item.id){mutableStateOf(emptySet<String>())}
  val latestOnTrackChanged by rememberUpdatedState(onTrackChanged)
+ val latestUrl by rememberUpdatedState(url)
+ val latestAudio by rememberUpdatedState(audio)
+ val latestQuality by rememberUpdatedState(quality)
+ val latestMp4Format by rememberUpdatedState(mp4Format)
+ val latestQueue by rememberUpdatedState(queue)
  DisposableEffect(controller){
   val listener=object:androidx.media3.common.Player.Listener{
    override fun onMediaItemTransition(mediaItem:androidx.media3.common.MediaItem?,reason:Int){
     playingTitle=mediaItem?.mediaMetadata?.title?.toString()?.ifBlank{item.title}?:item.title
     playingCreator=mediaItem?.mediaMetadata?.artist?.toString()?.ifBlank{item.creator}?:item.creator
     mediaItem?.mediaId?.takeIf{it.isNotBlank()}?.let(latestOnTrackChanged)
+   }
+   override fun onPlayerError(error:androidx.media3.common.PlaybackException){
+    val player=controller?:return
+    val current=player.currentMediaItem?:return
+    val mediaId=current.mediaId
+    if(mediaId.isBlank()||mediaId in retriedMediaIds)return
+    val source=latestQueue.firstOrNull{it.id==mediaId}?:item
+    if(source.localPath!=null)return
+    retriedMediaIds=retriedMediaIds+mediaId
+    val isCurrentItem=source.id==item.id
+    val input=if(isCurrentItem)latestUrl else source.sourceId?:source.id
+    val audioOnly=if(isCurrentItem)latestAudio else source.music
+    val maxHeight=if(isCurrentItem&&!audioOnly)latestQuality.takeIf{it>0} else null
+    val maxBitrate=if(isCurrentItem&&audioOnly)latestQuality.takeIf{it>0} else null
+    val preferMp4=if(isCurrentItem)!audioOnly&&latestMp4Format else !audioOnly
+    val startPosition=player.currentPosition.coerceAtLeast(0L)
+    status="Refreshing stream after playback error…"
+    scope.launch{
+     try{
+      val refreshed=withContext(Dispatchers.IO){
+       val resolved=LibreTubePlayback.resolveMedia(input,audioOnly,maxHeight,maxBitrate,preferMp4)
+       val captions=if(audioOnly)emptyList() else LibreTubePlayback.resolveSubtitles(input)
+       val subtitleConfigs=captions.map{subtitle->
+        androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
+         .setMimeType(subtitle.mimeType)
+         .setLanguage(subtitle.languageTag)
+         .setLabel(subtitle.label)
+         .build()
+       }
+       androidx.media3.common.MediaItem.Builder()
+        .setMediaId(mediaId)
+        .setUri(resolved.url)
+        .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(source.title).setArtist(source.creator).build())
+        .setSubtitleConfigurations(subtitleConfigs)
+        .build()
+      }
+      val currentIndex=player.currentMediaItemIndex
+      player.replaceMediaItem(currentIndex,refreshed)
+      player.seekTo(currentIndex,startPosition)
+      player.prepare()
+      player.play()
+      status="Stream refreshed."
+     }catch(refreshError:Exception){
+      status=refreshError.localizedMessage?:error.message?:"Playback failed. Retry the item manually."
+     }
+    }
    }
   }
   controller?.addListener(listener)
