@@ -583,8 +583,11 @@ private fun HomeScreen(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TextButton(onClick = onOpenLibrary) { Text("OPEN YOUR LIBRARY  →") }
                 Spacer(Modifier.weight(1f))
-                Text("FINITE BY DESIGN", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 8.sp, letterSpacing = 1.sp)
+                Text("FINITE BY DESIGN", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 8.sp, letterSpacing = 1.sp, fontFamily = FontFamily.Monospace)
             }
+        }
+        item {
+            Text("+---------------- END OF HOME ----------------+", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
         }
     }
 }
@@ -1310,6 +1313,19 @@ private fun NexusAvatar(entry: InboxEntry, modifier: Modifier = Modifier) {
 
 private object NexusImageStore {
     private const val MAX_IMAGE_BYTES = 6 * 1024 * 1024
+    private const val MAX_CACHE_BYTES = 32L * 1024L * 1024L
+
+    private fun pruneCache(directory: File, keep: File) {
+        val files = directory.listFiles()?.filter { it.isFile && it.extension == "img" }
+            ?.sortedBy { it.lastModified() } ?: return
+        var total = files.sumOf { it.length() }
+        for (cached in files) {
+            if (total <= MAX_CACHE_BYTES) break
+            if (cached == keep) continue
+            val size = cached.length()
+            if (cached.delete()) total -= size
+        }
+    }
 
     fun load(context: Context, rawUrl: String): Bitmap? {
         if (rawUrl.isBlank()) return null
@@ -1344,11 +1360,16 @@ private object NexusImageStore {
                     }
                 }
                 connection.disconnect()
-                if (temp.length() > 0L) temp.renameTo(file) else temp.delete()
+                if (temp.length() > 0L) {
+                    temp.renameTo(file)
+                    pruneCache(directory, file)
+                } else temp.delete()
             } catch (_: Exception) {
                 temp.delete()
                 return null
             }
+        } else {
+            file.setLastModified(System.currentTimeMillis())
         }
         return try {
             val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
