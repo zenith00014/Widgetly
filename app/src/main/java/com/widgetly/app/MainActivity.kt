@@ -437,6 +437,26 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  var speed by remember(item.id){mutableFloatStateOf(1f)}
  var captionsEnabled by remember(item.id){mutableStateOf(true)}
  var status by remember(item.id){mutableStateOf(if(item.localPath!=null)"Downloaded file ready." else "Paste a YouTube link or video ID to play.")}
+ var shuffleEnabled by remember(item.id){mutableStateOf(false)}
+ var repeatMode by remember(item.id){mutableIntStateOf(androidx.media3.common.Player.REPEAT_MODE_OFF)}
+ LaunchedEffect(controller,queue.map{it.id}.joinToString("|")){
+  if(controller!=null&&queue.isNotEmpty()){
+   status="Preparing playlist queue…"
+   try{
+    val mediaItems=withContext(Dispatchers.IO){
+     queue.map{queued->
+      val uri=queued.localPath?.let{java.io.File(it).toURI().toString()}?:LibreTubePlayback.resolveMedia(queued.id,queued.music).url
+      val metadata=androidx.media3.common.MediaMetadata.Builder().setTitle(queued.title).setArtist(queued.creator).build()
+      androidx.media3.common.MediaItem.Builder().setMediaId(queued.id).setUri(uri).setMediaMetadata(metadata).build()
+     }
+    }
+    controller?.setMediaItems(mediaItems)
+    controller?.prepare()
+    controller?.play()
+    status="Playing queue · ${queue.size} items"
+   }catch(e:Exception){status=e.localizedMessage?:"Could not prepare this playlist queue."}
+  }
+ }
  val ink=if(light)Color(0xFF241B32)else paper;val muted=if(light)Color(0xFF70677D)else mutedDark;val surface=if(light)Color.White else panelDark
 
  Column(Modifier.fillMaxSize().padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){
@@ -459,6 +479,14 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    captionsEnabled=!captionsEnabled
    controller?.let{it.trackSelectionParameters=it.trackSelectionParameters.buildUpon().setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT,!captionsEnabled).build()}
   },label={Text(if(captionsEnabled)"Captions enabled when available" else "Captions off")})
+  Row(horizontalArrangement=Arrangement.spacedBy(7.dp),verticalAlignment=Alignment.CenterVertically){
+   FilterChip(selected=shuffleEnabled,onClick={shuffleEnabled=!shuffleEnabled;controller?.setShuffleModeEnabled(shuffleEnabled)},label={Text("Shuffle")})
+   FilterChip(selected=repeatMode!=androidx.media3.common.Player.REPEAT_MODE_OFF,onClick={
+    repeatMode=when(repeatMode){androidx.media3.common.Player.REPEAT_MODE_OFF->androidx.media3.common.Player.REPEAT_MODE_ALL;androidx.media3.common.Player.REPEAT_MODE_ALL->androidx.media3.common.Player.REPEAT_MODE_ONE;else->androidx.media3.common.Player.REPEAT_MODE_OFF}
+    controller?.setRepeatMode(repeatMode)
+   },label={Text(when(repeatMode){androidx.media3.common.Player.REPEAT_MODE_ALL->"Repeat all";androidx.media3.common.Player.REPEAT_MODE_ONE->"Repeat one";else->"Repeat off"})})
+  }
+  if(queue.isNotEmpty())Text("${queue.size} items in queue",color=muted,fontSize=10.sp)
   Button(onClick={
    val activePlayer=controller
    if(activePlayer==null){status="Connecting to playback service…"}
