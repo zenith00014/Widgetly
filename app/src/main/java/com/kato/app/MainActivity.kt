@@ -267,6 +267,12 @@ private fun NexusApp() {
                             spotifyUrl = spotifyUrl,
                             onOpenInbox = { page = "Inbox" },
                             onOpenNews = { page = "Social" },
+                            onOpenWeb = { url, title ->
+                                playerType = "Web"
+                                playerTitle = title
+                                playerTarget = url
+                                playerVideoId = ""
+                            },
                             onOpenVideo = ::openVideo,
                             onOpenSpotify = ::openSpotify,
                             onOpenMovie = { movie ->
@@ -283,6 +289,12 @@ private fun NexusApp() {
                             videos = videos,
                             loading = isLoading,
                             onOpenVideo = ::openVideo,
+                            onOpenArticle = { url, title ->
+                                playerType = "Web"
+                                playerTitle = title
+                                playerTarget = url
+                                playerVideoId = ""
+                            },
                             onRefresh = { refreshKey++ },
                             onSave = { title, url, type ->
                                 KatoDatabase(context).saveItem(title, url, type)
@@ -386,6 +398,7 @@ private fun HomeScreen(
     spotifyUrl: String,
     onOpenInbox: () -> Unit,
     onOpenNews: () -> Unit,
+    onOpenWeb: (String, String) -> Unit,
     onOpenVideo: (NexusVideo) -> Unit,
     onOpenSpotify: () -> Unit,
     onOpenMovie: (NexusMovie) -> Unit,
@@ -467,7 +480,7 @@ private fun HomeScreen(
             }
         } else {
             items(selectedNews, key = { it.url }) { story ->
-                NewsCard(story, compact = true, onClick = { openExternal(context, story.url) })
+                NewsCard(story, compact = true, onClick = { onOpenWeb(story.url, story.title) })
             }
         }
         item {
@@ -551,6 +564,83 @@ private fun HomeScreen(
     }
 }
 
+private fun buildNexusSocialSession(
+    news: List<NexusNews>,
+    videos: List<NexusVideo>,
+    selectedTopics: Set<String>,
+    savedTitles: List<String>,
+    sessionSize: Int
+): List<SocialEntry> {
+    val keywords = mapOf(
+        "World" to listOf("world", "global", "international", "united nations", "diplomacy", "climate"),
+        "Bangladesh" to listOf("bangladesh", "dhaka", "bangladeshi", "south asia", "chattogram", "sylhet"),
+        "Technology" to listOf("technology", "tech", "artificial intelligence", "software", "cyber", "robot", "internet"),
+        "Science" to listOf("science", "research", "space", "physics", "biology", "discovery", "astronomy"),
+        "Business" to listOf("business", "economy", "market", "trade", "company", "finance", "jobs"),
+        "Football" to listOf("football", "soccer", "premier league", "champions league", "fifa", "goal", "club"),
+        "Education" to listOf("education", "school", "university", "student", "learning")
+    )
+    fun tokens(text: String) = Regex("[a-z0-9]{4,}").findAll(text.lowercase(Locale.ROOT))
+        .map { it.value }.toSet()
+    val savedWords = savedTitles.flatMap { tokens(it) }.toSet()
+    fun topicFor(text: String): String = selectedTopics.maxByOrNull { topic ->
+        keywords[topic].orEmpty().count { text.contains(it, true) }
+    } ?: "General"
+    fun savedSimilarity(title: String): Float {
+        val words = tokens(title)
+        if (words.isEmpty() || savedWords.isEmpty()) return 0f
+        return (words.intersect(savedWords).size.toFloat() / words.size.coerceAtLeast(1)).coerceIn(0f, 1f)
+    }
+    val pool = buildList {
+        news.forEach { item ->
+            val topic = if (item.topic in selectedTopics) item.topic else topicFor(item.title + " " + item.summary)
+            val ageHours = if (item.publishedAt > 0L) ((System.currentTimeMillis() - item.publishedAt).coerceAtLeast(0L) / 3_600_000L).toFloat() else 168f
+            val freshness = (1f - ageHours / (24f * 7f)).coerceIn(0f, 1f)
+            val similar = savedSimilarity(item.title)
+            val topicMatch = if (topic in selectedTopics) 1f else 0f
+            val score = 0.35f * topicMatch + 0.15f * similar + 0.15f * freshness
+            val why = buildList {
+                if (topicMatch > 0f) add("topic $topic")
+                if (similar > 0.1f) add("similar to saved")
+                if (freshness > 0.6f) add("recent")
+            }.joinToString(" · ")
+            add(SocialEntry("news:${item.url}", "News", item.title, item.summary, item.source, item.url,
+                item.imageUrl, item.publishedAt, score = score, topic = topic, why = "WHY: ${why.ifBlank { "selected source" }}"))
+        }
+        videos.forEach { item ->
+            val text = (item.title + " " + item.channel).lowercase(Locale.ROOT)
+            val topic = topicFor(text)
+            val ageHours = if (item.publishedAt > 0L) ((System.currentTimeMillis() - item.publishedAt).coerceAtLeast(0L) / 3_600_000L).toFloat() else 168f
+            val freshness = (1f - ageHours / (24f * 7f)).coerceIn(0f, 1f)
+            val similar = savedSimilarity(item.title)
+            val topicMatch = if (topic in selectedTopics && keywords[topic].orEmpty().any { text.contains(it) }) 1f else 0f
+            val followed = 1f
+            val score = 0.35f * topicMatch + 0.20f * followed + 0.15f * similar + 0.15f * freshness
+            val why = buildList {
+                if (topicMatch > 0f) add("topic $topic")
+                add("followed source")
+                if (similar > 0.1f) add("similar to saved")
+                if (freshness > 0.6f) add("recent")
+            }.joinToString(" · ")
+            add(SocialEntry("video:${item.videoId}", "Video", item.title, item.channel, item.channel, item.url,
+                item.thumbnail, item.publishedAt, item.videoId, score, topic, "WHY: $why"))
+        }
+    }.sortedByDescending { it.score }
+
+    val remaining = pool.toMutableList()
+    val result = mutableListOf<SocialEntry>()
+    while (remaining.isNotEmpty() && result.size < sessionSize) {
+        val next = remaining.maxByOrNull { candidate ->
+            val recent = result.takeLast(2)
+            val diversityBonus = if (recent.none { it.source == candidate.source || it.topic == candidate.topic }) 0.15f else 0f
+            candidate.score + diversityBonus
+        } ?: break
+        result += next
+        remaining.remove(next)
+    }
+    return result
+}
+
 @Composable
 private fun SocialScreen(
     topics: Set<String>,
@@ -558,19 +648,16 @@ private fun SocialScreen(
     videos: List<NexusVideo>,
     loading: Boolean,
     onOpenVideo: (NexusVideo) -> Unit,
+    onOpenArticle: (String, String) -> Unit,
     onRefresh: () -> Unit,
     onSave: (String, String, String) -> Unit,
     onLike: (String, String, String) -> Unit
 ) {
     val context = LocalContext.current
-    val entries = buildList {
-        news.forEach { item ->
-            add(SocialEntry("news:${item.url}", "News", item.title, item.summary, item.source, item.url, item.imageUrl, item.publishedAt, score = item.score))
-        }
-        videos.forEach { item ->
-            add(SocialEntry("video:${item.videoId}", "Video", item.title, item.channel, item.channel, item.url, item.thumbnail, item.publishedAt, item.videoId, NexusContentRepository.scoreVideo(item.title, item.channel, topics, item.publishedAt)))
-        }
-    }.sortedWith(compareByDescending<SocialEntry> { it.score }.thenByDescending { it.publishedAt }).take(25)
+    val savedTitles = remember { KatoDatabase(context).listItems().map { it.title } }
+    val entries = remember(news, videos, topics, savedTitles) {
+        buildNexusSocialSession(news, videos, topics, savedTitles, sessionSize = 20)
+    }
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -599,7 +686,7 @@ private fun SocialScreen(
                         if (entry.videoId.isNotBlank()) {
                             onOpenVideo(NexusVideo(entry.title, entry.url, entry.videoId, entry.source, entry.publishedAt, entry.image))
                         } else {
-                            openExternal(context, entry.url)
+                            onOpenArticle(entry.url, entry.title)
                         }
                     },
                     onSave = { onSave(entry.title, entry.url, if (entry.type == "Video") "Video" else "Article") },
@@ -607,10 +694,18 @@ private fun SocialScreen(
                 )
             }
             item {
-                QuietCard(
-                    title = "You're caught up",
-                    detail = "That's the end of this curated batch. Refresh when you choose, or come back when your followed sources publish something new."
-                )
+                Card(
+                    shape = RectangleShape,
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+                    modifier = Modifier.fillMaxWidth().border(2.dp, MaterialTheme.colorScheme.outline)
+                ) {
+                    Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text("+---------------- SESSION END ----------------+", fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary, fontSize = 10.sp)
+                        Text("You've reached the end.", color = MaterialTheme.colorScheme.onSurface, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                        Text("Reviewed ${entries.size} of 20 selected items. Nothing else loads until you refresh.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        Text("[x] SESSION COMPLETE", fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary, fontSize = 10.sp)
+                    }
+                }
             }
         }
         item {
@@ -642,6 +737,9 @@ private fun SocialPostCard(
                 Text(entry.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, lineHeight = 21.sp)
                 if (entry.summary.isNotBlank()) {
                     Text(entry.summary, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                }
+                if (entry.why.isNotBlank()) {
+                    Text(entry.why, color = MaterialTheme.colorScheme.tertiary, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
                 }
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     TextButton(onClick = onSave) { Text("＋ WATCH LATER", fontSize = 9.sp) }
