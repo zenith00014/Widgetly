@@ -28,7 +28,7 @@ object LiveYouTubeSearch {
     private val jsonType = "application/json; charset=utf-8".toMediaType()
 
     @Throws(IOException::class)
-    fun search(query: String, music: Boolean = false, channels: Boolean = false): List<YouTubeSearchResult> {
+    fun search(query: String, music: Boolean = false, channels: Boolean = false, playlists: Boolean = false): List<YouTubeSearchResult> {
         require(query.isNotBlank()) { "Enter something to search for." }
         val body = JSONObject()
             .put("context", JSONObject().put("client", JSONObject()
@@ -47,12 +47,12 @@ object LiveYouTubeSearch {
             if (!response.isSuccessful) throw IOException("YouTube search failed (HTTP ${response.code}).")
             val root = JSONObject(response.body?.string().orEmpty())
             val found = LinkedHashMap<String, YouTubeSearchResult>()
-            collect(root, found, music, channels)
+            collect(root, found, music, channels, playlists)
             return found.values.take(40)
         }
     }
 
-    private fun collect(value: Any?, out: MutableMap<String, YouTubeSearchResult>, music: Boolean, channels: Boolean) {
+    private fun collect(value: Any?, out: MutableMap<String, YouTubeSearchResult>, music: Boolean, channels: Boolean, playlists: Boolean) {
         when (value) {
             is JSONObject -> {
                 val video = value.optJSONObject("videoRenderer")
@@ -61,10 +61,12 @@ object LiveYouTubeSearch {
                 if (musicItem != null && music) addMusic(musicItem, out)
                 val channel = value.optJSONObject("channelRenderer")
                 if (channel != null && channels) addChannel(channel, out)
+                val playlist = value.optJSONObject("playlistRenderer")
+                if (playlist != null && playlists) addPlaylist(playlist, out)
                 val keys = value.keys()
-                while (keys.hasNext()) collect(value.opt(keys.next()), out, music, channels)
+                while (keys.hasNext()) collect(value.opt(keys.next()), out, music, channels, playlists)
             }
-            is JSONArray -> for (i in 0 until value.length()) collect(value.opt(i), out, music, channels)
+            is JSONArray -> for (i in 0 until value.length()) collect(value.opt(i), out, music, channels, playlists)
         }
     }
 
@@ -83,6 +85,52 @@ object LiveYouTubeSearch {
         if (id.isBlank() || title.isBlank()) return
         val subscribers = text(item.optJSONObject("subscriberCountText"))
         out.putIfAbsent("channel:$id", YouTubeSearchResult("", title, subscribers, "", false, true, id))
+    }
+
+    private fun addPlaylist(item: JSONObject, out: MutableMap<String, YouTubeSearchResult>) {
+        val playlistId = item.optString("playlistId")
+        val title = text(item.optJSONObject("title"))
+        if (playlistId.isBlank() || title.isBlank()) return
+        val owner = text(item.optJSONObject("shortBylineText")).ifBlank {
+            text(item.optJSONObject("longBylineText"))
+        }.ifBlank { "YouTube playlist" }
+        out.putIfAbsent(
+            "playlist:$playlistId",
+            YouTubeSearchResult(
+                videoId = "",
+                title = title,
+                creator = owner,
+                duration = text(item.optJSONObject("videoCountText")),
+                isMusic = false,
+                isCollection = true,
+                collectionId = playlistId
+            )
+        )
+    }
+
+    @Throws(IOException::class)
+    fun browseVideoPlaylist(playlistId: String): List<YouTubeSearchResult> {
+        val browseId = if (playlistId.startsWith("VL")) playlistId else "VL$playlistId"
+        val body = JSONObject()
+            .put("context", JSONObject().put("client", JSONObject()
+                .put("clientName", "WEB")
+                .put("clientVersion", "2.20261119.01.00")))
+            .put("browseId", browseId)
+            .toString()
+        val request = Request.Builder()
+            .url("https://www.youtube.com/youtubei/v1/browse")
+            .post(body.toRequestBody(jsonType))
+            .header("User-Agent", USER_AGENT)
+            .header("Origin", "https://www.youtube.com")
+            .header("Referer", "https://www.youtube.com/")
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("Could not load YouTube playlist (HTTP ${response.code}).")
+            val root = JSONObject(response.body?.string().orEmpty())
+            val found = LinkedHashMap<String, YouTubeSearchResult>()
+            collect(root, found, false, false, false)
+            return found.values.filter { it.videoId.isNotBlank() }.take(200)
+        }
     }
 
     @Throws(IOException::class)
@@ -105,7 +153,7 @@ object LiveYouTubeSearch {
             if (!response.isSuccessful) throw IOException("Could not load channel uploads (HTTP ${response.code}).")
             val root = JSONObject(response.body?.string().orEmpty())
             val found = LinkedHashMap<String, YouTubeSearchResult>()
-            collect(root, found, false, false)
+            collect(root, found, false, false, false)
             return found.values.take(30)
         }
     }
@@ -130,7 +178,7 @@ object LiveYouTubeSearch {
             if (!response.isSuccessful) throw IOException("Could not load music collection (HTTP ${response.code}).")
             val root = JSONObject(response.body?.string().orEmpty())
             val found = LinkedHashMap<String, YouTubeSearchResult>()
-            collect(root, found, true, false)
+            collect(root, found, true, false, false)
             return found.values.filter { it.videoId.isNotBlank() }.take(100)
         }
     }
