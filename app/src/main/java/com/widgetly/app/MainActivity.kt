@@ -163,7 +163,7 @@ private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
         val result=runCatching { when(kind) {
             ContentKind.VIDEO -> NexusContentRepository.videos(context)
             ContentKind.NEWS -> NexusContentRepository.news(context)
-            ContentKind.MOVIE -> NexusContentRepository.movies()
+            ContentKind.MOVIE -> NexusContentRepository.movies(context)
         } }
         data=result.getOrDefault(emptyList()); error=result.exceptionOrNull()?.localizedMessage; loading=false
     }
