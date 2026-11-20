@@ -163,7 +163,7 @@ internal class NexusFtpDataSource : BaseDataSource(true) {
             runCatching { if (ftp.isConnected) ftp.disconnect() }
         }
         openedUri = null
-        remaining = C.LENGTH_UNSET
+        remaining = C.LENGTH_UNSET.toLong()
         if (wasOpened) transferEnded()
     }
 
