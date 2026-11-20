@@ -586,6 +586,8 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
      }
     }
     controller?.setMediaItems(mediaItems)
+    val savedPosition=PlaybackProgress.resumePositionMs(context,queue.first().id)
+    if(savedPosition>0)controller?.seekTo(0,savedPosition)
     controller?.prepare()
     controller?.play()
     status="Playing queue · ${queue.size} items"
@@ -644,7 +646,10 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
       }
       androidx.media3.common.MediaItem.Builder().setMediaId(item.id).setUri(resolved.url).setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(item.title).setArtist(item.creator).build()).setSubtitleConfigurations(subtitleConfigs).build()
      }
-     activePlayer.setMediaItem(mediaItem);activePlayer.prepare();activePlayer.play();status=if(item.localPath!=null)"Playing offline" else "Stream ready"
+     activePlayer.setMediaItem(mediaItem)
+     val savedPosition=PlaybackProgress.resumePositionMs(context,item.id)
+     if(savedPosition>0)activePlayer.seekTo(savedPosition)
+     activePlayer.prepare();activePlayer.play();status=if(item.localPath!=null)"Playing offline" else "Stream ready"
     }catch(e:Exception){status=e.localizedMessage?:"Unable to load this stream."}
    }
   },enabled=controller!=null,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text(if(item.localPath!=null)"Play offline" else "Load and play",color=Color.White)}
