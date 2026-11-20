@@ -5,7 +5,7 @@ import org.json.JSONArray
 import org.json.JSONObject
 import java.util.UUID
 
-data class UserPlaylist(val id: String, val name: String, val itemIds: List<String>)
+data class UserPlaylist(val id: String, val name: String, val itemIds: List<String>, val sourceKey: String? = null)
 
 object PlaylistStore {
     private const val KEY = "user_playlists"
@@ -21,7 +21,8 @@ object PlaylistStore {
                     UserPlaylist(
                         item.optString("id"),
                         item.optString("name"),
-                        (0 until ids.length()).mapNotNull { ids.optString(it).takeIf(String::isNotBlank) }
+                        (0 until ids.length()).mapNotNull { ids.optString(it).takeIf(String::isNotBlank) },
+                        item.optString("sourceKey").takeIf(String::isNotBlank)
                     )
                 )
             }
@@ -35,6 +36,28 @@ object PlaylistStore {
         val updated = load(prefs) + UserPlaylist(UUID.randomUUID().toString(), cleanName, items)
         save(prefs, updated)
         return updated
+    }
+
+    fun importCollection(
+        prefs: SharedPreferences,
+        name: String,
+        sourceKey: String,
+        itemIds: List<String>
+    ): UserPlaylist {
+        val cleanName = name.trim().take(80)
+        require(cleanName.isNotBlank()) { "Enter a playlist name." }
+        require(sourceKey.isNotBlank()) { "A source collection ID is required." }
+        val uniqueItems = itemIds.filter(String::isNotBlank).distinct()
+        val playlists = load(prefs).toMutableList()
+        val existingIndex = playlists.indexOfFirst { it.sourceKey == sourceKey }
+        val imported = if (existingIndex >= 0) {
+            playlists[existingIndex].copy(name = cleanName, itemIds = uniqueItems)
+        } else {
+            UserPlaylist(UUID.randomUUID().toString(), cleanName, uniqueItems, sourceKey)
+        }
+        if (existingIndex >= 0) playlists[existingIndex] = imported else playlists += imported
+        save(prefs, playlists)
+        return imported
     }
 
     fun add(prefs: SharedPreferences, playlistId: String, itemId: String): List<UserPlaylist> {
@@ -70,6 +93,7 @@ object PlaylistStore {
                 JSONObject()
                     .put("id", playlist.id)
                     .put("name", playlist.name)
+                    .put("sourceKey", playlist.sourceKey.orEmpty())
                     .put("items", ids)
             )
         }
