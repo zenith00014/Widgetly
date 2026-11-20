@@ -890,7 +890,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
  }
  val ink=if(light)Color(0xFF241B32)else paper;val muted=if(light)Color(0xFF70677D)else mutedDark;val surface=if(light)Color.White else panelDark
 
- if(isInPipMode&&!audio){
+ if(isInPipMode){
   androidx.compose.ui.viewinterop.AndroidView(
    factory={ctx->androidx.media3.ui.PlayerView(ctx).apply{player=controller;useController=true}},
    update={it.player=controller},
