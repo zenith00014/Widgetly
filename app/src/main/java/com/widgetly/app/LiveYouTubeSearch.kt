@@ -51,8 +51,8 @@ object LiveYouTubeSearch {
                 }
             }
         val primary = executeSearch(body, music, channels, playlists)
-        if (primary.items.isNotEmpty() || music) return primary
-        // Retry without restrictive search params when YouTube returns no filtered matches.
+        if (music) return primary
+        // Merge an unfiltered pass to recover results hidden by YouTube's narrow filter params.
         val fallback = searchContext(false).put("query", query)
         val broad = executeSearch(fallback, false, channels, playlists)
         return YouTubeSearchPage((primary.items + broad.items).distinctBy { resultKey(it) }.take(40), broad.continuation ?: primary.continuation)
