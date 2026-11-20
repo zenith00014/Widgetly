@@ -302,27 +302,38 @@ private fun LibraryPage(onOpen:(NexusItem)->Unit) {
     var note by remember { mutableStateOf(prefs.getString(NOTE_KEY,"Make today count.") ?: "") }
     var noteSaved by remember { mutableStateOf(false) }
     var refresh by remember { mutableIntStateOf(0) }
+    var section by remember { mutableStateOf("SAVED") }
     val savedItems = remember(refresh) { NexusLocalStore.all(context) }
     var filter by remember { mutableStateOf("ALL") }
     val visibleItems = remember(savedItems,filter) { savedItems.filter { filter=="ALL" || it.kind.name==filter } }
     Column(Modifier.fillMaxSize().padding(horizontal=16.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
         Slab {
-            Text("YOUR LIBRARY",color=Lime,fontWeight=FontWeight.Bold,fontSize=11.sp)
-            Text("Saved videos, articles and films stay on this device.",color=Muted,fontSize=12.sp)
-            Text("${savedItems.size} SAVED ITEMS",color=Paper,fontSize=10.sp,fontWeight=FontWeight.Bold)
+            Text("PERSONAL HUB",color=Lime,fontWeight=FontWeight.Bold,fontSize=11.sp)
+            Text("Your saved media, notes and contact shortcuts.",color=Muted,fontSize=12.sp)
+            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                FilterChip(selected=section=="SAVED",onClick={section="SAVED"},label={Text("SAVED + NOTES")},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Lime,selectedLabelColor=Ink,labelColor=Paper))
+                FilterChip(selected=section=="CONTACTS",onClick={section="CONTACTS"},label={Text("CONTACTS")},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Lime,selectedLabelColor=Ink,labelColor=Paper))
+            }
         }
-        Slab {
-            Text("PERSONAL NOTE",color=Lime,fontWeight=FontWeight.Bold,fontSize=11.sp)
-            OutlinedTextField(value=note,onValueChange={note=it;noteSaved=false},modifier=Modifier.fillMaxWidth(),label={Text("Write a note")})
-            Button(onClick={prefs.edit().putString(NOTE_KEY,note.trim()).apply();noteSaved=true},colors=ButtonDefaults.buttonColors(containerColor=Lime,contentColor=Ink),shape=RectangleShape) { Text("SAVE NOTE") }
-            if(noteSaved) Text("Saved on this device.",color=Lime,fontSize=11.sp)
-        }
-        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)) {
-            listOf("ALL","VIDEO","NEWS","MOVIE").forEach { value -> FilterChip(selected=filter==value,onClick={filter=value},label={Text(value,fontSize=9.sp)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Lime,selectedLabelColor=Ink,labelColor=Paper)) }
-        }
-        if(visibleItems.isEmpty()) Slab { Text(if(savedItems.isEmpty()) "NOTHING SAVED YET" else "NO ${filter} ITEMS",color=Paper,fontWeight=FontWeight.Bold); Text("Use + SAVE on any video, article or movie card.",color=Muted,fontSize=12.sp) }
-        else LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=18.dp)) {
-            items(visibleItems,key={it.id}) { item -> ContentCard(item,{onOpen(item)},{refresh++}) }
+        if(section=="CONTACTS") {
+            NexusContactsPanel()
+        } else {
+            Slab {
+                Text("PERSONAL NOTE",color=Lime,fontWeight=FontWeight.Bold,fontSize=11.sp)
+                OutlinedTextField(value=note,onValueChange={note=it;noteSaved=false},modifier=Modifier.fillMaxWidth(),label={Text("Write a note")})
+                Button(onClick={prefs.edit().putString(NOTE_KEY,note.trim()).apply();noteSaved=true},colors=ButtonDefaults.buttonColors(containerColor=Lime,contentColor=Ink),shape=RectangleShape) { Text("SAVE NOTE") }
+                if(noteSaved) Text("Saved on this device.",color=Lime,fontSize=11.sp)
+            }
+            Slab {
+                Text("SAVED ITEMS · ${savedItems.size}",color=Paper,fontWeight=FontWeight.Bold,fontSize=11.sp)
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+                    listOf("ALL","VIDEO","NEWS","MOVIE").forEach { value -> FilterChip(selected=filter==value,onClick={filter=value},label={Text(value,fontSize=9.sp)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Lime,selectedLabelColor=Ink,labelColor=Paper)) }
+                }
+            }
+            if(visibleItems.isEmpty()) Slab { Text(if(savedItems.isEmpty()) "NOTHING SAVED YET" else "NO ${filter} ITEMS",color=Paper,fontWeight=FontWeight.Bold); Text("Use + SAVE on any video, article or movie card.",color=Muted,fontSize=12.sp) }
+            else LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=18.dp)) {
+                items(visibleItems,key={it.id}) { item -> ContentCard(item,{onOpen(item)},{refresh++}) }
+            }
         }
     }
 }
