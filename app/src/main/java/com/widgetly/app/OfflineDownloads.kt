@@ -21,6 +21,7 @@ import androidx.work.WorkManager
 import androidx.work.NetworkType
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
@@ -243,13 +244,25 @@ class OfflineDownloadWorker(
             .apply { if (existingBytes > 0) header("Range", "bytes=$existingBytes-") }
             .build()
 
+        val call = CLIENT.newCall(request)
+        val cancellationHandle = coroutineContext[Job]?.invokeOnCompletion { cause ->
+            if (cause != null) call.cancel()
+        }
         try {
-            CLIENT.newCall(request).execute().use { response ->
+            call.execute().use { response ->
                 if (!response.isSuccessful) {
-                    return@withContext if (response.code >= 500 || response.code == 429) Result.retry()
+                    return@withContext if (response.code >= 500 || response.code == 429 || response.code == 403) Result.retry()
                     else Result.failure()
                 }
-                val append = existingBytes > 0 && response.code == 206
+                val rangeStart = response.header("Content-Range")
+                    ?.substringAfter("bytes ", "")
+                    ?.substringBefore("-")
+                    ?.toLongOrNull()
+                val append = existingBytes > 0 && response.code == 206 && rangeStart == existingBytes
+                if (existingBytes > 0 && response.code == 206 && !append) {
+                    partial.delete()
+                    return@withContext Result.retry()
+                }
                 if (existingBytes > 0 && !append) partial.delete()
                 val initialBytes = if (append) existingBytes else 0L
                 val body = response.body ?: return@withContext Result.retry()
@@ -328,6 +341,8 @@ class OfflineDownloadWorker(
             Result.retry()
         } catch (error: Exception) {
             Result.failure()
+        } finally {
+            cancellationHandle?.dispose()
         }
     }
 
@@ -377,7 +392,7 @@ class OfflineDownloadWorker(
         }
 
         private const val DOWNLOAD_CHANNEL = "rush_offline_downloads"
-        private const val STREAM_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0"
+        private const val STREAM_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0"
         private suspend fun runFfmpeg(command: String): Boolean =
             suspendCancellableCoroutine { continuation ->
                 val session = FFmpegKit.executeAsync(command) { result ->
@@ -394,7 +409,7 @@ class OfflineDownloadWorker(
 
         private val CLIENT = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
-            .readTimeout(0, TimeUnit.MILLISECONDS)
+            .readTimeout(90, TimeUnit.SECONDS)
             .build()
     }
 }
