@@ -177,7 +177,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    kotlinx.coroutines.delay(1200)
   }
  }
- val working=workInfos.associateBy{it.inputData.getString(OfflineDownloadWorker.KEY_ID).orEmpty()}
+ val working=workInfos.mapNotNull{work->work.tags.firstOrNull{tag->tag.startsWith("${OfflineDownloads.WORK_TAG}:")}?.substringAfter(":")?.let{id->id to work}}.toMap()
  val storageBytes=downloads.filter{it.complete}.sumOf{it.file.length()}
  LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
   item {
