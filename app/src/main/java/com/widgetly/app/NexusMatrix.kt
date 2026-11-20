@@ -15,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.Dispatchers
@@ -186,7 +187,7 @@ internal fun NexusMatrixPage() {
             Text("Connect a Matrix-compatible account. A homeserver with messaging bridges can also expose supported networks in the same inbox.", color = MatrixMuted, fontSize = 12.sp)
             OutlinedTextField(homeserver, { homeserver = it }, Modifier.fillMaxWidth(), label = { Text("Homeserver URL") }, singleLine = true)
             OutlinedTextField(username, { username = it }, Modifier.fillMaxWidth(), label = { Text("Username or localpart") }, singleLine = true)
-            OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), label = { Text("Password") }, singleLine = true)
+            OutlinedTextField(password, { password = it }, Modifier.fillMaxWidth(), label = { Text("Password") }, singleLine = true, visualTransformation = PasswordVisualTransformation())
             Button(onClick = {
                 scope.launch {
                     busy = true; error = null
@@ -200,7 +201,7 @@ internal fun NexusMatrixPage() {
             }
             if (busy) LinearProgressIndicator(Modifier.fillMaxWidth(), color = MatrixLime)
             error?.let { Text(it, color = Color(0xFFFF9A80), fontSize = 12.sp) }
-            Text("Nexus speaks the Matrix client protocol directly; it does not launch Beeper. To reach WhatsApp, Telegram or other networks, your Matrix account must have the corresponding bridges configured. Beeper's private infrastructure is not assumed to be a public API.", color = MatrixMuted, fontSize = 10.sp)
+            Text("Nexus uses the Matrix protocol directly. Third-party networks require bridges configured for your homeserver. End-to-end encryption is not implemented in this first client build, so avoid sensitive conversations; encrypted rooms are not readable yet.", color = MatrixMuted, fontSize = 10.sp)
         }
         return
     }
