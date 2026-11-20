@@ -12,7 +12,7 @@ Nexus is a private, single-owner Android app. Keep it native, local-first, light
 ## Remaining work — implementation order
 
 ### P0 — Build and core reliability
-- [x] Get a clean Android debug APK build for the latest app-code changes (GitHub Actions build succeeded; documentation-only commits followed).
+- [ ] Run a final Android debug APK build after the offline-reader change. Earlier music, contacts, inbox, settings, backup and daily-budget code passed GitHub Actions.
 - [ ] Fix any compile/runtime errors found by build and device testing.
 - [ ] Verify Discover feeds, thumbnails, embedded video/article/movie viewing, and back navigation.
 - [x] Improve Inbox: search, app filters, clear individual/all history, timestamps, and expired-reply fallback.
@@ -21,7 +21,7 @@ Nexus is a private, single-owner Android app. Keep it native, local-first, light
 ### P1 — Personal media and communication
 - [x] Music: local audio picker, saved track list, playback, pause/resume, seek, next/previous. Background notification controls remain a separate enhancement.
 - [x] Contacts: Android system phone-contact picker with local shortcuts for Call and SMS app hand-off; no broad contact-book permission.
-- [ ] Settings: source selection, theme, notification access help, and further privacy controls. (Local session/daily item limits and privacy explanations are implemented; latest daily-time changes are awaiting build verification.)
+- [ ] Settings: source selection, theme, notification access help, and further privacy controls. (Local session/daily item/time limits and privacy explanations are implemented and build-checked.)
 
 ### P2 — Anti-doomscrolling and data ownership
 - [x] Add a daily Discover item budget with a clear stop screen. Daily time budget has now been coded with lifecycle-aware tracking; latest build verification is pending.
