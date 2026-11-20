@@ -21,10 +21,10 @@ Nexus is a private, single-owner Android app. Keep it native, local-first, light
 ### P1 — Personal media and communication
 - [x] Music: local audio picker, saved track list, playback, pause/resume, seek, next/previous. Background notification controls remain a separate enhancement.
 - [x] Contacts: Android system phone-contact picker with local shortcuts for Call and SMS app hand-off; no broad contact-book permission.
-- [ ] Settings: source selection, theme, notification access help, and further privacy controls. (Local session/daily item limits and privacy explanations are implemented and build-checked.)
+- [ ] Settings: source selection, theme, notification access help, and further privacy controls. (Local session/daily item limits and privacy explanations are implemented; latest daily-time changes are awaiting build verification.)
 
 ### P2 — Anti-doomscrolling and data ownership
-- [x] Add a daily Discover item budget with a clear stop screen. Daily time budget remains.
+- [x] Add a daily Discover item budget with a clear stop screen. Daily time budget has now been coded with lifecycle-aware tracking; latest build verification is pending.
 - [ ] Add optional break reminders; no streaks, rewards, autoplay, or engagement tracking.
 - [ ] Add offline article saving/reading and bounded image/content cache.
 - [x] Add local JSON export/import for personal notes, saved items, settings, selected contacts and Inbox history; transient notification action tokens are not exported.
