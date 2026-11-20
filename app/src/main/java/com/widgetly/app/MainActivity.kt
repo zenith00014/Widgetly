@@ -74,7 +74,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
       "Discover"->LiveDiscover(ink,muted,surface,saved,storeResult,saveResult,playResult)
       "Downloads"->DownloadsScreen(ink,muted,surface,{media->active=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath)})
       "Subscriptions"->SubscriptionsScreen(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Latest upload");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};persistHistory(prefs,history)})
-      "Library"->Library(saved,history,metadata,prefs,ink,muted,surface,{id->metadata[id]?.let{playbackQueue=emptyList();active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()},{queue->playbackQueue=queue;active=queue.firstOrNull()})
+      "Library"->Library(saved,history,metadata,prefs,ink,muted,surface,{id->metadata[id]?.let{playbackQueue=emptyList();active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()},{queue->playbackQueue=queue;active=queue.firstOrNull()},{history=emptyList();persistHistory(prefs,history)})
       else->Home(ink,muted,surface,prefs,saved,metadata,history,{pick->persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};persistHistory(prefs,history)},{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()},{tab="Discover"})
      }
     }
@@ -426,7 +426,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  }
 }
 
-@Composable private fun Library(saved:Set<String>,history:List<String>,metadata:Map<String,Pick>,prefs:android.content.SharedPreferences,ink:Color,muted:Color,surface:Color,play:(String)->Unit,remove:(String)->Unit,playQueue:(List<Pick>)->Unit){
+@Composable private fun Library(saved:Set<String>,history:List<String>,metadata:Map<String,Pick>,prefs:android.content.SharedPreferences,ink:Color,muted:Color,surface:Color,play:(String)->Unit,remove:(String)->Unit,playQueue:(List<Pick>)->Unit,clearHistory:()->Unit){
  val context=androidx.compose.ui.platform.LocalContext.current
  val all=metadata
  val kept=saved.mapNotNull{all[it]};val recent=history.distinct().mapNotNull{all[it]}
@@ -479,7 +479,12 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   item{Shelf("Saved items","Bookmarks",ink)}
   if(kept.isEmpty())item{Text("Saved videos and music will appear here.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(18.dp))}
   items(kept){pick->CardRow(pick,ink,muted,surface,saved,{play(pick.id)},{remove(pick.id)})}
-  item{Shelf("Recently played","History",ink)}
+  item{
+   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+    Shelf("Recently played","History",ink)
+    if(recent.isNotEmpty())TextButton(onClick=clearHistory){Text("Clear",color=muted,fontSize=10.sp)}
+   }
+  }
   if(recent.isEmpty())item{Text("Your viewing and listening history will appear here.",color=muted)}
   items(recent){pick->CardRow(pick,ink,muted,surface,saved,{play(pick.id)},{})}
  }
