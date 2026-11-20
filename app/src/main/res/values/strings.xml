@@ -1,5 +1,4 @@
 <resources>
-    <string name="app_name">Widgetly</string>
-    <string name="widget_description">A customizable quick note for your home screen.</string>
-    <string name="clock_widget_description">A compact retro-inspired digital clock.</string>
+    <string name="app_name">Kato</string>
+    <string name="app_description">A calm, local-first space for communication and entertainment.</string>
 </resources>

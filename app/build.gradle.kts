@@ -5,15 +5,15 @@ plugins {
 }
 
 android {
-    namespace = "com.widgetly.app"
+    namespace = "com.kato.app"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.widgetly.app"
+        applicationId = "com.kato.app"
         minSdk = 26
         targetSdk = 35
         versionCode = 1
-        versionName = "1.0.0"
+        versionName = "0.1.0"
     }
 
     buildFeatures { compose = true }
@@ -31,7 +31,5 @@ dependencies {
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.compose.material3:material3")
-    implementation("androidx.glance:glance-appwidget:1.1.1")
-    implementation("androidx.glance:glance-material3:1.1.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }

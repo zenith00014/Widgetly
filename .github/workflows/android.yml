@@ -1,8 +1,8 @@
-name: Build Android APK
+name: Build Kato APK
 
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, kato-phase-1]
   pull_request:
   workflow_dispatch:
 
@@ -29,7 +29,7 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: widgetly-debug-apk
+          name: kato-debug-apk
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
