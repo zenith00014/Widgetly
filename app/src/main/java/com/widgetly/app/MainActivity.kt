@@ -70,7 +70,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
       "Downloads"->DownloadsScreen(ink,muted,surface,{media->active=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath)})
       "Subscriptions"->SubscriptionsScreen(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Latest upload");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};prefs.edit().putStringSet("history",history.toSet()).apply()})
       "Library"->Library(saved,history,metadata,ink,muted,surface,{id->(metadata[id]?:picks.find{it.id==id})?.let{active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()})
-      else->Home(ink,muted,surface,saved,{open(it){active=it;history=listOf(it.id)+history.filterNot{x->x==it.id};prefs.edit().putStringSet("history",history.toSet()).apply()}},{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()})
+      else->Home(ink,muted,surface,prefs,saved,metadata,history,{pick->persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};prefs.edit().putStringSet("history",history.toSet()).apply()},{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()},{tab="Discover"})
      }
     }
     if(history.isNotEmpty())picks.find{it.id==history.first()}?.let{recent->Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=5.dp).clip(RoundedCornerShape(15.dp)).background(surface).clickable{active=recent}.padding(9.dp),verticalAlignment=Alignment.CenterVertically){Cover(recent,Modifier.size(40.dp));Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text("PICK UP WHERE YOU LEFT OFF",fontSize=9.sp,color=muted);Text(recent.title,fontSize=13.sp,color=ink)};Text("▶",color=magenta)}}
@@ -108,15 +108,56 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  prefs.edit().putString("item_metadata",root.toString()).apply()
 }
 
-@Composable private fun Home(ink:Color,muted:Color,surface:Color,saved:Set<String>,play:(Pick)->Unit,save:(String)->Unit){
- LazyColumn(contentPadding=PaddingValues(bottom=18.dp)){
-  item{Column(Modifier.padding(horizontal=16.dp,vertical=8.dp)){Text("Tonight's feature",color=ink,fontSize=19.sp,fontWeight=FontWeight.Bold);Spacer(Modifier.height(10.dp));Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp)).background(surface).padding(12.dp),verticalAlignment=Alignment.CenterVertically){Cover(picks[0],Modifier.width(118.dp).height(158.dp));Column(Modifier.weight(1f).padding(start=12.dp),verticalArrangement=Arrangement.spacedBy(7.dp)){Text("A Rush pick",color=mint,fontSize=10.sp);Text(picks[0].title,color=ink,fontSize=17.sp,fontWeight=FontWeight.Bold);Text(picks[0].reason,color=muted,fontSize=12.sp);Row{Button(onClick={play(picks[0])},colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Play")};TextButton(onClick={save(picks[0].id)}){Text(if(picks[0].id in saved)"Saved" else "Save",color=ink)}}}}}}
-  item{Shelf("Now spinning","3 tracks",ink);Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal=16.dp),horizontalArrangement=Arrangement.spacedBy(14.dp)){picks.filter{it.music}.forEach{p->Column(Modifier.width(108.dp).clickable{play(p)},horizontalAlignment=Alignment.CenterHorizontally){Disc(p,Modifier.size(104.dp));Text(p.title,color=ink,fontSize=12.sp,maxLines=1,overflow=TextOverflow.Ellipsis);Text(p.creator,color=muted,fontSize=10.sp)}}}}
-  item{Shelf("Pick up where you left off","Recent listens",ink)}
-  items(picks.filter{it.music}){CardRow(it,ink,muted,surface,saved,play,save)}
-  item{Shelf("Side A: four picks","A short shelf",ink)}
-  items(picks.take(4)){CardRow(it,ink,muted,surface,saved,play,save)}
-  item{Column(Modifier.fillMaxWidth().padding(16.dp).clip(RoundedCornerShape(18.dp)).background(surface).padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally){Text("That's side A.",color=ink,fontSize=16.sp,fontWeight=FontWeight.Bold);Text("Nothing more loads unless you ask.",color=muted,fontSize=12.sp);Text("Flip to Discover →",color=magenta,fontSize=11.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(10.dp))}}
+@Composable private fun Home(
+ ink:Color,
+ muted:Color,
+ surface:Color,
+ prefs:android.content.SharedPreferences,
+ saved:Set<String>,
+ metadata:Map<String,Pick>,
+ history:List<String>,
+ play:(Pick)->Unit,
+ save:(String)->Unit,
+ discover:()->Unit
+){
+ var uploads by remember{mutableStateOf<List<YouTubeSearchResult>>(emptyList())}
+ var channels by remember{mutableStateOf(loadSubscribedChannels(prefs))}
+ var status by remember{mutableStateOf("Latest uploads from your subscriptions.")}
+ var refresh by remember{mutableIntStateOf(0)}
+ val recent=history.distinct().mapNotNull{id->metadata[id]?:picks.find{it.id==id}}.take(8)
+ LaunchedEffect(channels.map{it.id},refresh) {
+  channels=loadSubscribedChannels(prefs)
+  if(channels.isEmpty()){uploads=emptyList();status="Follow channels to build your latest uploads feed."}
+  else {
+   status="Refreshing your feed…"
+   try { uploads=withContext(Dispatchers.IO){channels.flatMap{channel->runCatching{LiveYouTubeSearch.latestUploads(channel.id)}.getOrDefault(emptyList())}.distinctBy{it.videoId}.take(30)};status="${uploads.size} latest uploads" }
+   catch(e:Exception){status=e.localizedMessage?:"Could not refresh the feed."}
+  }
+ }
+ LazyColumn(contentPadding=PaddingValues(bottom=20.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
+  item{
+   Row(Modifier.fillMaxWidth().padding(horizontal=4.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+    Column{Text("Your subscriptions",color=ink,fontSize=19.sp,fontWeight=FontWeight.Bold);Text(status,color=muted,fontSize=10.sp)}
+    TextButton(onClick={refresh++}){Text("Refresh",color=magenta)}
+   }
+  }
+  if(channels.isEmpty())item{
+   Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(16.dp)){
+    Text("No channels followed yet.",color=ink,fontWeight=FontWeight.SemiBold)
+    Text("Search for creators in Discover and subscribe to see their latest uploads here.",color=muted,fontSize=11.sp)
+    TextButton(onClick=discover){Text("Find channels",color=magenta)}
+   }
+  }
+  items(uploads,key={it.videoId}){video->
+   Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(surface).clickable{play(Pick(video.videoId,video.title,video.creator,video.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Latest upload"))}.padding(11.dp),verticalAlignment=Alignment.CenterVertically){
+    Box(Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)).background(raised),contentAlignment=Alignment.Center){Text("▶",color=mint)}
+    Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text(video.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2);Text(video.creator+" · "+video.duration,color=muted,fontSize=10.sp,maxLines=1)}
+    Text("Play",color=magenta,fontSize=11.sp)
+   }
+  }
+  item{Shelf("Continue watching and listening","Recent",ink)}
+  if(recent.isEmpty())item{Text("Recently played items will appear here.",color=muted,fontSize=11.sp)}
+  items(recent,key={it.id}){pick->CardRow(pick,ink,muted,surface,saved,{play(pick)},{save(it)})}
  }
 }
 @Composable private fun Discover(query:String,onQuery:(String)->Unit,filter:String,onFilter:(String)->Unit,ink:Color,muted:Color,surface:Color,saved:Set<String>,play:(Pick)->Unit,save:(String)->Unit){
