@@ -189,30 +189,69 @@ private fun LibraryScreen(saved:Set<String>,history:Set<String>,text:Color,muted
 
 @Composable
 private fun PlayerScreen(item:ShelfItem,playing:Boolean,onToggle:()->Unit,onBack:()->Unit,light:Boolean) {
+    val context = androidx.compose.ui.platform.LocalContext.current
+    val scope = rememberCoroutineScope()
+    val player = remember(item.id) { androidx.media3.exoplayer.ExoPlayer.Builder(context).build() }
+    var source by remember(item.id) { mutableStateOf("") }
+    var audioOnly by remember(item.id) { mutableStateOf(item.type == "MUSIC") }
+    var status by remember(item.id) { mutableStateOf("Paste a YouTube link to play real media.") }
     val text=if(light)Color(0xFF241B32) else Paper
     val muted=if(light)Color(0xFF70677D) else Muted
     val panel=if(light)Color.White else SurfaceDark
-    Column(Modifier.fillMaxSize().padding(20.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.SpaceBetween) {
+
+    DisposableEffect(player) {
+        onDispose { player.release() }
+    }
+    LaunchedEffect(playing) { player.playWhenReady = playing }
+
+    Column(Modifier.fillMaxSize().padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)) {
         Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
             Text("←  BACK",color=muted,fontSize=11.sp,fontWeight=FontWeight.Bold,modifier=Modifier.clickable{onBack()})
-            Text(item.type+" PLAYER",color=Mint,fontSize=10.sp,letterSpacing=2.sp)
+            Text(if(audioOnly) "AUDIO PLAYER" else "VIDEO PLAYER",color=Mint,fontSize=10.sp,letterSpacing=2.sp)
             Text("•••",color=muted)
         }
-        Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(18.dp)) {
-            Artwork(item,Modifier.fillMaxWidth().aspectRatio(1f))
-            Text(item.title,color=text,fontSize=24.sp,fontWeight=FontWeight.Bold)
-            Text(item.subtitle,color=muted,fontSize=13.sp)
+        Artwork(item,Modifier.fillMaxWidth().weight(1f).aspectRatio(1f))
+        Text(item.title,color=text,fontSize=22.sp,fontWeight=FontWeight.Bold,maxLines=2)
+        Text(item.subtitle,color=muted,fontSize=12.sp)
+        Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            FilterChip(selected=!audioOnly,onClick={audioOnly=false},label={Text("VIDEO")})
+            FilterChip(selected=audioOnly,onClick={audioOnly=true},label={Text("AUDIO")})
         }
-        Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(16.dp)) {
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("00:42",color=muted,fontSize=10.sp);Text(item.duration,color=muted,fontSize=10.sp)}
-            Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(panel)){Box(Modifier.fillMaxWidth(.28f).fillMaxHeight().background(Brush.horizontalGradient(listOf(Magenta,Amber))))}
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
-                Text("↶",color=muted,fontSize=25.sp)
-                Box(Modifier.size(66.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Magenta,Amber))).clickable{onToggle()},contentAlignment=Alignment.Center){Text(if(playing)"Ⅱ" else "▶",color=Color.White,fontSize=24.sp)}
-                Text("↷",color=muted,fontSize=25.sp)
-            }
-            Text(if(playing)"PLAYING PREVIEW" else "PAUSED",color=Mint,fontSize=9.sp,letterSpacing=2.sp)
-        }
+        BasicTextField(
+            value=source,
+            onValueChange={source=it},
+            singleLine=true,
+            modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(panel).padding(14.dp),
+            textStyle=TextStyle(color=text,fontSize=13.sp),
+            decorationBox={inner->if(source.isEmpty())Text("YouTube URL or 11-character video ID",color=muted);inner()}
+        )
+        Button(
+            onClick={
+                scope.launch {
+                    status="Resolving YouTube stream…"
+                    try {
+                        val streamUrl = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                            LibreTubePlayback.resolve(source,audioOnly)
+                        }
+                        player.setMediaItem(androidx.media3.common.MediaItem.fromUri(streamUrl))
+                        player.prepare()
+                        player.play()
+                        status=if(audioOnly)"AUDIO STREAM READY" else "VIDEO STREAM READY"
+                    } catch (e:Exception) {
+                        status=e.localizedMessage ?: "Unable to load this YouTube stream."
+                    }
+                }
+            },
+            modifier=Modifier.fillMaxWidth(),
+            colors=ButtonDefaults.buttonColors(containerColor=Magenta)
+        ) { Text("LOAD AND PLAY",color=Color.White,fontWeight=FontWeight.Bold) }
+        androidx.compose.ui.viewinterop.AndroidView(
+            factory={ctx->androidx.media3.ui.PlayerView(ctx).apply{this.player=player;useController=true;showBuffering=androidx.media3.ui.PlayerView.SHOW_BUFFERING_WHEN_PLAYING}},
+            update={it.player=player},
+            modifier=Modifier.fillMaxWidth().height(if(audioOnly)76.dp else 210.dp)
+        )
+        Text(status,color=muted,fontSize=10.sp)
+        Text("Streams are resolved on demand. YouTube availability and extractor compatibility can change.",color=muted,fontSize=9.sp)
     }
 }
 
