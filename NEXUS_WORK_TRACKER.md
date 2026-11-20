@@ -26,7 +26,7 @@ Nexus is a private, single-owner Android app. Keep it native, local-first, light
 ### P2 — Anti-doomscrolling and data ownership
 - [x] Add a daily Discover item budget with a clear stop screen. Daily time budget has now been coded with lifecycle-aware tracking; latest build verification is pending.
 - [ ] Add optional break reminders; no streaks, rewards, autoplay, or engagement tracking.
-- [ ] Add offline article saving/reading and bounded image/content cache.
+- [ ] Add offline article saving/reading and bounded image/content cache. (Text-only article save/read and a 50-article cap are coded; build verification pending. General image/content cache remains.)
 - [x] Add local JSON export/import for personal notes, saved items, settings, selected contacts and Inbox history; transient notification action tokens are not exported.
 - [ ] Add reset/clear-data controls and explain exactly what is removed.
 
