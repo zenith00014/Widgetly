@@ -721,7 +721,7 @@ private fun SocialPostCard(
     onSave: () -> Unit,
     onLike: () -> Unit
 ) {
-    Card(shape = RoundedCornerShape(19.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(shape = RectangleShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
             if (entry.image.isNotBlank()) {
                 NexusRemoteImage(entry.image, Modifier.fillMaxWidth().height(174.dp))
@@ -1130,13 +1130,18 @@ private fun NexusSettingsScreen(
 
 @Composable
 private fun VideoTile(video: NexusVideo, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Card(modifier = modifier.clickable(onClick = onClick), shape = RectangleShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(
+        modifier = modifier.shadow(4.dp, RectangleShape).border(2.dp, MaterialTheme.colorScheme.outline).clickable(onClick = onClick),
+        shape = RectangleShape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
         Column {
-            NexusRemoteImage(video.thumbnail, Modifier.fillMaxWidth().height(126.dp))
+            NexusRemoteImage(video.thumbnail, Modifier.fillMaxWidth().height(126.dp), video.title)
             Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(video.channel.uppercase(Locale.getDefault()), color = MaterialTheme.colorScheme.primary, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                Text(video.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(dateLabel(video.publishedAt), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
+                Text("[>] VIDEO · FOLLOWED", color = MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, fontFamily = FontFamily.Monospace)
+                Text(video.channel.uppercase(Locale.getDefault()), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                Text(video.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(dateLabel(video.publishedAt), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
             }
         }
     }
@@ -1144,13 +1149,17 @@ private fun VideoTile(video: NexusVideo, modifier: Modifier = Modifier, onClick:
 
 @Composable
 private fun MovieTile(movie: NexusMovie, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Card(modifier = modifier.clickable(onClick = onClick), shape = RectangleShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(
+        modifier = modifier.shadow(4.dp, RectangleShape).border(2.dp, MaterialTheme.colorScheme.outline).clickable(onClick = onClick),
+        shape = RectangleShape,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
         Column {
-            NexusRemoteImage(movie.thumbnail, Modifier.fillMaxWidth().height(190.dp))
+            NexusRemoteImage(movie.thumbnail, Modifier.fillMaxWidth().height(190.dp), movie.title)
             Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text("PUBLIC DOMAIN", color = MaterialTheme.colorScheme.primary, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                Text(movie.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
-                Text(movie.year, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
+                Text("[>] PUBLIC DOMAIN", color = MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp, fontFamily = FontFamily.Monospace)
+                Text(movie.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(movie.year, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
             }
         }
     }
@@ -1159,22 +1168,26 @@ private fun MovieTile(movie: NexusMovie, modifier: Modifier = Modifier, onClick:
 @Composable
 private fun NewsCard(story: NexusNews, compact: Boolean, onClick: () -> Unit) {
     Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        modifier = Modifier.fillMaxWidth().shadow(4.dp, RectangleShape).border(2.dp, MaterialTheme.colorScheme.outline).clickable(onClick = onClick),
         shape = RectangleShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
-        Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column {
             if (story.imageUrl.isNotBlank()) {
-                NexusRemoteImage(story.imageUrl, Modifier.size(if (compact) 78.dp else 96.dp).clip(RectangleShape))
+                NexusRemoteImage(story.imageUrl, Modifier.fillMaxWidth().height(if (compact) 112.dp else 176.dp), story.title)
             } else {
-                Box(Modifier.size(78.dp).clip(RectangleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-                    Text("NEWS", color = MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                Box(
+                    Modifier.fillMaxWidth().height(if (compact) 112.dp else 176.dp).background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("+-- NEWS IMAGE UNAVAILABLE --+", color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                 }
             }
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(story.source.uppercase(Locale.getDefault()), color = MaterialTheme.colorScheme.primary, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
-                Text(story.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 3, overflow = TextOverflow.Ellipsis)
-                Text(dateLabel(story.publishedAt), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
+            Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                Text("[>] NEWS · ${story.topic.uppercase(Locale.ROOT)}", color = MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold, fontFamily = FontFamily.Monospace)
+                Text(story.source.uppercase(Locale.getDefault()), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                Text(story.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                Text(dateLabel(story.publishedAt), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
             }
         }
     }
@@ -1199,23 +1212,81 @@ private fun NexusAvatar(entry: InboxEntry, modifier: Modifier = Modifier) {
     }
 }
 
+private object NexusImageStore {
+    private const val MAX_IMAGE_BYTES = 6 * 1024 * 1024
+
+    fun load(context: Context, rawUrl: String): Bitmap? {
+        if (rawUrl.isBlank()) return null
+        val uri = try { Uri.parse(rawUrl) } catch (_: Exception) { return null }
+        if (uri.scheme != "https" || uri.host.isNullOrBlank()) return null
+        val directory = File(context.cacheDir, "nexus_images").apply { mkdirs() }
+        val key = MessageDigest.getInstance("SHA-256")
+            .digest(rawUrl.toByteArray(Charsets.UTF_8))
+            .joinToString("") { "%02x".format(it) }
+        val file = File(directory, "$key.img")
+        if (!file.exists() || file.length() == 0L) {
+            val temp = File(directory, "$key.tmp")
+            try {
+                val connection = (URL(rawUrl).openConnection() as java.net.HttpURLConnection).apply {
+                    connectTimeout = 6000
+                    readTimeout = 8000
+                    instanceFollowRedirects = true
+                    setRequestProperty("User-Agent", "NexusAndroid/1.0")
+                    setRequestProperty("Accept", "image/avif,image/webp,image/*,*/*;q=0.8")
+                }
+                connection.inputStream.use { input ->
+                    temp.outputStream().use { output ->
+                        val buffer = ByteArray(8192)
+                        var total = 0
+                        while (true) {
+                            val count = input.read(buffer)
+                            if (count < 0) break
+                            total += count
+                            if (total > MAX_IMAGE_BYTES) throw IllegalStateException("Image too large")
+                            output.write(buffer, 0, count)
+                        }
+                    }
+                }
+                connection.disconnect()
+                if (temp.length() > 0L) temp.renameTo(file) else temp.delete()
+            } catch (_: Exception) {
+                temp.delete()
+                return null
+            }
+        }
+        return try {
+            val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+            BitmapFactory.decodeFile(file.absolutePath, bounds)
+            if (bounds.outWidth <= 0 || bounds.outHeight <= 0) return null
+            var sample = 1
+            while (bounds.outWidth / sample > 1280 || bounds.outHeight / sample > 1280) sample *= 2
+            BitmapFactory.decodeFile(
+                file.absolutePath,
+                BitmapFactory.Options().apply {
+                    inSampleSize = sample
+                    inPreferredConfig = Bitmap.Config.RGB_565
+                }
+            )
+        } catch (_: Exception) { null }
+    }
+}
+
 @Composable
-private fun NexusRemoteImage(url: String, modifier: Modifier = Modifier) {
+private fun NexusRemoteImage(url: String, modifier: Modifier = Modifier, description: String? = null) {
+    val context = LocalContext.current
     val bitmap by produceState<Bitmap?>(initialValue = null, key1 = url) {
         value = withContext(Dispatchers.IO) {
-            try {
-                val connection = URL(url).openConnection()
-                connection.connectTimeout = 5000
-                connection.readTimeout = 6000
-                connection.getInputStream().use { BitmapFactory.decodeStream(it) }
-            } catch (_: Exception) { null }
+            NexusImageStore.load(context, url)
         }
     }
     if (bitmap != null) {
-        Image(bitmap!!.asImageBitmap(), contentDescription = null, modifier = modifier, contentScale = ContentScale.Crop)
+        Image(bitmap!!.asImageBitmap(), contentDescription = description, modifier = modifier, contentScale = ContentScale.Crop)
     } else {
-        Box(modifier.background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
-            Text("N", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f), fontWeight = FontWeight.Black, fontSize = 22.sp)
+        Box(
+            modifier.background(MaterialTheme.colorScheme.surfaceVariant).border(1.dp, MaterialTheme.colorScheme.outline),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("[ image ]", color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = FontFamily.Monospace, fontSize = 9.sp)
         }
     }
 }
