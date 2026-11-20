@@ -20,10 +20,10 @@ Nexus is a private, single-owner Android app for one person's daily use. It is n
 
 - **Home:** concise personal dashboard with a finite selection of useful content.
 - **Discover:** finite Videos, News, and Movies shelves with selectable curated sources, configurable session size, daily item/time budgets, and a stopping screen. No endless feed, autoplay, or engagement loops.
-- **Videos / Music:** LibreTube-backed online YouTube and music experience; local audio remains a separate fallback.
+- **Videos / Music:** in-app YouTube and music search/playback through a configurable Piped-compatible endpoint; local audio remains a separate fallback.
 - **News:** selectable RSS sources with thumbnails where available; in-app reader and bounded text-only offline copies when readable paragraphs are exposed.
 - **Movies:** anonymous FTP catalogue, local cached index, search, favorites, recent playback and in-app Media3 playback.
-- **DM / Inbox:** Beeper handoff for full messaging. Android notification previews and quick-reply actions remain a separate optional inbox capability, not a replacement for Beeper conversations.
+- **DM / Inbox:** in-app Matrix client for Matrix-compatible accounts and bridge-enabled networks. Android notification previews remain separate.
 - **Contacts:** choose individual phone contacts through Android's system picker; call and SMS shortcuts hand off to the phone's own apps.
 - **Library:** personal saved media and notes with filters.
 - **Settings:** source selection, session and daily item/time limits, notification-access help, JSON backup/restore, and confirmed clear-all-data action.
@@ -40,4 +40,4 @@ APK output: app/build/outputs/apk/debug/app-debug.apk. GitHub Actions builds a d
 
 Android notification access can expose notification content and sometimes a reply action. It does not grant unrestricted access to private chats, message history, or sending APIs. Nexus must clearly distinguish a notification preview from a full conversation.
 
-LibreTube is an Android application, not a general-purpose playback SDK. A genuine embedded LibreTube integration requires a maintained fork/module and must comply with its GPL-3.0-or-later license. Beeper is currently integrated by app handoff; no private-chat synchronization API is assumed. The FTP server's support for REST byte ranges and seek operations must be tested on the owner's Wi-Fi network.
+Nexus's media client is an independent Piped-compatible implementation inspired by LibreTube's user experience; it does not embed LibreTube source code. Matrix is an open protocol, but third-party network bridges must be configured on the homeserver. Nexus does not have a private Beeper API integration. The FTP server's support for REST byte ranges and seek operations must be tested on the owner's Wi-Fi network.
