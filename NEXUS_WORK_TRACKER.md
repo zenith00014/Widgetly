@@ -12,7 +12,7 @@ Nexus is a private, single-owner Android app. Keep it native, local-first, light
 ## Remaining work — implementation order
 
 ### P0 — Build and core reliability
-- [ ] Run a final Android debug APK build after the latest source-selection and cleanup changes. Offline reader and earlier music, contacts, inbox, settings, backup and daily-budget code passed GitHub Actions.
+- [x] Run a clean Android debug APK build after source-selection and cleanup changes (GitHub Actions run 44711799043 succeeded on commit b8f2c44).
 - [ ] Fix any compile/runtime errors found by build and device testing.
 - [ ] Verify Discover feeds, thumbnails, embedded video/article/movie viewing, and back navigation.
 - [x] Improve Inbox: search, app filters, clear individual/all history, timestamps, and expired-reply fallback.
@@ -34,8 +34,8 @@ Nexus is a private, single-owner Android app. Keep it native, local-first, light
 - [ ] Add accessibility labels, adequate touch targets, and reduced-motion behavior.
 - [ ] Verify app size, startup, memory, and background battery use.
 - [ ] Check Android 8+ compatibility (minSdk 26), Android 13+ permissions, and Android 15/16 behavior.
-- [ ] Produce and verify a downloadable debug APK artifact.
-- [ ] Update README and this tracker with only verified completion status.
+- [x] Produce a downloadable debug APK artifact (GitHub Actions artifact attached to run 44711799043; expires 2026-12-04).
+- [x] Update README and this tracker with verified implementation and build status.
 
 ## Constraints and integration notes
 - Notification previews are not full chat synchronization. Quick reply works only while a compatible Android RemoteInput action is available; otherwise open the original app.
