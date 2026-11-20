@@ -14,7 +14,9 @@ data class YouTubeSearchResult(
     val title: String,
     val creator: String,
     val duration: String,
-    val isMusic: Boolean
+    val isMusic: Boolean,
+    val isChannel: Boolean = false,
+    val channelId: String = ""
 )
 
 object LiveYouTubeSearch {
@@ -24,7 +26,7 @@ object LiveYouTubeSearch {
     private val jsonType = "application/json; charset=utf-8".toMediaType()
 
     @Throws(IOException::class)
-    fun search(query: String, music: Boolean = false): List<YouTubeSearchResult> {
+    fun search(query: String, music: Boolean = false, channels: Boolean = false): List<YouTubeSearchResult> {
         require(query.isNotBlank()) { "Enter something to search for." }
         val body = JSONObject()
             .put("context", JSONObject().put("client", JSONObject()
@@ -43,22 +45,24 @@ object LiveYouTubeSearch {
             if (!response.isSuccessful) throw IOException("YouTube search failed (HTTP ${response.code}).")
             val root = JSONObject(response.body?.string().orEmpty())
             val found = LinkedHashMap<String, YouTubeSearchResult>()
-            collect(root, found, music)
+            collect(root, found, music, channels)
             return found.values.take(40)
         }
     }
 
-    private fun collect(value: Any?, out: MutableMap<String, YouTubeSearchResult>, music: Boolean) {
+    private fun collect(value: Any?, out: MutableMap<String, YouTubeSearchResult>, music: Boolean, channels: Boolean) {
         when (value) {
             is JSONObject -> {
                 val video = value.optJSONObject("videoRenderer")
                 if (video != null && !music) addVideo(video, out, false)
                 val musicItem = value.optJSONObject("musicResponsiveListItemRenderer")
                 if (musicItem != null && music) addMusic(musicItem, out)
+                val channel = value.optJSONObject("channelRenderer")
+                if (channel != null && channels) addChannel(channel, out)
                 val keys = value.keys()
-                while (keys.hasNext()) collect(value.opt(keys.next()), out, music)
+                while (keys.hasNext()) collect(value.opt(keys.next()), out, music, channels)
             }
-            is JSONArray -> for (i in 0 until value.length()) collect(value.opt(i), out, music)
+            is JSONArray -> for (i in 0 until value.length()) collect(value.opt(i), out, music, channels)
         }
     }
 
@@ -69,6 +73,39 @@ object LiveYouTubeSearch {
         val owner = text(item.optJSONObject("ownerText")).ifBlank { "YouTube creator" }
         val duration = text(item.optJSONObject("lengthText"))
         out.putIfAbsent(id, YouTubeSearchResult(id, title, owner, duration, music))
+    }
+
+    private fun addChannel(item: JSONObject, out: MutableMap<String, YouTubeSearchResult>) {
+        val id = item.optString("channelId")
+        val title = text(item.optJSONObject("title"))
+        if (id.isBlank() || title.isBlank()) return
+        val subscribers = text(item.optJSONObject("subscriberCountText"))
+        out.putIfAbsent("channel:$id", YouTubeSearchResult("", title, subscribers, "", false, true, id))
+    }
+
+    @Throws(IOException::class)
+    fun latestUploads(channelId: String): List<YouTubeSearchResult> {
+        require(channelId.startsWith("UC")) { "Invalid YouTube channel ID." }
+        val body = JSONObject()
+            .put("context", JSONObject().put("client", JSONObject()
+                .put("clientName", "WEB")
+                .put("clientVersion", "2.20261119.01.00")))
+            .put("browseId", channelId)
+            .toString()
+        val request = Request.Builder()
+            .url("https://www.youtube.com/youtubei/v1/browse")
+            .post(body.toRequestBody(jsonType))
+            .header("User-Agent", USER_AGENT)
+            .header("Origin", "https://www.youtube.com")
+            .header("Referer", "https://www.youtube.com/")
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw IOException("Could not load channel uploads (HTTP ${response.code}).")
+            val root = JSONObject(response.body?.string().orEmpty())
+            val found = LinkedHashMap<String, YouTubeSearchResult>()
+            collect(root, found, false, false)
+            return found.values.take(30)
+        }
     }
 
     private fun addMusic(item: JSONObject, out: MutableMap<String, YouTubeSearchResult>) {
