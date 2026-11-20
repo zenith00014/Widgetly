@@ -94,6 +94,11 @@ class MainActivity:ComponentActivity(){
        active=pick;playbackQueue=emptyList()
        persistPickMetadata(prefs,pick);metadata=metadata+(media.id to pick)
        history=listOf(media.id)+history.filterNot{x->x==media.id};persistHistory(prefs,history)
+      },{items->
+       val queue=items.filter{it.complete}.map{media->Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath,media.sourceId)}
+       queue.forEach{pick->persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick)}
+       playbackQueue=queue
+       queue.firstOrNull()?.let{first->active=first;history=listOf(first.id)+history.filterNot{x->x==first.id};persistHistory(prefs,history)}
       })
       "Subscriptions"->SubscriptionsScreen(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Latest upload");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};persistHistory(prefs,history)})
       "Library"->Library(saved,history,metadata,prefs,queuedIds,ink,muted,surface,{id->metadata[id]?.let{
@@ -481,7 +486,7 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
  }
 }
 
-@Composable private fun DownloadsScreen(ink:Color,muted:Color,surface:Color,play:(OfflineMedia)->Unit){
+@Composable private fun DownloadsScreen(ink:Color,muted:Color,surface:Color,play:(OfflineMedia)->Unit,playAll:(List<OfflineMedia>)->Unit){
  val context=androidx.compose.ui.platform.LocalContext.current
  var downloads by remember { mutableStateOf<List<OfflineMedia>>(emptyList()) }
  var workInfos by remember { mutableStateOf<List<androidx.work.WorkInfo>>(emptyList()) }
@@ -507,6 +512,10 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
    Text("Files stay in Rush's private app storage. Download only content you are permitted to keep offline.",color=muted,fontSize=10.sp,modifier=Modifier.padding(top=7.dp))
    if(resumeMessage.isNotBlank())Text(resumeMessage,color=muted,fontSize=10.sp,modifier=Modifier.padding(top=4.dp))
   }
+  val readyAudio=downloads.filter{it.complete&&it.isAudio}
+  val readyVideo=downloads.filter{it.complete&&!it.isAudio}
+  if(readyAudio.isNotEmpty())item{TextButton(onClick={playAll(readyAudio)}){Text("Play downloaded music · ${readyAudio.size}",color=magenta)}}
+  if(readyVideo.isNotEmpty())item{TextButton(onClick={playAll(readyVideo)}){Text("Play downloaded videos · ${readyVideo.size}",color=magenta)}}
   if(downloads.isEmpty()) item {
    Text("Your offline library is empty. Open a video or music player and choose Download offline.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(18.dp))
   }
