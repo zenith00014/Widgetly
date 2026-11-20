@@ -361,6 +361,8 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  var playlists by remember{mutableStateOf(PlaylistStore.load(prefs))}
  var showCreate by remember{mutableStateOf(false)}
  var playlistName by remember{mutableStateOf("")}
+ var playlistMessage by remember{mutableStateOf("")}
+ val scope=rememberCoroutineScope()
  LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
   item{
    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
@@ -373,6 +375,20 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(surface).padding(12.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
      Column(Modifier.weight(1f)){Text(playlist.name,color=ink,fontSize=14.sp,fontWeight=FontWeight.Bold);Text("${playlist.itemIds.size} items",color=muted,fontSize=10.sp)}
+     TextButton(onClick={
+      scope.launch {
+       playlistMessage="Resolving playlist streams…"
+       var queued=0
+       tracksForPlaylist@ for(track in playlist.itemIds.mapNotNull{all[it]}){
+        try{
+         val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.id,track.music)}
+         withContext(Dispatchers.IO){OfflineDownloads.enqueue(context=prefsContext(prefs),id=track.id,title=track.title,creator=track.creator,isAudio=track.music,media=resolved)}
+         queued++
+        }catch(_:Exception){}
+       }
+       playlistMessage="Queued $queued of ${playlist.itemIds.size} playlist downloads."
+      }
+     }){Text("Download all",color=magenta,fontSize=10.sp)}
      TextButton(onClick={playlists=PlaylistStore.delete(prefs,playlist.id)}){Text("Delete",color=muted,fontSize=10.sp)}
     }
     val tracks=playlist.itemIds.mapNotNull{all[it]}
@@ -386,6 +402,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
     }
    }
   }
+  if(playlistMessage.isNotBlank())item{Text(playlistMessage,color=muted,fontSize=10.sp)}
   item{Shelf("Saved items","Bookmarks",ink)}
   if(kept.isEmpty())item{Text("Saved videos and music will appear here.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(18.dp))}
   items(kept){pick->CardRow(pick,ink,muted,surface,saved,{play(pick.id)},{remove(pick.id)})}
