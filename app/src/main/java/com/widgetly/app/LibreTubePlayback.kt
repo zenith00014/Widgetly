@@ -31,7 +31,7 @@ object LibreTubePlayback {
         .callTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
         .build()
 
-    private fun initialize() {
+    fun initialize() {
         if (initialized) return
         synchronized(this) {
             if (!initialized) {
