@@ -1,6 +1,6 @@
 # Widgetly
 
-A native Android starter app for creating and managing useful home-screen widgets.
+A lightweight native Android widget app. The current build is an early feature-complete prototype target, not yet a final release.
 
 ## Included
 - Jetpack Compose dashboard with a quick-note editor.
