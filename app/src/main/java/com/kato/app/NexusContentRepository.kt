@@ -226,14 +226,22 @@ object NexusContentRepository {
                             if (!href.isNullOrBlank()) link = href else if (link.isBlank()) link = parser.nextText().trim().also { depth-- }
                         }
                         "pubdate", "published", "updated", "date" -> { if (date.isBlank()) date = parser.nextText().trim(); depth-- }
-                        "thumbnail" -> {
-                            val candidate = parser.getAttributeValue(null, "url")
-                            if (!candidate.isNullOrBlank() && image.isBlank()) image = candidate
+                        "thumbnail", "content", "image" -> {
+                            // RSS media:thumbnail/media:content, iTunes images and
+                            // other common feed image extensions.
+                            val candidate = firstImageAttribute(parser)
+                            val medium = parser.getAttributeValue(null, "medium").orEmpty()
+                            val type = parser.getAttributeValue(null, "type").orEmpty()
+                            val looksLikeImage = medium.equals("image", true) ||
+                                type.startsWith("image/", true) ||
+                                parser.name.contains("thumbnail", true) ||
+                                parser.name.contains("image", true)
+                            if (!candidate.isNullOrBlank() && looksLikeImage && image.isBlank()) image = candidate
                         }
                         "enclosure" -> {
                             val type = parser.getAttributeValue(null, "type").orEmpty()
-                            val candidate = parser.getAttributeValue(null, "url")
-                            if (!candidate.isNullOrBlank() && (type.startsWith("image") || image.isBlank())) image = candidate
+                            val candidate = firstImageAttribute(parser)
+                            if (!candidate.isNullOrBlank() && type.startsWith("image", true) && image.isBlank()) image = candidate
                         }
                     }
                 }
@@ -242,16 +250,44 @@ object NexusContentRepository {
         }
         val plainSummary = cleanText(summary)
         if (image.isBlank()) {
-            image = Regex("""<img[^>]+src=[\"']([^\"']+)[\"']""", RegexOption.IGNORE_CASE)
-                .find(summary)?.groupValues?.getOrNull(1).orEmpty()
+            val imageRegex = Regex(
+                """<(?:img|source)[^>]+(?:src|data-src|data-original)=["']([^"']+)["']""",
+                RegexOption.IGNORE_CASE
+            )
+            image = imageRegex.find(summary)?.groupValues?.getOrNull(1).orEmpty()
+            if (image.isBlank()) {
+                image = Regex("""srcset=["']([^"']+)["']""", RegexOption.IGNORE_CASE)
+                    .find(summary)?.groupValues?.getOrNull(1)?.substringBefore(",")?.trim()?.substringBefore(" ")?.orEmpty().orEmpty()
+            }
         }
+        val resolvedImage = resolveImageUrl(link, image)
         return RawEntry(
             title = cleanText(title),
             summary = plainSummary,
             url = link,
             date = parseDate(date),
-            image = image
+            image = resolvedImage
         ).takeIf { it.title.isNotBlank() && it.url.isNotBlank() }
+    }
+
+    private fun firstImageAttribute(parser: XmlPullParser): String {
+        for (index in 0 until parser.attributeCount) {
+            val name = parser.getAttributeName(index).lowercase(Locale.ROOT)
+            if (name == "url" || name == "href" || name == "src") {
+                return parser.getAttributeValue(index).orEmpty()
+            }
+        }
+        return ""
+    }
+
+    private fun resolveImageUrl(articleUrl: String, imageUrl: String): String {
+        if (imageUrl.isBlank()) return ""
+        return try {
+            val resolved = URL(URL(articleUrl), imageUrl)
+            if (resolved.protocol == "https" || resolved.protocol == "http") resolved.toString() else ""
+        } catch (_: Exception) {
+            ""
+        }
     }
 
     private fun cleanText(raw: String): String = Html.fromHtml(raw, Html.FROM_HTML_MODE_LEGACY)
