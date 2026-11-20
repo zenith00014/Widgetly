@@ -1,165 +1,111 @@
 package com.widgetly.app
 
-import android.annotation.SuppressLint
 import android.content.Context
-import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
-import android.webkit.WebChromeClient
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
-import androidx.glance.appwidget.updateAll
-import kotlinx.coroutines.launch
 
-internal const val PREFS_NAME = "widgetly_prefs"
-internal const val NOTE_KEY = "quick_note"
-private val Ink = Color(0xFF111411)
-private val Panel = Color(0xFF1B211C)
-private val Lime = Color(0xFFC5E879)
-private val Muted = Color(0xFFA4AEA1)
+private val Aubergine = Color(0xFF14101F)
+private val SurfaceDark = Color(0xFF211A30)
+private val SurfaceRaised = Color(0xFF30243F)
+private val Paper = Color(0xFFF6F1FB)
+private val Muted = Color(0xFFBDB3CA)
+private val Magenta = Color(0xFFFF3D81)
+private val Amber = Color(0xFFFF9A3D)
+private val Mint = Color(0xFF7CF5D0)
+private val Lilac = Color(0xFFE9E7F1)
+
+private data class ShelfItem(val id:String,val title:String,val subtitle:String,val type:String,val art:List<Color>,val duration:String)
+private val catalog = listOf(
+    ShelfItem("neon","Neon Afterglow","Mira Sol · Album","MUSIC",listOf(Color(0xFF8D3C9C),Color(0xFFFF6C83)),"38 min"),
+    ShelfItem("orbit","The Quiet Orbit","A short film · 2025","MOVIE",listOf(Color(0xFF243F65),Color(0xFF9A7FC4)),"18 min"),
+    ShelfItem("studio","Inside the Sound Lab","Field Notes · Episode 04","VIDEO",listOf(Color(0xFFB65C36),Color(0xFFFFBD64)),"12 min"),
+    ShelfItem("bluehour","Blue Hour Tapes","Niko Vale · Playlist","MUSIC",listOf(Color(0xFF235D68),Color(0xFF79B5A8)),"52 min"),
+    ShelfItem("paper","A City Made of Paper","Short film · 2024","MOVIE",listOf(Color(0xFF9B5364),Color(0xFFE5A3A1)),"24 min"),
+    ShelfItem("slow","Make Space for Slow","Studio Koto · Video","VIDEO",listOf(Color(0xFF4C477F),Color(0xFFB7A4E8)),"9 min")
+)
+private data class Story(val title:String,val source:String,val time:String,val body:String)
+private val stories = listOf(
+    Story("The return of the album as a complete world","CULTURE / SOUND","8 MIN AGO","Artists are treating records as carefully sequenced worlds again: artwork, liner notes and transitions are becoming part of the listening experience."),
+    Story("Small cinemas are finding a new audience","CULTURE / SCREEN","34 MIN AGO","Independent screening rooms are building communities around focused programmes, filmmaker conversations and repertory nights."),
+    Story("Why the internet needs more quiet corners","IDEAS / DIGITAL LIFE","1 HR AGO","A growing group of designers are making finite, intentional spaces online: fewer feeds, clearer endings and more room to pay attention.")
+)
 
 class MainActivity : ComponentActivity() {
-    override fun onCreate(savedInstanceState: Bundle?) {
+    override fun onCreate(savedInstanceState:Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent {
-            MaterialTheme(colorScheme = darkColorScheme(primary=Lime, onPrimary=Ink, background=Ink, surface=Panel)) {
-                WidgetlyApp()
-            }
-        }
+        setContent { RushApp(getSharedPreferences("rush_prefs",Context.MODE_PRIVATE)) }
     }
 }
 
 @Composable
-private fun WidgetlyApp() {
+private fun RushApp(prefs:android.content.SharedPreferences) {
     var tab by remember { mutableStateOf("Home") }
-    Surface(Modifier.fillMaxSize(), color=Ink) {
-        Column(Modifier.fillMaxSize()) {
-            Row(Modifier.fillMaxWidth().padding(horizontal=20.dp, vertical=18.dp), horizontalArrangement=Arrangement.SpaceBetween) {
-                Column {
-                    Text("WIDGETLY", color=Lime, fontSize=12.sp, fontWeight=FontWeight.Bold, letterSpacing=2.sp)
-                    Text(when(tab){"Watch"->"Video deck";"Listen"->"Music deck";"Inbox"->"Message center";"Widgets"->"Pocket gadgets";else->"Your pocket dashboard."}, color=Color.White, fontSize=23.sp, fontWeight=FontWeight.SemiBold)
-                }
-                Text("●  READY", color=Lime, fontSize=10.sp, modifier=Modifier.padding(top=8.dp))
-            }
-            Box(Modifier.weight(1f)) {
-                when(tab) {
-                    "Watch" -> MediaPage("YOUTUBE", "Browse and play YouTube videos inside Widgetly. Playback is provided by YouTube's own embedded/mobile experience.", "https://m.youtube.com")
-                    "Listen" -> MediaPage("SPOTIFY", "Open Spotify's web player inside Widgetly. Spotify account, playback and Premium restrictions still apply.", "https://open.spotify.com")
-                    "Inbox" -> InboxPage()
-                    "Widgets" -> WidgetsPage()
-                    else -> HomePage(onOpen={tab=it})
-                }
-            }
-            NavigationBar(containerColor=Panel, contentColor=Color.White) {
-                listOf("Home","Watch","Listen","Inbox","Widgets").forEach { item ->
-                    NavigationBarItem(selected=tab==item, onClick={tab=item}, icon={Text(when(item){"Home"->"⌂";"Watch"->"▣";"Listen"->"♫";"Inbox"->"▤";else->"▦"}, fontSize=18.sp)}, label={Text(item,fontSize=10.sp)}, colors=NavigationBarItemDefaults.colors(selectedIconColor=Lime, selectedTextColor=Lime, indicatorColor=Color(0xFF303A2D), unselectedTextColor=Muted, unselectedIconColor=Muted))
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun HomePage(onOpen:(String)->Unit) {
-    Column(Modifier.fillMaxSize().padding(horizontal=18.dp).padding(bottom=16.dp), verticalArrangement=Arrangement.spacedBy(14.dp)) {
-        Text("YOUR CENTERS", color=Muted, fontSize=11.sp, fontWeight=FontWeight.Bold, letterSpacing=2.sp)
-        HubCard("01  /  VIDEO", "YouTube playback inside Widgetly", "Open video deck") { onOpen("Watch") }
-        HubCard("02  /  MUSIC", "Spotify web player inside Widgetly", "Open music deck") { onOpen("Listen") }
-        HubCard("03  /  SOCIAL", "Collect supported message notifications in one inbox", "Open message center") { onOpen("Inbox") }
-        HubCard("04  /  GADGETS", "Quick Note and Retro Clock home-screen widgets", "View widgets") { onOpen("Widgets") }
-        Text("Retro hardware, rebuilt as a lightweight Android dashboard.", color=Muted, fontSize=12.sp)
-    }
-}
-
-@Composable
-private fun HubCard(kicker:String, description:String, action:String, onClick:()->Unit) {
-    Card(colors=CardDefaults.cardColors(containerColor=Panel), shape=RoundedCornerShape(20.dp), modifier=Modifier.fillMaxWidth()) {
-        Column(Modifier.padding(17.dp), verticalArrangement=Arrangement.spacedBy(9.dp)) {
-            Text(kicker, color=Lime, fontSize=10.sp, fontWeight=FontWeight.Bold, letterSpacing=1.5.sp)
-            Text(description, color=Color.White, fontSize=16.sp, fontWeight=FontWeight.Medium)
-            Button(onClick=onClick, colors=ButtonDefaults.buttonColors(containerColor=Color(0xFF303A2D), contentColor=Lime), shape=RoundedCornerShape(12.dp)) { Text(action) }
-        }
-    }
-}
-
-@SuppressLint("SetJavaScriptEnabled")
-@Composable
-private fun MediaPage(title:String, description:String, url:String) {
-    var address by remember(url) { mutableStateOf(url) }
-    var current by remember(url) { mutableStateOf(url) }
-    Column(Modifier.fillMaxSize().padding(horizontal=12.dp), verticalArrangement=Arrangement.spacedBy(8.dp)) {
-        Text(title, color=Lime, fontSize=11.sp, fontWeight=FontWeight.Bold, letterSpacing=2.sp)
-        Text(description, color=Muted, fontSize=12.sp)
-        Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
-            OutlinedTextField(value=address, onValueChange={address=it}, modifier=Modifier.weight(1f), singleLine=true, textStyle=LocalTextStyle.current.copy(fontSize=12.sp), label={Text("Video / playlist / track URL")})
-            Button(onClick={current=if(address.startsWith("http")) address else "https://www.google.com/search?q="+Uri.encode(address)}, contentPadding=PaddingValues(horizontal=12.dp, vertical=8.dp)) { Text("Go") }
-        }
-        EmbeddedBrowser(current, Modifier.weight(1f).fillMaxWidth())
-    }
-}
-
-@SuppressLint("SetJavaScriptEnabled")
-@Composable
-private fun EmbeddedBrowser(url:String, modifier:Modifier=Modifier) {
-    AndroidView(modifier=modifier, factory={ctx ->
-        WebView(ctx).apply {
-            settings.javaScriptEnabled=true
-            settings.domStorageEnabled=true
-            settings.mediaPlaybackRequiresUserGesture=true
-            settings.javaScriptCanOpenWindowsAutomatically=true
-            webChromeClient=WebChromeClient()
-            webViewClient=WebViewClient()
-            loadUrl(url)
-        }
-    }, update={view -> if(view.tag != url) { view.tag=url; view.loadUrl(url) } })
-}
-
-@Composable
-private fun InboxPage() {
-    val context= LocalContext.current
-    var refresh by remember { mutableIntStateOf(0) }
-    val prefs=context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-    val messages= remember(refresh) {
-        try {
-            val arr=org.json.JSONArray(prefs.getString("social_notifications","[]"))
-            (0 until arr.length()).map { i -> arr.getJSONObject(i) }
-        } catch (_:Exception) { emptyList() }
-    }
-    Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        Text("SOCIAL NOTIFICATION INBOX", color=Lime, fontSize=11.sp, fontWeight=FontWeight.Bold, letterSpacing=1.5.sp)
-        Text("Recent message notifications from WhatsApp, Telegram, Instagram and Messenger. This is a notification inbox, not full private-chat API access.", color=Muted, fontSize=12.sp)
-        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-            Button(onClick={context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))}, colors=ButtonDefaults.buttonColors(containerColor=Lime, contentColor=Ink)) { Text("Connect apps") }
-            OutlinedButton(onClick={refresh++}) { Text("Refresh") }
-        }
-        if(messages.isEmpty()) {
-            Card(colors=CardDefaults.cardColors(containerColor=Panel), shape=RoundedCornerShape(18.dp)) {
-                Text("No message notifications captured yet. Enable Widgetly under Android Settings → Notification access, then receive a new message.", color=Muted, modifier=Modifier.padding(16.dp), fontSize=13.sp)
-            }
-        } else {
-            LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-                items(messages) { item ->
-                    Card(colors=CardDefaults.cardColors(containerColor=Panel), shape=RoundedCornerShape(14.dp), modifier=Modifier.fillMaxWidth()) {
-                        Column(Modifier.padding(14.dp), verticalArrangement=Arrangement.spacedBy(4.dp)) {
-                            Text(item.optString("source")+"  /  "+item.optString("title"), color=Lime, fontWeight=FontWeight.Bold, fontSize=12.sp)
-                            Text(item.optString("message"), color=Color.White, fontSize=14.sp)
+    var player by remember { mutableStateOf<ShelfItem?>(null) }
+    var playing by remember { mutableStateOf(false) }
+    var light by remember { mutableStateOf(prefs.getBoolean("light",false)) }
+    var query by remember { mutableStateOf("") }
+    var filter by remember { mutableStateOf("ALL") }
+    var saved by remember { mutableStateOf(prefs.getStringSet("saved",emptySet())?.toSet() ?: emptySet()) }
+    var history by remember { mutableStateOf(prefs.getStringSet("history",emptySet())?.toSet() ?: emptySet()) }
+    val bg=if(light)Lilac else Aubergine
+    val panel=if(light)Color.White else SurfaceDark
+    val text=if(light)Color(0xFF241B32) else Paper
+    val muted=if(light)Color(0xFF70677D) else Muted
+    MaterialTheme(colorScheme=if(light) lightColorScheme(primary=Magenta,background=bg,surface=panel,onSurface=text) else darkColorScheme(primary=Magenta,background=bg,surface=panel,onSurface=text)) {
+        Surface(Modifier.fillMaxSize(),color=bg) {
+            Column(Modifier.fillMaxSize()) {
+                if(player!=null) {
+                    PlayerScreen(player!!,playing,{playing=!playing},{player=null},light)
+                } else {
+                    Row(Modifier.fillMaxWidth().padding(start=20.dp,end=18.dp,top=16.dp,bottom=10.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+                        Column {
+                            Text("R U S H",color=if(light)Magenta else Mint,fontSize=12.sp,fontWeight=FontWeight.Bold,letterSpacing=4.sp)
+                            Text(when(tab){"Discover"->"Find your next thing";"News"->"A little context";"Library"->"Your collection";else->"A calmer kind of feed"},color=text,fontSize=22.sp,fontWeight=FontWeight.Bold)
+                        }
+                        TextButton(onClick={light=!light;prefs.edit().putBoolean("light",light).apply()}) { Text(if(light)"DARK ◐" else "LIGHT ◑",color=muted,fontSize=10.sp) }
+                    }
+                    Box(Modifier.weight(1f)) {
+                        when(tab) {
+                            "Discover" -> DiscoverScreen(query,{query=it},filter,{filter=it},text,muted,panel,saved,{item->player=item;playing=true;history=history+item.id;prefs.edit().putStringSet("history",history).apply()},{id->saved=if(id in saved)saved-id else saved+id;prefs.edit().putStringSet("saved",saved).apply()})
+                            "News" -> NewsScreen(text,muted,panel)
+                            "Library" -> LibraryScreen(saved,history,text,muted,panel,{id->catalog.find{it.id==id}?.let{player=it;playing=true}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()})
+                            else -> HomeScreen(text,muted,panel,{item->player=item;playing=true;history=history+item.id;prefs.edit().putStringSet("history",history).apply()},{id->saved=if(id in saved)saved-id else saved+id;prefs.edit().putStringSet("saved",saved).apply()},saved)
+                        }
+                    }
+                    if(catalog.any{it.id in history}) {
+                        val current=catalog.first{it.id in history}
+                        Row(Modifier.fillMaxWidth().padding(horizontal=14.dp,vertical=6.dp).clip(RoundedCornerShape(16.dp)).background(panel).clickable{player=current;playing=true}.padding(10.dp),verticalAlignment=Alignment.CenterVertically) {
+                            Artwork(current,Modifier.size(42.dp))
+                            Column(Modifier.weight(1f).padding(horizontal=10.dp)) { Text("NOW IN YOUR DECK",fontSize=9.sp,color=muted,letterSpacing=1.sp);Text(current.title,fontSize=13.sp,color=text,fontWeight=FontWeight.SemiBold) }
+                            Text("▶",color=Mint,fontSize=17.sp)
+                        }
+                    }
+                    NavigationBar(containerColor=panel,contentColor=text) {
+                        listOf("Home","Discover","News","Library").forEach { dest ->
+                            NavigationBarItem(selected=tab==dest,onClick={tab=dest},icon={Text(when(dest){"Home"->"⌂";"Discover"->"⌕";"News"->"▤";else->"▣"},fontSize=19.sp)},label={Text(dest,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedIconColor=Magenta,selectedTextColor=Magenta,indicatorColor=if(light)Color(0xFFF8DCE8) else SurfaceRaised,unselectedIconColor=muted,unselectedTextColor=muted))
                         }
                     }
                 }
@@ -169,23 +115,141 @@ private fun InboxPage() {
 }
 
 @Composable
-private fun WidgetsPage() {
-    val context= LocalContext.current
-    val prefs= remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
-    var note by remember { mutableStateOf(prefs.getString(NOTE_KEY,"Make today count.") ?: "") }
-    var saved by remember { mutableStateOf(false) }
-    val scope= rememberCoroutineScope()
-    Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        Text("HOME-SCREEN GADGETS", color=Lime, fontSize=11.sp, fontWeight=FontWeight.Bold, letterSpacing=1.5.sp)
-        Card(colors=CardDefaults.cardColors(containerColor=Panel), shape=RoundedCornerShape(18.dp)) {
-            Column(Modifier.padding(16.dp), verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                Text("QUICK NOTE  /  2 × 2", color=Lime, fontWeight=FontWeight.Bold)
-                OutlinedTextField(value=note, onValueChange={note=it;saved=false}, modifier=Modifier.fillMaxWidth(), label={Text("Your note")})
-                Button(onClick={prefs.edit().putString(NOTE_KEY,note.trim()).apply(); scope.launch { QuickNoteWidget().updateAll(context); saved=true }}, colors=ButtonDefaults.buttonColors(containerColor=Lime,contentColor=Ink)) { Text("Save note widget") }
-                if(saved) Text("Updated",color=Lime)
+private fun HomeScreen(text:Color,muted:Color,panel:Color,onPlay:(ShelfItem)->Unit,onSave:(String)->Unit,saved:Set<String>) {
+    LazyColumn(contentPadding=PaddingValues(start=18.dp,end=18.dp,bottom=16.dp),verticalArrangement=Arrangement.spacedBy(18.dp)) {
+        item {
+            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(Brush.linearGradient(listOf(Color(0xFF692C78),Color(0xFFCC477C),Color(0xFFEF9B4A)))).clickable{onPlay(catalog[0])}.padding(20.dp)) {
+                Column(verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                    Text("TODAY'S EDIT  /  01",color=Color.White.copy(alpha=.8f),fontSize=10.sp,letterSpacing=2.sp)
+                    Text("Good things,\nwithout the endless scroll.",color=Color.White,fontSize=27.sp,fontWeight=FontWeight.ExtraBold,lineHeight=31.sp)
+                    Text("A finite selection for your attention.",color=Color.White.copy(alpha=.9f),fontSize=13.sp)
+                    Text("PLAY THE EDIT  →",color=Color.White,fontSize=11.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp)
+                }
             }
         }
-        Text("RETRO CLOCK  /  2 × 1", color=Lime, fontWeight=FontWeight.Bold)
-        Text("Add either widget from your Android home screen's Widgets picker.", color=Muted, fontSize=12.sp)
+        item { SectionTitle("PICKED FOR YOU","06 ITEMS",muted) }
+        items(catalog.take(3)) { item->MediaRow(item,text,muted,panel,{onPlay(item)},{onSave(item.id)},item.id in saved) }
+        item { SectionTitle("A CHANGE OF PACE","NEXT UP",muted) }
+        items(catalog.drop(3)) { item->MediaRow(item,text,muted,panel,{onPlay(item)},{onSave(item.id)},item.id in saved) }
+        item { Text("THAT'S THE EDIT. COME BACK WHEN YOU'RE READY.",color=muted,fontSize=9.sp,letterSpacing=1.sp,modifier=Modifier.padding(vertical=12.dp)) }
     }
+}
+
+@Composable
+private fun DiscoverScreen(query:String,onQuery:(String)->Unit,filter:String,onFilter:(String)->Unit,text:Color,muted:Color,panel:Color,saved:Set<String>,onPlay:(ShelfItem)->Unit,onSave:(String)->Unit) {
+    val results=catalog.filter{(filter=="ALL"||it.type==filter)&&(it.title+" "+it.subtitle).contains(query,true)}
+    LazyColumn(contentPadding=PaddingValues(horizontal=18.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        item {
+            BasicTextField(value=query,onValueChange=onQuery,singleLine=true,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(panel).padding(16.dp),textStyle=TextStyle(color=text,fontSize=15.sp),decorationBox={inner->if(query.isEmpty())Text("Search music, films, videos…",color=muted);inner()})
+        }
+        item {
+            Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                listOf("ALL","MUSIC","MOVIE","VIDEO").forEach{type->FilterChip(selected=filter==type,onClick={onFilter(type)},label={Text(type,fontSize=10.sp)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Magenta,selectedLabelColor=Color.White))}
+            }
+        }
+        item { SectionTitle("THE DISCOVERY SHELF","${results.size} RESULTS",muted) }
+        items(results) { item->MediaRow(item,text,muted,panel,{onPlay(item)},{onSave(item.id)},item.id in saved) }
+        if(results.isEmpty()) item { Text("Nothing on this shelf. Try another search.",color=muted,modifier=Modifier.padding(20.dp)) }
+    }
+}
+
+@Composable
+private fun NewsScreen(text:Color,muted:Color,panel:Color) {
+    var expanded by remember{mutableIntStateOf(-1)}
+    LazyColumn(contentPadding=PaddingValues(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        item { Text("THREE STORIES. NO INFINITE FEED.",color=Mint,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.5.sp) }
+        items(stories.size) { i->
+            val story=stories[i]
+            Card(colors=CardDefaults.cardColors(containerColor=panel),shape=RoundedCornerShape(18.dp),modifier=Modifier.fillMaxWidth().clickable{expanded=if(expanded==i)-1 else i}) {
+                Column(Modifier.padding(16.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                    Text(story.source+"  ·  "+story.time,color=Magenta,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp)
+                    Text(story.title,color=text,fontSize=18.sp,fontWeight=FontWeight.Bold,lineHeight=22.sp)
+                    if(expanded==i)Text(story.body,color=muted,fontSize=14.sp)
+                    Text(if(expanded==i)"CLOSE ARTICLE  ↑" else "READ STORY  ↓",color=Mint,fontSize=10.sp,fontWeight=FontWeight.Bold)
+                }
+            }
+        }
+        item { Text("YOU'RE ALL CAUGHT UP.",color=muted,fontSize=10.sp,letterSpacing=2.sp,modifier=Modifier.padding(vertical=12.dp)) }
+    }
+}
+
+@Composable
+private fun LibraryScreen(saved:Set<String>,history:Set<String>,text:Color,muted:Color,panel:Color,onPlay:(String)->Unit,onRemove:(String)->Unit) {
+    val itemsSaved=catalog.filter{it.id in saved}
+    val recent=catalog.filter{it.id in history}
+    LazyColumn(contentPadding=PaddingValues(18.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        item { SectionTitle("SAVED FOR LATER","${itemsSaved.size} ITEMS",muted) }
+        if(itemsSaved.isEmpty())item{EmptyCard("Your saved shelf is empty. Tap the bookmark on anything worth keeping.",panel,muted)}
+        items(itemsSaved){item->MediaRow(item,text,muted,panel,{onPlay(item.id)},{onRemove(item.id)},true)}
+        item { SectionTitle("RECENTLY PLAYED","${recent.size} ITEMS",muted) }
+        if(recent.isEmpty())item{EmptyCard("Things you play will show up here.",panel,muted)}
+        items(recent){item->MediaRow(item,text,muted,panel,{onPlay(item.id)},{},false)}
+    }
+}
+
+@Composable
+private fun PlayerScreen(item:ShelfItem,playing:Boolean,onToggle:()->Unit,onBack:()->Unit,light:Boolean) {
+    val text=if(light)Color(0xFF241B32) else Paper
+    val muted=if(light)Color(0xFF70677D) else Muted
+    val panel=if(light)Color.White else SurfaceDark
+    Column(Modifier.fillMaxSize().padding(20.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.SpaceBetween) {
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+            Text("←  BACK",color=muted,fontSize=11.sp,fontWeight=FontWeight.Bold,modifier=Modifier.clickable{onBack()})
+            Text(item.type+" PLAYER",color=Mint,fontSize=10.sp,letterSpacing=2.sp)
+            Text("•••",color=muted)
+        }
+        Column(horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(18.dp)) {
+            Artwork(item,Modifier.fillMaxWidth().aspectRatio(1f))
+            Text(item.title,color=text,fontSize=24.sp,fontWeight=FontWeight.Bold)
+            Text(item.subtitle,color=muted,fontSize=13.sp)
+        }
+        Column(Modifier.fillMaxWidth(),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(16.dp)) {
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("00:42",color=muted,fontSize=10.sp);Text(item.duration,color=muted,fontSize=10.sp)}
+            Box(Modifier.fillMaxWidth().height(4.dp).clip(CircleShape).background(panel)){Box(Modifier.fillMaxWidth(.28f).fillMaxHeight().background(Brush.horizontalGradient(listOf(Magenta,Amber))))}
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceEvenly,verticalAlignment=Alignment.CenterVertically) {
+                Text("↶",color=muted,fontSize=25.sp)
+                Box(Modifier.size(66.dp).clip(CircleShape).background(Brush.linearGradient(listOf(Magenta,Amber))).clickable{onToggle()},contentAlignment=Alignment.Center){Text(if(playing)"Ⅱ" else "▶",color=Color.White,fontSize=24.sp)}
+                Text("↷",color=muted,fontSize=25.sp)
+            }
+            Text(if(playing)"PLAYING PREVIEW" else "PAUSED",color=Mint,fontSize=9.sp,letterSpacing=2.sp)
+        }
+    }
+}
+
+@Composable
+private fun MediaRow(item:ShelfItem,text:Color,muted:Color,panel:Color,onPlay:()->Unit,onSave:()->Unit,isSaved:Boolean) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(18.dp)).background(panel).padding(10.dp),verticalAlignment=Alignment.CenterVertically) {
+        Artwork(item,Modifier.size(82.dp).clickable{onPlay()})
+        Column(Modifier.weight(1f).padding(horizontal=12.dp),verticalArrangement=Arrangement.spacedBy(3.dp)) {
+            Text(item.type,color=Mint,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=1.3.sp)
+            Text(item.title,color=text,fontSize=15.sp,fontWeight=FontWeight.Bold,maxLines=1,overflow=TextOverflow.Ellipsis)
+            Text(item.subtitle,color=muted,fontSize=11.sp,maxLines=1,overflow=TextOverflow.Ellipsis)
+            Text(item.duration,color=muted,fontSize=9.sp)
+        }
+        Column(horizontalAlignment=Alignment.CenterHorizontally) {
+            Text(if(isSaved)"♥" else "＋",color=if(isSaved)Magenta else muted,fontSize=19.sp,modifier=Modifier.clickable{onSave()}.padding(6.dp))
+            Text("▶",color=Magenta,fontSize=15.sp,modifier=Modifier.clickable{onPlay()}.padding(6.dp))
+        }
+    }
+}
+
+@Composable
+private fun Artwork(item:ShelfItem,modifier:Modifier=Modifier) {
+    Box(modifier.clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(item.art)),contentAlignment=Alignment.Center) {
+        Text(when(item.type){"MUSIC"->"◉";"MOVIE"->"▰";else->"▻"},color=Color.White.copy(alpha=.88f),fontSize=42.sp,fontWeight=FontWeight.Light)
+        Text(item.title.take(1).uppercase(),color=Color.White.copy(alpha=.25f),fontSize=78.sp,fontWeight=FontWeight.Black)
+    }
+}
+
+@Composable
+private fun SectionTitle(title:String,count:String,muted:Color) {
+    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+        Text(title,color=muted,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.4.sp)
+        Text(count,color=muted,fontSize=9.sp)
+    }
+}
+
+@Composable
+private fun EmptyCard(message:String,panel:Color,muted:Color) {
+    Card(colors=CardDefaults.cardColors(containerColor=panel),shape=RoundedCornerShape(16.dp)){Text(message,color=muted,fontSize=13.sp,modifier=Modifier.padding(16.dp))}
 }
