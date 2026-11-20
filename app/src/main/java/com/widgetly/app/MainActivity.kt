@@ -489,6 +489,20 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
        playlistMessage="Queued $queued of ${playlist.itemIds.size} playlist downloads."
       }
      }){Text("Download all",color=magenta,fontSize=10.sp)}
+     if(tracks.any{it.music})TextButton(onClick={
+      scope.launch {
+       playlistMessage="Preparing MP3 album downloads…"
+       var queuedMp3=0
+       for(track in tracks.filter{it.music}){
+        try{
+         val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.id,true)}
+         withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,track.id,track.title,track.creator,true,resolved,transcodeToMp3=true)}
+         queuedMp3++
+        }catch(_:Exception){}
+       }
+       playlistMessage="Queued $queuedMp3 MP3 conversion downloads."
+      }
+     }){Text("MP3 audio",color=magenta,fontSize=10.sp)}
      if(tracks.isNotEmpty())TextButton(onClick={playQueue(tracks)}){Text("Play all",color=magenta,fontSize=10.sp)}
      TextButton(onClick={playlists=PlaylistStore.delete(prefs,playlist.id)}){Text("Delete",color=muted,fontSize=10.sp)}
     }
