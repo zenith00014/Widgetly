@@ -38,7 +38,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  var tab by remember{mutableStateOf("Home")};var light by remember{mutableStateOf(prefs.getBoolean("light",false))}
  var active by remember{mutableStateOf<Pick?>(null)}
  var saved by remember{mutableStateOf(prefs.getStringSet("saved",emptySet())?.toSet()?:emptySet())}
- var history by remember{mutableStateOf(prefs.getStringSet("history",emptySet())?.toList()?:emptyList())}
+ var history by remember{mutableStateOf(loadHistory(prefs))}}
  var metadata by remember{mutableStateOf(loadPickMetadata(prefs))}
  val bg=if(light)lilac else bgDark;val surface=if(light)Color.White else panelDark
  val ink=if(light)Color(0xFF241B32) else paper;val muted=if(light)Color(0xFF70677D) else mutedDark
@@ -52,7 +52,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
     }
     Box(Modifier.weight(1f)){
      when(tab){
-      "Discover"->LiveDiscover(ink,muted,surface,saved,{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()},{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Live YouTube result");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};prefs.edit().putStringSet("history",history.toSet()).apply()})
+      "Discover"->LiveDiscover(ink,muted,surface,saved,{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()},{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Live YouTube result");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};persistHistory(prefs,history)})
       "Downloads"->DownloadsScreen(ink,muted,surface,{media->active=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath)})
       "Subscriptions"->SubscriptionsScreen(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Latest upload");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};prefs.edit().putStringSet("history",history.toSet()).apply()})
       "Library"->Library(saved,history,metadata,prefs,ink,muted,surface,{id->metadata[id]?.let{active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()})
@@ -66,6 +66,15 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  }
 }
 private fun toggle(s:Set<String>,id:String)=if(id in s)s-id else s+id
+private fun loadHistory(prefs:android.content.SharedPreferences):List<String>{
+ val ordered=runCatching{org.json.JSONArray(prefs.getString("history_order","[]")?:"[]")}.getOrDefault(org.json.JSONArray())
+ if(ordered.length()>0)return (0 until ordered.length()).mapNotNull{ordered.optString(it).takeIf(String::isNotBlank)}
+ return prefs.getStringSet("history",emptySet())?.toList().orEmpty()
+}
+private fun persistHistory(prefs:android.content.SharedPreferences,history:List<String>){
+ val ordered=org.json.JSONArray();history.distinct().take(200).forEach(ordered::put)
+ prefs.edit().putString("history_order",ordered.toString()).putStringSet("history",history.toSet()).apply()
+}
 private fun loadPickMetadata(prefs:android.content.SharedPreferences):Map<String,Pick>{
  val root=runCatching{org.json.JSONObject(prefs.getString("item_metadata","{}")?:"{}")}.getOrDefault(org.json.JSONObject())
  val result=linkedMapOf<String,Pick>()
