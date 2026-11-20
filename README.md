@@ -1,6 +1,14 @@
 # Nexus — personal Android app
 
-Nexus is a private, single-owner Android app for one person's daily use. It is not a public service, commercial product, or multi-user platform. Build decisions should favor usefulness on the owner's phone, low storage and battery use, simple maintenance, and local-first personal data.
+Nexus is a private, single-owner Android app for one person's daily use. It is not a public service, commercial product, or multi-user platform. Build decisions favor usefulness on the owner's phone, low storage and battery use, simple maintenance, and local-first personal data.
+
+## Product architecture
+
+- **DM:** Beeper is the chosen messaging client. Nexus should hand off to the installed Beeper app or an explicitly supported Beeper integration. Do not describe Android notification previews as full synchronized chats. Matrix/mautrix bridges are server-side integrations, not an embeddable Android SDK.
+- **YouTube:** LibreTube is the chosen YouTube client/engine. Its Android application is not a drop-in SDK; integration must be through a maintained fork/module or a clearly labelled app handoff. Do not silently fall back to a YouTube WebView and call it LibreTube.
+- **Music:** LibreTube is also the selected music source for online playback. Local audio playback can remain available as a fallback.
+- **Movies:** Provider FTP server at `192.168.100.100:21`, anonymous login, passive mode, root-level individual video files. Catalogue metadata is cached locally; manual refresh is available. Playback uses Media3 with an FTP DataSource supporting byte-range restart where the server permits it. This feature is available only on the provider network.
+- **Home / Discover / Library / Settings:** retain the personal, finite-session and local-first principles below.
 
 ## Personal app principles
 
@@ -13,17 +21,15 @@ Nexus is a private, single-owner Android app for one person's daily use. It is n
 
 ## Main areas
 
-- **Home:** a concise personal dashboard with a small, finite selection of useful content.
-- **Discover:** finite Videos, News, and Movies shelves with selectable curated sources, a configurable session size, daily item/time budgets, and a stopping screen. No endless feed, autoplay, or engagement loops.
-- **Videos:** curated YouTube channel feeds with thumbnails and in-app embedded playback. YouTube controls its player and may show ads.
-- **News:** selectable RSS sources with thumbnails where available; open articles in an in-app reader and save a bounded, text-only copy for offline reading when the publisher exposes readable paragraphs.
-- **Movies:** public catalog discovery and in-app playback when an item is legally available and embeddable.
-- **Inbox:** search and filter notification previews by app, remove individual previews or clear history, use Android quick-reply actions while available, and otherwise hand off to the original app. This is not full private-chat synchronization.
+- **Home:** concise personal dashboard with a finite selection of useful content.
+- **Discover:** finite Videos, News, and Movies shelves with selectable curated sources, configurable session size, daily item/time budgets, and a stopping screen. No endless feed, autoplay, or engagement loops.
+- **Videos / Music:** LibreTube-backed online YouTube and music experience; local audio remains a separate fallback.
+- **News:** selectable RSS sources with thumbnails where available; in-app reader and bounded text-only offline copies when readable paragraphs are exposed.
+- **Movies:** anonymous FTP catalogue, local cached index, search, favorites, recent playback and in-app Media3 playback.
+- **DM / Inbox:** Beeper handoff for full messaging. Android notification previews and quick-reply actions remain a separate optional inbox capability, not a replacement for Beeper conversations.
 - **Contacts:** choose individual phone contacts through Android's system picker; call and SMS shortcuts hand off to the phone's own apps.
-- **Music:** choose local audio files with Android's document picker and play them in Nexus. The current player is local-file focused; background media notification controls are not yet implemented.
-- **Library:** personal saved videos, articles and films with filters, plus a local personal note. Nexus does not include home-screen widgets.
-- **Settings:** source selection, session and daily item/time limits, notification-access help, JSON backup/restore, and a confirmed clear-all-data action.
-- **Widgets:** removed. Nexus no longer includes home-screen widgets or the Glance dependency.
+- **Library:** personal saved media and notes with filters.
+- **Settings:** source selection, session and daily item/time limits, notification-access help, JSON backup/restore, and confirmed clear-all-data action.
 
 ## Build and test
 
@@ -31,12 +37,10 @@ Requirements: JDK 17, Android SDK 35, Gradle 8.9 (or Android Studio).
 
     gradle :app:assembleDebug
 
-APK output: app/build/outputs/apk/debug/app-debug.apk.
-
-GitHub Actions builds a debug APK for the owner's testing. The latest verified build is available from [the Nexus build workflow](https://github.com/zenith00014/Widgetly/actions/runs/44711799043). A public release pipeline, store listing, signing/release automation, and distribution infrastructure are out of scope unless requested.
+APK output: app/build/outputs/apk/debug/app-debug.apk. GitHub Actions builds a debug APK for the owner's testing. Build success must be verified before distributing an APK.
 
 ## Platform boundaries
 
-Android notification access can expose notification content and sometimes a reply action. It does not grant unrestricted access to private chats, message history, or sending APIs. Nexus must clearly distinguish a notification preview from a full conversation. Do not scrape private app databases or bypass platform protections.
+Android notification access can expose notification content and sometimes a reply action. It does not grant unrestricted access to private chats, message history, or sending APIs. Nexus must clearly distinguish a notification preview from a full conversation.
 
-YouTube playback remains subject to YouTube's player and ad policies. News embeds depend on publisher restrictions. Movie playback depends on the catalog item's availability and rights.
+LibreTube is an Android application, not a general-purpose playback SDK. A genuine embedded integration requires a maintained fork/module or app handoff and must comply with its license and upstream changes. Beeper integrations likewise depend on supported app/bridge interfaces. The FTP server's support for REST byte ranges and seek operations must be tested on the owner's Wi-Fi network.
