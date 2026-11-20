@@ -62,7 +62,10 @@ object LiveYouTubeSearch {
                 val channel = value.optJSONObject("channelRenderer")
                 if (channel != null && channels) addChannel(channel, out)
                 val playlist = value.optJSONObject("playlistRenderer")
+                    ?: value.optJSONObject("compactPlaylistRenderer")
                 if (playlist != null && playlists) addPlaylist(playlist, out)
+                val playlistVideo = value.optJSONObject("playlistVideoRenderer")
+                if (playlistVideo != null && !music) addPlaylistVideo(playlistVideo, out)
                 val keys = value.keys()
                 while (keys.hasNext()) collect(value.opt(keys.next()), out, music, channels, playlists)
             }
@@ -106,6 +109,17 @@ object LiveYouTubeSearch {
                 collectionId = playlistId
             )
         )
+    }
+
+    private fun addPlaylistVideo(item: JSONObject, out: MutableMap<String, YouTubeSearchResult>) {
+        val id = item.optString("videoId")
+        val title = text(item.optJSONObject("title"))
+        if (id.isBlank() || title.isBlank()) return
+        val creator = text(item.optJSONObject("shortBylineText"))
+            .ifBlank { text(item.optJSONObject("longBylineText")) }
+            .ifBlank { "YouTube creator" }
+        val duration = text(item.optJSONObject("lengthText"))
+        out.putIfAbsent(id, YouTubeSearchResult(id, title, creator, duration, false))
     }
 
     @Throws(IOException::class)
