@@ -76,3 +76,39 @@ object PlaylistStore {
         prefs.edit().putString(KEY, array.toString()).apply()
     }
 }
+
+
+object QueueStore {
+    private const val KEY = "playback_queue"
+
+    fun load(prefs: SharedPreferences): List<String> {
+        val array = runCatching { JSONArray(prefs.getString(KEY, "[]") ?: "[]") }
+            .getOrDefault(JSONArray())
+        return (0 until array.length()).mapNotNull { array.optString(it).takeIf(String::isNotBlank) }
+    }
+
+    fun add(prefs: SharedPreferences, itemId: String): List<String> {
+        if (itemId.isBlank()) return load(prefs)
+        val updated = (load(prefs) + itemId).takeLast(500)
+        save(prefs, updated)
+        return updated
+    }
+
+    fun removeAt(prefs: SharedPreferences, index: Int): List<String> {
+        val updated = load(prefs).toMutableList()
+        if (index in updated.indices) updated.removeAt(index)
+        save(prefs, updated)
+        return updated
+    }
+
+    fun clear(prefs: SharedPreferences): List<String> {
+        save(prefs, emptyList())
+        return emptyList()
+    }
+
+    private fun save(prefs: SharedPreferences, ids: List<String>) {
+        val array = JSONArray()
+        ids.forEach(array::put)
+        prefs.edit().putString(KEY, array.toString()).apply()
+    }
+}
