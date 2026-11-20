@@ -1,43 +1,37 @@
 # Nexus — personal Android app
 
-Nexus is a private, single-owner Android app for one person's daily use. It is not a public service, commercial product, or multi-user platform. Build decisions favor usefulness on the owner's phone, low storage and battery use, simple maintenance, and local-first personal data.
+Nexus is a private, single-owner Android app. It is not a public service or commercial product. Priorities are low storage and battery use, local-first personal data, and useful in-app experiences without unnecessary infrastructure.
 
 ## Product architecture
 
-- **DM:** Nexus now includes an in-app Matrix client: sign in to a Matrix-compatible homeserver, list joined rooms, create direct rooms, read recent messages, and send text messages. Homeservers with mautrix or other bridges can expose supported third-party networks. Beeper's private bridge infrastructure is not assumed to be a public API; using a Beeper account requires a supported Matrix login and server-side bridge access.\n- **YouTube + Music:** Nexus now includes an in-app Piped-compatible client with YouTube video/music search, thumbnail results, stream resolution, and Media3 playback. It does not launch LibreTube. The public API endpoint is configurable because public instances can fail or rate-limit. This is a LibreTube-style independent client implementation, not a copied LibreTube app module.\n- **Movies:** Provider FTP server at `192.168.100.100:21`, anonymous login, passive mode, root-level individual video files. The screen caches the catalogue locally, supports search and manual refresh, and uses Media3 with a custom FTP DataSource for in-app playback. Seeking depends on server REST support. This feature is available only on the provider network; artwork, favorites and resume history are not yet implemented.
+- **DM:** An in-app Matrix client supports homeserver sign-in, joined-room listing, direct-room creation, recent message history, and sending text messages. Matrix homeservers with mautrix or other bridges can expose third-party networks. Beeper's private bridge infrastructure is not treated as a public API; access to bridged networks depends on the account and homeserver configuration.
+- **YouTube + Music:** An in-app Piped-compatible client searches YouTube videos and music, displays thumbnails and metadata, resolves streams, and plays them with Android Media3. The API endpoint is configurable because public instances can fail or rate-limit. This is an independent LibreTube-style client, not a copied LibreTube app module.
+- **Movies:** Provider FTP server at `192.168.100.100:21`, anonymous login, passive mode, root-level individual video files. Nexus caches the catalogue locally, supports search and manual refresh, and uses Media3 with a custom FTP DataSource for playback. Seeking depends on FTP REST support. Only available on the provider network.
 - **Home / Discover / Library / Settings:** retain the personal, finite-session and local-first principles below.
-
-## Personal app principles
-
-- No public registration, profiles, subscriptions, ads, monetization, public discovery, or multi-user backend.
-- No analytics or telemetry unless explicitly requested by the owner.
-- Keep personal settings, saved items, notes, and contact preferences on-device by default.
-- Ask Android permissions only when the owner enables the corresponding feature.
-- Avoid adding abstractions, infrastructure, or settings that do not solve the owner's actual use cases.
-- Prefer free sources and integrations; never imply a platform provides access it does not expose.
 
 ## Main areas
 
-- **Home:** concise personal dashboard with a finite selection of useful content.
-- **Discover:** finite Videos, News, and Movies shelves with selectable curated sources, configurable session size, daily item/time budgets, and a stopping screen. No endless feed, autoplay, or engagement loops.
-- **Videos / Music:** in-app YouTube and music search/playback through a configurable Piped-compatible endpoint; local audio remains a separate fallback.
-- **News:** selectable RSS sources with thumbnails where available; in-app reader and bounded text-only offline copies when readable paragraphs are exposed.
-- **Movies:** anonymous FTP catalogue, local cached index, search, favorites, recent playback and in-app Media3 playback.
-- **DM / Inbox:** in-app Matrix client for Matrix-compatible accounts and bridge-enabled networks. Android notification previews remain separate.
-- **Contacts:** choose individual phone contacts through Android's system picker; call and SMS shortcuts hand off to the phone's own apps.
-- **Library:** personal saved media and notes with filters.
-- **Settings:** source selection, session and daily item/time limits, notification-access help, JSON backup/restore, and confirmed clear-all-data action.
+- **Home:** concise personal dashboard.
+- **Discover:** finite Videos, News, and Movies shelves with curated sources, configurable session size and daily item/time budgets. No endless feed or autoplay.
+- **DM / Inbox:** native Matrix messaging UI. Notification previews remain a separate optional Android capability.
+- **YouTube / Music:** in-app search, thumbnails, stream resolution, video playback and audio playback through a configurable Piped-compatible API.
+- **Movies:** anonymous FTP catalogue, local cached index, search and in-app Media3 playback.
+- **News:** RSS sources with thumbnails where available, in-app reader and text-only offline copies.
+- **Library:** saved media, notes and selected contact shortcuts.
+- **Settings:** source selection, session limits, notification access, backup/restore and clear-data controls.
 
 ## Build and test
 
-Requirements: JDK 17, Android SDK 35, Gradle 8.9 (or Android Studio).
+Requirements: JDK 17, Android SDK 35, Gradle 8.9.
 
     gradle :app:assembleDebug
 
-APK output: app/build/outputs/apk/debug/app-debug.apk. GitHub Actions builds a debug APK for the owner's testing. Build success must be verified before distributing an APK.
+APK output: `app/build/outputs/apk/debug/app-debug.apk`. GitHub Actions builds a debug APK. A successful CI build is not a substitute for testing the FTP server, Matrix account and media API on the owner's phone.
 
-## Platform boundaries
+## Integration boundaries
 
-Android notification access can expose notification content and sometimes a reply action. It does not grant unrestricted access to private chats, message history, or sending APIs. Nexus must clearly distinguish a notification preview from a full conversation.
-
-Nexus's media client is an independent Piped-compatible implementation inspired by LibreTube's user experience; it does not embed LibreTube source code. Matrix is an open protocol, but third-party network bridges must be configured on the homeserver. Nexus does not have a private Beeper API integration. The FTP server's support for REST byte ranges and seek operations must be tested on the owner's Wi-Fi network.
+- Matrix is an open protocol. A Matrix account can message other Matrix users; WhatsApp, Telegram and other networks require working bridges configured for that account. Nexus does not have a private Beeper API integration.
+- Nexus's YouTube/music implementation uses a Piped-compatible public or self-hosted API. Search and extraction availability depend on the selected instance and upstream YouTube changes. Do not promise permanent availability or ad-free playback.
+- This client is an independent implementation inspired by LibreTube's experience; it does not embed LibreTube source code. If LibreTube source is incorporated later, comply with its GPL-3.0-or-later license.
+- FTP playback depends on server support for passive data connections and REST byte ranges. Verify on the provider Wi-Fi network.
+- Android notification access exposes notification previews and sometimes quick-reply actions; it does not grant unrestricted private-chat access.
