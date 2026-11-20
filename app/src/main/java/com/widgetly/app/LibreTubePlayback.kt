@@ -20,6 +20,8 @@ import java.io.IOException
  * Uses the same NewPipe extraction path used by LibreTube to resolve YouTube
  * metadata and selectable audio/video stream URLs.
  */
+data class ResolvedMedia(val url: String, val extension: String, val mimeType: String, val qualityLabel: String)
+
 object LibreTubePlayback {
     @Volatile private var initialized = false
     private val client = OkHttpClient()
@@ -60,17 +62,27 @@ object LibreTubePlayback {
         }
     }
 
-    fun resolve(input: String, audioOnly: Boolean): String {
+    fun resolve(input: String, audioOnly: Boolean): String =
+        resolveMedia(input, audioOnly).url
+
+    fun resolveMedia(input: String, audioOnly: Boolean, maxHeight: Int? = null): ResolvedMedia {
         initialize()
         val videoId = extractVideoId(input)
         val info = StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId")
         val stream = if (audioOnly) {
             info.audioStreams.maxByOrNull { it.averageBitrate }
         } else {
-            info.videoStreams.maxByOrNull { it.height }
+            val candidates = info.videoStreams.filter { maxHeight == null || it.height <= maxHeight }
+            (candidates.ifEmpty { info.videoStreams }).maxByOrNull { it.height }
+        } ?: throw IOException(if (audioOnly) "No playable audio stream was found." else "No playable video stream was found.")
+        if (!stream.isUrl || stream.content.isBlank()) {
+            throw IOException("The extractor did not return a direct stream URL.")
         }
-        return stream?.content?.takeIf { it.isNotBlank() }
-            ?: throw IOException(if (audioOnly) "No playable audio stream was found." else "No playable video stream was found.")
+        val format = stream.format
+        val extension = format?.suffix?.takeIf { it.isNotBlank() } ?: if (audioOnly) "m4a" else "mp4"
+        val mimeType = format?.mimeType?.takeIf { it.isNotBlank() } ?: if (audioOnly) "audio/*" else "video/*"
+        val quality = if (audioOnly) "${stream.averageBitrate / 1000} kbps" else "${stream.height}p"
+        return ResolvedMedia(stream.content, extension, mimeType, quality)
     }
 
     private fun extractVideoId(input: String): String {
