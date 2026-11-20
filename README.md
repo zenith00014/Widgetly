@@ -18,9 +18,11 @@ Nexus is a private, single-owner Android app for one person's daily use. It is n
 - **Videos:** curated YouTube channel feeds with thumbnails and in-app embedded playback. YouTube controls its player and may show ads.
 - **News:** RSS/Atom sources with thumbnails where available; open articles in an in-app reader when the publisher permits it.
 - **Movies:** public catalog discovery and in-app playback when an item is legally available and embeddable.
-- **Inbox:** a personal hybrid inbox. Collect supported app notifications, show previews, use Android notification quick-reply actions when present, and otherwise hand off to the original app. This is not full private-chat synchronization.
-- **Contacts:** personal contacts and shortcuts, not a public user directory. Add only the contact workflow the owner actually needs.
-- **Library:** personal saved items and notes stored on-device. Nexus does not include home-screen widgets.
+- **Inbox:** search and filter notification previews by app, remove individual previews or clear history, use Android quick-reply actions while available, and otherwise hand off to the original app. This is not full private-chat synchronization.
+- **Contacts:** choose individual phone contacts through Android's system picker; call and SMS shortcuts hand off to the phone's own apps.
+- **Music:** choose local audio files with Android's document picker and play them in Nexus. The current player is local-file focused; background media notification controls are not yet implemented.
+- **Library:** personal saved videos, articles and films with filters, plus a local personal note. Nexus does not include home-screen widgets.
+- **Settings:** local session and daily item limits, privacy explanations, and JSON backup/restore for personal app data.
 
 ## Build and test
 
