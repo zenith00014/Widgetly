@@ -31,7 +31,7 @@ private val paper=Color(0xFFF6F1FB)
 private val lilac=Color(0xFFE9E7F1)
 private val mutedDark=Color(0xFFBDB3CA)
 
-private data class Pick(val id:String,val title:String,val creator:String,val music:Boolean,val colors:List<Color>,val reason:String)
+private data class Pick(val id:String,val title:String,val creator:String,val music:Boolean,val colors:List<Color>,val reason:String,val localPath:String?=null)
 private val picks=listOf(
  Pick("v1","The craft behind a great scene","Frame by Frame",false,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"A thoughtful look at visual storytelling."),
  Pick("v2","A field recording from the coast","Open Ear",false,listOf(Color(0xFF27645F),Color(0xFF83B6A2)),"For a quieter moment."),
@@ -59,19 +59,19 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
    if(active!=null)RushPlayer(active!!,light){active=null}
    else{
     Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=14.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
-     Column{Text("RUSH",color=if(light)magenta else mint,fontSize=12.sp,fontWeight=FontWeight.Bold,letterSpacing=3.sp);Text(when(tab){"Discover"->"Find your next favourite";"News"->"A little context";"Library"->"Your collection";else->"Your daily signal"},color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold)}
+     Column{Text("RUSH",color=if(light)magenta else mint,fontSize=12.sp,fontWeight=FontWeight.Bold,letterSpacing=3.sp);Text(when(tab){"Discover"->"Find your next favourite";"Downloads"->"Offline library";"Library"->"Your collection";else->"Your daily signal"},color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold)}
      TextButton(onClick={light=!light;prefs.edit().putBoolean("light",light).apply()}){Text(if(light)"Dark theme" else "Light theme",color=muted)}
     }
     Box(Modifier.weight(1f)){
      when(tab){
       "Discover"->LiveDiscover(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Live YouTube result");active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};prefs.edit().putStringSet("history",history.toSet()).apply()})
-      "News"->News(ink,muted,surface)
+      "Downloads"->DownloadsScreen(ink,muted,surface,{media->active=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath)})
       "Library"->Library(saved,history,ink,muted,surface,{id->picks.find{it.id==id}?.let{active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()})
       else->Home(ink,muted,surface,saved,{open(it){active=it;history=listOf(it.id)+history.filterNot{x->x==it.id};prefs.edit().putStringSet("history",history.toSet()).apply()}},{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()})
      }
     }
     if(history.isNotEmpty())picks.find{it.id==history.first()}?.let{recent->Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=5.dp).clip(RoundedCornerShape(15.dp)).background(surface).clickable{active=recent}.padding(9.dp),verticalAlignment=Alignment.CenterVertically){Cover(recent,Modifier.size(40.dp));Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text("PICK UP WHERE YOU LEFT OFF",fontSize=9.sp,color=muted);Text(recent.title,fontSize=13.sp,color=ink)};Text("▶",color=magenta)}}
-    NavigationBar(containerColor=surface){listOf("Home","Discover","News","Library").forEach{dest->NavigationBarItem(selected=tab==dest,onClick={tab=dest;query=""},icon={Text(when(dest){"Home"->"⌂";"Discover"->"⌕";"News"->"▤";else->"▣"},fontSize=19.sp)},label={Text(dest,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedIconColor=magenta,selectedTextColor=magenta,indicatorColor=if(light)Color(0xFFF8DCE8)else raised,unselectedIconColor=muted,unselectedTextColor=muted))}}
+    NavigationBar(containerColor=surface){listOf("Home","Discover","Downloads","Library").forEach{dest->NavigationBarItem(selected=tab==dest,onClick={tab=dest;query=""},icon={Text(when(dest){"Home"->"⌂";"Discover"->"⌕";"Downloads"->"⇩";else->"▣"},fontSize=19.sp)},label={Text(dest,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedIconColor=magenta,selectedTextColor=magenta,indicatorColor=if(light)Color(0xFFF8DCE8)else raised,unselectedIconColor=muted,unselectedTextColor=muted))}}
    }
   }}
  }
