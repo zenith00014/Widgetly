@@ -14,7 +14,6 @@ import androidx.glance.layout.Column
 import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
-import androidx.glance.layout.defaultWeight
 import androidx.glance.layout.width
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
@@ -47,7 +46,7 @@ class RetroClockWidget : GlanceAppWidget() {
                         color = ColorProvider(Color(0xFFC5E879)),
                         fontWeight = FontWeight.Bold
                     ))
-                    Spacer(GlanceModifier.defaultWeight())
+                    Spacer(GlanceModifier.width(6.dp))
                     Text("●", style = TextStyle(color = ColorProvider(Color(0xFFC5E879))))
                 }
                 Spacer(GlanceModifier.height(8.dp))
