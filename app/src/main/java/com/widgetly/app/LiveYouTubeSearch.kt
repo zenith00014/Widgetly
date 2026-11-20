@@ -7,7 +7,18 @@ import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
 import org.json.JSONObject
 import java.io.IOException
+import java.util.Locale
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
+import org.schabi.newpipe.extractor.InfoItem
+import org.schabi.newpipe.extractor.Page
+import org.schabi.newpipe.extractor.ServiceList
+import org.schabi.newpipe.extractor.channel.ChannelInfo
+import org.schabi.newpipe.extractor.channel.ChannelInfoItem
+import org.schabi.newpipe.extractor.playlist.PlaylistInfoItem
+import org.schabi.newpipe.extractor.search.SearchExtractor
+import org.schabi.newpipe.extractor.stream.StreamInfoItem
 
 data class YouTubeSearchPage(val items: List<YouTubeSearchResult>, val continuation: String?)
 
@@ -31,6 +42,8 @@ object LiveYouTubeSearch {
         .callTimeout(25, TimeUnit.SECONDS)
         .build()
     private val jsonType = "application/json; charset=utf-8".toMediaType()
+    private data class SearchCursor(val extractor: SearchExtractor, val page: Page)
+    private val searchCursors = ConcurrentHashMap<String, List<SearchCursor>>()
 
     @Throws(IOException::class)
     fun search(query: String, music: Boolean = false, channels: Boolean = false, playlists: Boolean = false): List<YouTubeSearchResult> =
@@ -39,20 +52,31 @@ object LiveYouTubeSearch {
     @Throws(IOException::class)
     fun searchPage(query: String, music: Boolean = false, channels: Boolean = false, playlists: Boolean = false): YouTubeSearchPage {
         require(query.isNotBlank()) { "Enter something to search for." }
+        if (!music) {
+            runCatching {
+                val filter = when {
+                    channels -> "channels"
+                    playlists -> "playlists"
+                    else -> "videos"
+                }
+                searchWithNewPipe(query, listOf(filter), false)
+            }.getOrNull()?.let { if (it.items.isNotEmpty() || it.continuation != null) return it }
+        } else {
+            runCatching {
+                searchWithNewPipe(query, listOf("music_songs", "music_albums"), true)
+            }.getOrNull()?.let { if (it.items.isNotEmpty() || it.continuation != null) return it }
+        }
         val body = searchContext(music)
             .put("query", query)
             .apply {
-                if (!music) {
-                    put("params", when {
-                        channels -> "EgIQAg=="
-                        playlists -> "EgIQAw=="
-                        else -> "EgIQAQ=="
-                    })
-                }
+                if (!music) put("params", when {
+                    channels -> "EgIQAg=="
+                    playlists -> "EgIQAw=="
+                    else -> "EgIQAQ=="
+                })
             }
         val primary = executeSearch(body, music, channels, playlists)
         if (music || primary.items.size >= 8) return primary
-        // Retry a sparse filtered search without restrictive params to recover hidden matches.
         val fallback = searchContext(false).put("query", query)
         val broad = executeSearch(fallback, false, channels, playlists)
         return YouTubeSearchPage((primary.items + broad.items).distinctBy { resultKey(it) }.take(40), broad.continuation ?: primary.continuation)
@@ -66,8 +90,146 @@ object LiveYouTubeSearch {
         playlists: Boolean = false
     ): YouTubeSearchPage {
         require(continuation.isNotBlank()) { "No more search results are available." }
+        val cursors = searchCursors.remove(continuation)
+        if (!cursors.isNullOrEmpty()) {
+            val found = LinkedHashMap<String, YouTubeSearchResult>()
+            val nextCursors = ArrayList<SearchCursor>()
+            cursors.forEach { cursor ->
+                runCatching {
+                    val page = cursor.extractor.getPage(cursor.page)
+                    page.items.mapNotNull(::fromExtractorItem).forEach { found.putIfAbsent(resultKey(it), it) }
+                    page.nextPage?.let { nextCursors += SearchCursor(cursor.extractor, it) }
+                }
+            }
+            return YouTubeSearchPage(found.values.take(40), saveCursors(nextCursors))
+        }
         val body = searchContext(music).put("continuation", continuation)
         return executeSearch(body, music, channels, playlists)
+    }
+
+    private fun searchWithNewPipe(query: String, filters: List<String>, music: Boolean): YouTubeSearchPage {
+        LibreTubePlayback.initialize()
+        val service = ServiceList.YouTube
+        val found = LinkedHashMap<String, YouTubeSearchResult>()
+        val nextCursors = ArrayList<SearchCursor>()
+        var lastError: Exception? = null
+        filters.forEach { filter ->
+            try {
+                val extractor = service.getSearchExtractor(query, listOf(filter), "")
+                extractor.fetchPage()
+                val page = extractor.initialPage
+                page.items.mapNotNull(::fromExtractorItem).forEach { found.putIfAbsent(resultKey(it), it.copy(isMusic = music || it.isMusic)) }
+                page.nextPage?.let { nextCursors += SearchCursor(extractor, it) }
+            } catch (error: Exception) {
+                lastError = error
+            }
+        }
+        if (found.isEmpty() && nextCursors.isEmpty() && lastError != null) throw lastError!!
+        return YouTubeSearchPage(found.values.take(40), saveCursors(nextCursors))
+    }
+
+    private fun saveCursors(cursors: List<SearchCursor>): String? {
+        if (cursors.isEmpty()) return null
+        val token = UUID.randomUUID().toString()
+        searchCursors[token] = cursors
+        return token
+    }
+
+    private fun fromExtractorItem(item: InfoItem): YouTubeSearchResult? {
+        val thumbnail = item.thumbnails.lastOrNull()?.url.orEmpty()
+        return when (item) {
+            is StreamInfoItem -> {
+                if (item.isShortFormContent) return null
+                val id = extractVideoIdOrNull(item.url) ?: return null
+                YouTubeSearchResult(
+                    videoId = id,
+                    title = item.name.orEmpty(),
+                    creator = item.uploaderName.orEmpty().ifBlank { "YouTube creator" },
+                    duration = formatDuration(item.duration),
+                    isMusic = false,
+                    thumbnailUrl = thumbnail
+                )
+            }
+            is ChannelInfoItem -> {
+                val rawUrl = item.url.orEmpty()
+                val id = Regex("""/channel/(UC[A-Za-z0-9_-]+)""").find(rawUrl)?.groupValues?.get(1)
+                    ?: rawUrl
+                if (id.isBlank()) return null
+                YouTubeSearchResult(
+                    videoId = "",
+                    title = item.name.orEmpty(),
+                    creator = formatCount(item.subscriberCount).ifBlank { "YouTube channel" },
+                    duration = "",
+                    isMusic = false,
+                    isChannel = true,
+                    channelId = id,
+                    description = item.description.orEmpty(),
+                    videoCount = formatCount(item.streamCount),
+                    thumbnailUrl = thumbnail
+                )
+            }
+            is PlaylistInfoItem -> {
+                val rawUrl = item.url.orEmpty()
+                val id = Regex("[?&]list=([^&]+)").find(rawUrl)?.groupValues?.get(1)
+                    ?: Regex("/browse/([^/?]+)").find(rawUrl)?.groupValues?.get(1)
+                    ?: return null
+                YouTubeSearchResult(
+                    videoId = "",
+                    title = item.name.orEmpty(),
+                    creator = item.uploaderName.orEmpty().ifBlank { "YouTube playlist" },
+                    duration = formatCount(item.streamCount),
+                    isMusic = false,
+                    isCollection = true,
+                    collectionId = id,
+                    videoCount = formatCount(item.streamCount),
+                    thumbnailUrl = thumbnail
+                )
+            }
+            else -> null
+        }
+    }
+
+    fun channelDetails(channel: YouTubeSearchResult): YouTubeSearchResult {
+        LibreTubePlayback.initialize()
+        val url = if (channel.channelId.startsWith("http", ignoreCase = true)) channel.channelId
+            else "https://www.youtube.com/channel/" + channel.channelId
+        val info = ChannelInfo.getInfo(ServiceList.YouTube, url)
+        val canonicalId = info.id?.takeIf { it.isNotBlank() }
+            ?: Regex("/channel/(UC[A-Za-z0-9_-]+)").find(info.url.orEmpty())?.groupValues?.get(1)
+            ?: channel.channelId
+        return channel.copy(
+            title = info.name?.ifBlank { channel.title } ?: channel.title,
+            creator = formatCount(info.subscriberCount),
+            channelId = canonicalId,
+            description = info.description.orEmpty(),
+            thumbnailUrl = info.avatars.lastOrNull()?.url?.ifBlank { channel.thumbnailUrl } ?: channel.thumbnailUrl
+        )
+    }
+
+    private fun extractVideoIdOrNull(input: String): String? {
+        val value = input.trim()
+        if (value.matches(Regex("[A-Za-z0-9_-]{11}"))) return value
+        return Regex("""(?:v=|youtu\.be/|shorts/|embed/)([A-Za-z0-9_-]{11})""")
+            .find(value)?.groupValues?.get(1)
+    }
+
+    private fun formatCount(count: Long): String {
+        if (count < 0) return ""
+        return when {
+            count >= 1_000_000_000 -> String.format(Locale.US, "%.1fB", count / 1_000_000_000.0)
+            count >= 1_000_000 -> String.format(Locale.US, "%.1fM", count / 1_000_000.0)
+            count >= 1_000 -> String.format(Locale.US, "%.1fK", count / 1_000.0)
+            else -> count.toString()
+        }
+    }
+
+    private fun formatDuration(seconds: Long): String {
+        if (seconds < 0) return ""
+        val hours = seconds / 3600
+        val minutes = (seconds % 3600) / 60
+        val remainder = seconds % 60
+        return if (hours > 0) String.format(Locale.US, "%d:%02d:%02d", hours, minutes, remainder)
+        else String.format(Locale.US, "%d:%02d", minutes, remainder)
     }
 
     private fun searchContext(music: Boolean): JSONObject =
@@ -214,8 +376,11 @@ object LiveYouTubeSearch {
 
     @Throws(IOException::class)
     fun latestUploads(channelId: String): List<YouTubeSearchResult> {
-        require(channelId.startsWith("UC")) { "Invalid YouTube channel ID." }
-        val channelRoot = browseChannel(channelId)
+        val resolvedChannelId = if (channelId.startsWith("UC")) channelId else channelDetails(
+            YouTubeSearchResult("", channelId, "", "", false, true, channelId)
+        ).channelId
+        require(resolvedChannelId.startsWith("UC")) { "Could not resolve the YouTube channel ID." }
+        val channelRoot = browseChannel(resolvedChannelId)
         val videoTab = findChannelVideosTarget(channelRoot)
         val firstPage = if (videoTab == null) channelRoot else
             runCatching { browseChannel(videoTab.first, videoTab.second) }.getOrDefault(channelRoot)
