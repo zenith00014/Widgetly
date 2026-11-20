@@ -20,7 +20,7 @@ import java.io.IOException
  * Uses the same NewPipe extraction path used by LibreTube to resolve YouTube
  * metadata and selectable audio/video stream URLs.
  */
-data class ResolvedMedia(val url: String, val extension: String, val mimeType: String, val qualityLabel: String)
+data class ResolvedMedia(val url: String, val extension: String, val mimeType: String, val qualityLabel: String, val subtitles: List<ResolvedSubtitle> = emptyList())
 data class ResolvedSubtitle(val url: String, val languageTag: String, val label: String, val mimeType: String)
 
 object LibreTubePlayback {
@@ -102,19 +102,24 @@ object LibreTubePlayback {
             ?: throw IOException("No playable video stream was found.")
         if (!stream.isUrl || stream.content.isBlank()) throw IOException("The extractor did not return a direct stream URL.")
         val format = stream.format
+        val subtitles = runCatching { mapSubtitles(info) }.getOrDefault(emptyList())
         return ResolvedMedia(
             stream.content,
             format?.suffix?.takeIf { it.isNotBlank() } ?: "mp4",
             format?.mimeType?.takeIf { it.isNotBlank() } ?: if (format?.suffix.equals("webm", ignoreCase = true)) "video/webm" else "video/mp4",
-            "${stream.height}p"
+            "${stream.height}p",
+            subtitles
         )
     }
 
     fun resolveSubtitles(input: String): List<ResolvedSubtitle> {
         initialize()
         val videoId = extractVideoId(input)
-        val info = StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId")
-        return info.subtitles.filter { it.isUrl && it.content.isNotBlank() }.map {
+        return mapSubtitles(StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId"))
+    }
+
+    private fun mapSubtitles(info: StreamInfo): List<ResolvedSubtitle> =
+        info.subtitles.filter { it.isUrl && it.content.isNotBlank() }.map {
             ResolvedSubtitle(
                 it.content,
                 it.languageTag.ifBlank { "und" },
@@ -122,7 +127,6 @@ object LibreTubePlayback {
                 it.format?.mimeType?.takeIf { mime -> mime.isNotBlank() } ?: "text/vtt"
             )
         }
-    }
 
     private fun extractVideoId(input: String): String {
         val value = input.trim()
