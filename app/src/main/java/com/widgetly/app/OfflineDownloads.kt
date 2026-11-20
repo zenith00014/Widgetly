@@ -264,6 +264,9 @@ class OfflineDownloadWorker(
                         output.flush()
                     }
                 }
+                if (expectedBytes > 0L && partial.length() != expectedBytes) {
+                    return@withContext Result.retry()
+                }
                 if (partial.length() == 0L) return@withContext Result.failure()
                 if (destination.exists()) destination.delete()
                 if (!partial.renameTo(destination)) {
