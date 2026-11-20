@@ -220,6 +220,8 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  var results by remember { mutableStateOf<List<YouTubeSearchResult>>(emptyList()) }
  var status by remember { mutableStateOf("Search videos, music or channels on YouTube.") }
  var loading by remember { mutableStateOf(false) }
+ var loadingMore by remember { mutableStateOf(false) }
+ var continuation by remember { mutableStateOf<String?>(null) }
  var selectedChannel by remember { mutableStateOf<YouTubeSearchResult?>(null) }
  var selectedMusicCollection by remember { mutableStateOf<YouTubeSearchResult?>(null) }
  var selectedVideoPlaylist by remember { mutableStateOf<YouTubeSearchResult?>(null) }
@@ -242,18 +244,22 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    Row(verticalAlignment=Alignment.CenterVertically) {
     BasicTextField(query,{query=it},Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(surface).padding(15.dp),textStyle=TextStyle(color=ink,fontSize=15.sp),singleLine=true,decorationBox={inner->if(query.isEmpty())Text("Videos, songs, artists or channels",color=muted);inner()})
     Spacer(Modifier.width(8.dp))
-    Button(enabled=query.isNotBlank()&&!loading,onClick={
+    Button(enabled=query.isNotBlank()&&!loading&&!loadingMore,onClick={
      scope.launch {
-      loading=true;status="Searching…"
-      try { results=withContext(Dispatchers.IO){LiveYouTubeSearch.search(query,filter=="Music",filter=="Channels",filter=="Playlists")};status="${results.size} results" }
-      catch(e:Exception){results=emptyList();status=e.localizedMessage?: "Search failed."}
+      loading=true;loadingMore=false;continuation=null;results=emptyList();status="Searching…"
+      try {
+       val page=withContext(Dispatchers.IO){LiveYouTubeSearch.searchPage(query,filter=="Music",filter=="Channels",filter=="Playlists")}
+       results=page.items;continuation=page.continuation
+       status="${results.size} results"
+      }
+      catch(e:Exception){results=emptyList();continuation=null;status=e.localizedMessage?: "Search failed."}
       finally {loading=false}
      }
     }) { Text(if(loading)"…" else "Search") }
    }
    Spacer(Modifier.height(8.dp))
    Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-    listOf("Videos","Music","Channels","Playlists").forEach { FilterChip(selected=filter==it,onClick={filter=it;results=emptyList()},label={Text(it)}) }
+    listOf("Videos","Music","Channels","Playlists").forEach { FilterChip(selected=filter==it,onClick={filter=it;results=emptyList();continuation=null;status="Search videos, music or channels on YouTube."},label={Text(it)}) }
    }
    Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(vertical=8.dp))
    LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)) {
@@ -266,6 +272,22 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
       }
       if(result.isChannel||result.isCollection) Text("Open",color=magenta,fontSize=12.sp)
       else Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result)}.padding(4.dp));Text("＋",color=magenta,modifier=Modifier.clickable{playlistTarget=result}.padding(4.dp));Text("Queue ↥",color=magenta,fontSize=10.sp,modifier=Modifier.clickable{enqueue(result)}.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
+     }
+    }
+    if(continuation!=null||loadingMore)item {
+     Button(enabled=!loadingMore&&!loading,onClick={
+      val token=continuation
+      if(token!=null)scope.launch{
+       loadingMore=true;status="Loading more results…"
+       try{
+        val page=withContext(Dispatchers.IO){LiveYouTubeSearch.continueSearch(token,filter=="Music",filter=="Channels",filter=="Playlists")}
+        val merged=(results+page.items).distinctBy{result->when{result.isChannel->"channel:"+result.channelId;result.isCollection->"collection:"+result.collectionId;else->result.videoId}}
+        results=merged;continuation=page.continuation;status="${results.size} results"
+       }catch(e:Exception){status=e.localizedMessage?:"Could not load more results."}
+       finally{loadingMore=false}
+      }
+     },modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=raised)){
+      Text(if(loadingMore)"Loading…" else "Load more results",color=ink)
      }
     }
    }
