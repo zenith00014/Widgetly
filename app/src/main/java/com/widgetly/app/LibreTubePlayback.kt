@@ -21,6 +21,7 @@ import java.io.IOException
  * metadata and selectable audio/video stream URLs.
  */
 data class ResolvedMedia(val url: String, val extension: String, val mimeType: String, val qualityLabel: String)
+data class ResolvedSubtitle(val url: String, val languageTag: String, val label: String)
 
 object LibreTubePlayback {
     @Volatile private var initialized = false
@@ -95,6 +96,19 @@ object LibreTubePlayback {
             format?.mimeType?.takeIf { it.isNotBlank() } ?: "video/*",
             "${stream.height}p"
         )
+    }
+
+    fun resolveSubtitles(input: String): List<ResolvedSubtitle> {
+        initialize()
+        val videoId = extractVideoId(input)
+        val info = StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId")
+        return info.subtitles.filter { it.isUrl && it.content.isNotBlank() }.map {
+            ResolvedSubtitle(
+                it.content,
+                it.languageTag.ifBlank { "und" },
+                it.displayLanguageName.ifBlank { it.languageTag }
+            )
+        }
     }
 
     private fun extractVideoId(input: String): String {
