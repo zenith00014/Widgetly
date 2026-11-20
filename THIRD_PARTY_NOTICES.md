@@ -20,3 +20,16 @@ https://github.com/libre-tube/NewPipeExtractor
 LibreTube and NewPipeExtractor are not affiliated with or endorsed by YouTube or Google.
 
 The complete GPL-3.0-or-later license text is included at `LICENSES/LibreTube-GPL-3.0-or-later.txt`.
+
+
+## FFmpegKit maintained audio package
+
+Rush uses the community-maintained Android FFmpegKit-compatible audio package to convert offline audio downloads to MP3 on-device.
+
+- Maven artifact: `dev.ffmpegkit-maintained:ffmpeg-kit-audio:8.1.7`
+- Project: https://github.com/ffmpegkit-maintained/ffmpeg
+- License: GNU Lesser General Public License v3.0 (LGPL-3.0)
+- The audio package includes the LAME MP3 encoder and other audio codecs.
+- The complete LGPL-3.0 license text is included at `LICENSES/FFmpegKit-Maintained-LGPL-3.0.txt`.
+
+The package is an independent community-maintained continuation, not affiliated with the original FFmpegKit author. See the upstream project for its build, component and licensing details.
