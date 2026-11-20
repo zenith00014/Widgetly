@@ -754,13 +754,17 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     val mediaId=mediaItem?.mediaId.orEmpty()
     val nextPick=latestQueue.firstOrNull{it.id==mediaId}?:if(mediaId==item.id)item else null
     if(nextPick!=null){
+     val trackChanged=nextPick.id!=latestPlayingPick.id
      val mediaTypeChanged=nextPick.music!=latestPlayingPick.music
      playingPick=nextPick
      playingTitle=nextPick.title
      playingCreator=nextPick.creator
-     audio=nextPick.music
-     url=(nextPick.sourceId?.takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}?:nextPick.id.takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}).orEmpty()
-     if(mediaTypeChanged)quality=playerPrefs.getInt(if(nextPick.music)"audio_quality" else "video_quality",0)
+     if(trackChanged){
+      audio=nextPick.music
+      url=(nextPick.sourceId?.takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}?:nextPick.id.takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}).orEmpty()
+      status=if(nextPick.localPath?.let{java.io.File(it).isFile}==true)"Downloaded file ready." else "Playing "+nextPick.title
+      if(mediaTypeChanged)quality=playerPrefs.getInt(if(nextPick.music)"audio_quality" else "video_quality",0)
+     }
     }else{
      playingTitle=mediaItem?.mediaMetadata?.title?.toString()?.ifBlank{latestPlayingPick.title}?:latestPlayingPick.title
      playingCreator=mediaItem?.mediaMetadata?.artist?.toString()?.ifBlank{latestPlayingPick.creator}?:latestPlayingPick.creator
