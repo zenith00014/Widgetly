@@ -31,6 +31,7 @@ class RushPlaybackService : MediaSessionService() {
         val mediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(dataSourceFactory)
         val player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(mediaSourceFactory)
+            .setWakeMode(androidx.media3.common.C.WAKE_MODE_LOCAL)
             .build()
         mediaSession = MediaSession.Builder(this, player).build()
         serviceScope.launch {
