@@ -830,7 +830,14 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      val resolved=if(localFile==null)LibreTubePlayback.resolveMedia(queued.sourceId?:queued.id,queued.music,preferDash=!queued.music) else null
      val uri=localFile?.toURI()?.toString()?:resolved!!.url
      val metadata=androidx.media3.common.MediaMetadata.Builder().setTitle(queued.title).setArtist(queued.creator).build()
-     androidx.media3.common.MediaItem.Builder().setMediaId(queued.id).setUri(uri).apply{resolved?.mimeType?.let{setMimeType(it)}}.setMediaMetadata(metadata).build()
+     val subtitleConfigs=resolved?.subtitles.orEmpty().map{subtitle->
+      androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
+       .setMimeType(subtitle.mimeType)
+       .setLanguage(subtitle.languageTag)
+       .setLabel(subtitle.label)
+       .build()
+     }
+     androidx.media3.common.MediaItem.Builder().setMediaId(queued.id).setUri(uri).apply{resolved?.mimeType?.let{setMimeType(it)}}.setMediaMetadata(metadata).setSubtitleConfigurations(subtitleConfigs).build()
     }
     val firstItems=ArrayList<androidx.media3.common.MediaItem>()
     var nextQueueIndex=0
