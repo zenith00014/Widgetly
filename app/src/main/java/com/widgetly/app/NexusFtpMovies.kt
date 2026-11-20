@@ -252,18 +252,18 @@ internal fun NexusMoviesPage(modifier: Modifier = Modifier) {
 @Composable
 private fun NexusFtpMoviePlayer(movie: NexusFtpMovie, onBack: () -> Unit, modifier: Modifier = Modifier) {
     val context = LocalContext.current
-    val player = remember(movie.uri) {
+    val exoPlayer = remember(movie.uri) {
         ExoPlayer.Builder(context)
             .setMediaSourceFactory(DefaultMediaSourceFactory(context).setDataSourceFactory(NexusFtpDataSource.Factory()))
             .build().apply { setMediaItem(MediaItem.fromUri(movie.uri)); prepare(); playWhenReady = true }
     }
-    DisposableEffect(player) { onDispose { player.release() } }
+    DisposableEffect(exoPlayer) { onDispose { exoPlayer.release() } }
     Column(modifier.fillMaxSize()) {
         Text("← BACK TO MOVIES", color = FtpLime, fontWeight = FontWeight.Bold, fontSize = 11.sp,
             modifier = Modifier.clickable(onClick = onBack).padding(12.dp))
         AndroidView(modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f),
-            factory = { ctx -> PlayerView(ctx).apply { player = this@NexusFtpMoviePlayer.player; useController = true } },
-            update = { it.player = player })
+            factory = { ctx -> PlayerView(ctx).apply { player = exoPlayer; useController = true } },
+            update = { it.player = exoPlayer })
         Text(movie.displayName, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 16.sp, modifier = Modifier.padding(14.dp))
         Text("Provider FTP stream · seeking depends on FTP REST support", color = FtpMuted, fontSize = 10.sp, modifier = Modifier.padding(horizontal = 14.dp))
     }
