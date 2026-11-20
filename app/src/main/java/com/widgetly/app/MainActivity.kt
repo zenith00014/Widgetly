@@ -128,11 +128,15 @@ private fun QuickTile(title:String,subtitle:String,modifier:Modifier,onClick:()-
 private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
     val context=LocalContext.current
     var sessionLimit by remember { mutableIntStateOf(context.getSharedPreferences(PREFS_NAME,Context.MODE_PRIVATE).getInt("session_limit",12)) }
+    var dailyRefresh by remember { mutableIntStateOf(0) }
+    val dailyUsed = remember(dailyRefresh) { NexusUsage.used(context) }
+    val dailyBudget = NexusUsage.budget(context)
     var kind by remember { mutableStateOf(ContentKind.VIDEO) }
     var refresh by remember { mutableIntStateOf(0) }
     var data by remember { mutableStateOf<List<NexusItem>>(emptyList()) }
     var loading by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
+    val openItem: (NexusItem) -> Unit = { item -> if (NexusUsage.recordOpen(context)) { dailyRefresh++; onOpen(item) } else dailyRefresh++ }
     LaunchedEffect(kind,refresh) {
         loading=true; error=null
         val result=runCatching { when(kind) {
@@ -158,6 +162,7 @@ private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
             }
             Slider(value=sessionLimit.toFloat(),onValueChange={sessionLimit=it.toInt().coerceIn(5,30)},valueRange=5f..30f,steps=4)
             Text("A finite set. Autoplay stays off.",color=Muted,fontSize=10.sp)
+            Text("TODAY  /  $dailyUsed OF $dailyBudget ITEMS",color=Muted,fontSize=9.sp)
             TextButton(onClick={context.getSharedPreferences(PREFS_NAME,Context.MODE_PRIVATE).edit().putInt("session_limit",sessionLimit).apply();refresh++}) { Text("APPLY SESSION LIMIT",color=Lime,fontSize=9.sp) }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.SpaceBetween) {
@@ -165,6 +170,10 @@ private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
             Text("AUTOPLAY OFF",color=Lime,fontSize=9.sp)
         }
         when {
+            dailyUsed >= dailyBudget -> Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center) { Slab {
+                Text("TODAY’S STOPPING POINT",color=Lime,fontWeight=FontWeight.Bold,fontSize=13.sp)
+                Text("You reached your daily Discover item budget. Come back tomorrow, or change the limit in Library → Settings.",color=Muted,fontSize=12.sp)
+            } }
             loading -> Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center) { CircularProgressIndicator(color=Lime) }
             data.isEmpty() -> Column(Modifier.padding(24.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
                 Text("NO ITEMS AVAILABLE",color=Lime,fontWeight=FontWeight.Bold)
@@ -172,7 +181,7 @@ private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
                 OutlinedButton(onClick={refresh++}) { Text("TRY AGAIN") }
             }
             else -> LazyColumn(Modifier.fillMaxSize().padding(horizontal=14.dp),verticalArrangement=Arrangement.spacedBy(9.dp),contentPadding=PaddingValues(vertical=12.dp)) {
-                items(data.take(sessionLimit),key={it.id}) { ContentCard(it,{onOpen(it)}) }
+                items(data.take(sessionLimit),key={it.id}) { ContentCard(it,{openItem(it)}) }
                 item { Slab {
                     Text("END OF SESSION",color=Lime,fontWeight=FontWeight.Bold,fontSize=12.sp)
                     Text("You've reached the end of this set. Save an item or close Discover.",color=Muted,fontSize=12.sp)
@@ -313,10 +322,13 @@ private fun LibraryPage(onOpen:(NexusItem)->Unit) {
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 FilterChip(selected=section=="SAVED",onClick={section="SAVED"},label={Text("SAVED + NOTES")},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Lime,selectedLabelColor=Ink,labelColor=Paper))
                 FilterChip(selected=section=="CONTACTS",onClick={section="CONTACTS"},label={Text("CONTACTS")},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Lime,selectedLabelColor=Ink,labelColor=Paper))
+                FilterChip(selected=section=="SETTINGS",onClick={section="SETTINGS"},label={Text("SETTINGS")},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Lime,selectedLabelColor=Ink,labelColor=Paper))
             }
         }
         if(section=="CONTACTS") {
             NexusContactsPanel()
+        } else if(section=="SETTINGS") {
+            NexusSettingsPanel()
         } else {
             Slab {
                 Text("PERSONAL NOTE",color=Lime,fontWeight=FontWeight.Bold,fontSize=11.sp)
