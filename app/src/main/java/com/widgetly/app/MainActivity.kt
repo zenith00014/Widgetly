@@ -415,7 +415,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   Text(item.title,color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold);Text(item.creator,color=muted)
   if(item.localPath==null) {
    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=audio,onClick={audio=true},label={Text("Audio only")});FilterChip(selected=!audio,onClick={audio=false},label={Text("Video")})}
-   if(!audio) Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",720 to "720p",480 to "480p",360 to "360p").forEach{(height,label)->FilterChip(selected=quality==height,onClick={quality=height},label={Text(label)})}}
+   if(!audio) Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",720 to "720p",480 to "480p",360 to "360p").forEach{(height,label)->FilterChip(selected=quality==height,onClick={quality=height},label={Text(label)})}} else Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",160 to "160 kbps",96 to "96 kbps").forEach{(bitrate,label)->FilterChip(selected=quality==bitrate,onClick={quality=bitrate},label={Text(label)})}}
    BasicTextField(url,{url=it},modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(surface).padding(15.dp),textStyle=TextStyle(color=ink),singleLine=true,decorationBox={inner->if(url.isEmpty())Text("YouTube URL or video ID",color=muted);inner()})
   }
   Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically){
@@ -434,7 +434,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    else scope.launch{
     status="Resolving stream…"
     try{
-     val stream=if(item.localPath!=null)java.io.File(item.localPath).toURI().toString() else withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,quality.takeIf{it>0}).url}
+     val stream=if(item.localPath!=null)java.io.File(item.localPath).toURI().toString() else withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null).url}
      activePlayer.setMediaItem(androidx.media3.common.MediaItem.fromUri(stream));activePlayer.prepare();activePlayer.play();status=if(item.localPath!=null)"Playing offline" else "Stream ready"
     }catch(e:Exception){status=e.localizedMessage?:"Unable to load this stream."}
    }
@@ -442,7 +442,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   if(item.localPath==null) Button(onClick={scope.launch{
    status="Preparing offline download…"
    try{
-    val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,quality.takeIf{it>0})}
+    val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null)}
     withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,item.id,item.title,item.creator,audio,media)}
     status="Download queued · ${media.qualityLabel} · .${media.extension}"
    }catch(e:Exception){status=e.localizedMessage?:"Could not start download."}
