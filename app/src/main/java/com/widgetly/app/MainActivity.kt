@@ -480,6 +480,8 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(surface).padding(horizontal=10.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically){
      Text("${index+1}.",color=muted,fontSize=11.sp)
      Text(track.title,color=ink,fontSize=11.sp,modifier=Modifier.weight(1f).padding(horizontal=8.dp),maxLines=1,overflow=TextOverflow.Ellipsis)
+     Text("↑",color=if(index>0)muted else muted.copy(alpha=.3f),modifier=Modifier.clickable(enabled=index>0){updateQueue(QueueStore.move(prefs,index,index-1))}.padding(5.dp))
+     Text("↓",color=if(index<queued.lastIndex)muted else muted.copy(alpha=.3f),modifier=Modifier.clickable(enabled=index<queued.lastIndex){updateQueue(QueueStore.move(prefs,index,index+1))}.padding(5.dp))
      Text("▶",color=magenta,modifier=Modifier.clickable{play(track.id)}.padding(5.dp))
      Text("×",color=muted,modifier=Modifier.clickable{updateQueue(queueIds.filterIndexed{position,_->position!=index})}.padding(5.dp))
     }
