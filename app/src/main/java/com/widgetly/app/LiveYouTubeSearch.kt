@@ -127,7 +127,7 @@ object LiveYouTubeSearch {
         val browseId = if (playlistId.startsWith("VL")) playlistId else "VL$playlistId"
         val found = LinkedHashMap<String, YouTubeSearchResult>()
         var continuation: String? = null
-        repeat(10) {
+        for (page in 0 until 10) {
             val body = JSONObject()
                 .put("context", JSONObject().put("client", JSONObject()
                     .put("clientName", "WEB")
@@ -147,7 +147,7 @@ object LiveYouTubeSearch {
                 collect(root, found, false, false, false)
                 continuation = findContinuation(root)
             }
-            if (continuation.isNullOrBlank() || found.size >= 1000) return@repeat
+            if (continuation.isNullOrBlank() || found.size >= 1000) break
         }
         return found.values.filter { it.videoId.isNotBlank() }.take(1000)
     }
