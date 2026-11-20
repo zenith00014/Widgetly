@@ -108,7 +108,7 @@ internal object NexusMatrixClient {
         val chunk = response.optJSONArray("chunk") ?: return@withContext emptyList()
         (0 until chunk.length()).mapNotNull { i ->
             val event = chunk.optJSONObject(i) ?: return@mapNotNull null
-            if (event.optString("type") != "m.room.message") return@mapNotNull null
+            if (event.optString("type") == "m.room.encrypted") throw IllegalStateException("This room is end-to-end encrypted. The current Nexus Matrix client does not yet include the encryption SDK, so it cannot decrypt this conversation.")\n            if (event.optString("type") != "m.room.message") return@mapNotNull null
             val content = event.optJSONObject("content") ?: return@mapNotNull null
             val body = content.optString("body")
             if (body.isBlank()) return@mapNotNull null
