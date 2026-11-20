@@ -451,7 +451,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
      Text("${index+1}.",color=muted,fontSize=11.sp)
      Text(track.title,color=ink,fontSize=11.sp,modifier=Modifier.weight(1f).padding(horizontal=8.dp),maxLines=1,overflow=TextOverflow.Ellipsis)
      Text("▶",color=magenta,modifier=Modifier.clickable{play(track.id)}.padding(5.dp))
-     Text("×",color=muted,modifier=Modifier.clickable{updateQueue(queueIds.filterNotIndexed{position,_->position==index})}.padding(5.dp))
+     Text("×",color=muted,modifier=Modifier.clickable{updateQueue(queueIds.filterIndexed{position,_->position!=index})}.padding(5.dp))
     }
    }
   }else item{Text("Add tracks from Discover using the queue icon to build an Up next list.",color=muted,fontSize=10.sp)}
