@@ -1,13 +1,15 @@
-# Widgetly
+# Rush
 
-A lightweight native Android widget app. The current build is an early feature-complete prototype target, not yet a final release.
+A mobile-first entertainment app inside the Widgetly Android project. Rush is designed around finite, curated shelves rather than an endless feed.
 
-## Included
-- Jetpack Compose dashboard with a quick-note editor.
-- Real Android home-screen widgets built with Jetpack Glance: Quick Note and Retro Clock.
-- Quick Note refreshes when saved; Retro Clock refreshes on a low-frequency system schedule.
-- GitHub Actions workflow that builds and uploads a debug APK.
-- Material 3 interface; Android 8.0+.
+## Experience
+- Four destinations: Home, Discover, News, and Library.
+- Curated music, movie, and video shelves with search and type filters.
+- Full-screen player interfaces and a persistent mini-player.
+- Expandable editorial stories with a clear end to the news shelf.
+- Save-for-later and recently played collections, persisted locally.
+- Aubergine dark theme with magenta/amber accents and phosphor-mint details; optional lilac light theme.
+- Original gradient artwork generated in Compose; no remote image assets required.
 
 ## Build locally
 Requirements: JDK 17, Android SDK 35, and Gradle 8.9 (or Android Studio).
@@ -19,29 +21,9 @@ gradle :app:assembleDebug
 APK output: `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## Build on GitHub
-1. Push to `main` (or open a pull request).
-2. Open the repository's **Actions** tab.
-3. Select **Build Android APK** and run it, or wait for the push workflow.
-4. Download the `widgetly-debug-apk` artifact from the workflow run.
+Push to `main` or open the **Actions** tab and run **Build Android APK**. Download the `widgetly-debug-apk` artifact from the completed workflow.
 
-## Add the widget
-1. Install the APK on an Android device.
-2. Long-press the home screen and open **Widgets**.
-3. Find **Widgetly → Quick Note** and drag it onto the home screen.
-4. Open Widgetly, edit the note, and tap **Save and update widget**.
+## Notes
+The current catalog and news are sample content. The player screens are interactive UI previews; streaming providers and licensed playback sources have not been connected yet.
 
-## Structure
-```text
-app/src/main/
-  java/com/widgetly/app/
-    MainActivity.kt
-    QuickNoteWidget.kt
-  res/
-    layout/
-    values/
-    xml/
-.github/workflows/android.yml
-```
-
-## Release builds
-The workflow currently produces an unsigned debug APK for easy testing. Configure a signing keystore and GitHub Actions secrets before distributing a release APK.
+The project retains its Android Quick Note and Retro Clock home-screen widget implementation.
