@@ -156,8 +156,8 @@ internal fun NexusMediaPage() {
             TextButton(onClick = { showSettings = true }) { Text("ENGINE ⚙", color = PipedMuted, fontSize = 9.sp) }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-            FilterChip(selected = !music, onClick = { music = false; selected = null }, label = { Text("YOUTUBE") }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = PipedLime, selectedLabelColor = PipedInk, labelColor = Color.White))
-            FilterChip(selected = music, onClick = { music = true; selected = null }, label = { Text("MUSIC") }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = PipedLime, selectedLabelColor = PipedInk, labelColor = Color.White))
+            FilterChip(selected = !music, onClick = { music = false; selected = null; player.stop() }, label = { Text("YOUTUBE") }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = PipedLime, selectedLabelColor = PipedInk, labelColor = Color.White))
+            FilterChip(selected = music, onClick = { music = true; selected = null; player.stop() }, label = { Text("MUSIC") }, colors = FilterChipDefaults.filterChipColors(selectedContainerColor = PipedLime, selectedLabelColor = PipedInk, labelColor = Color.White))
         }
         OutlinedTextField(query, { query = it }, Modifier.fillMaxWidth(), singleLine = true,
             label = { Text(if (music) "Search songs, artists or albums" else "Search YouTube") },
@@ -193,14 +193,29 @@ internal fun NexusMediaPage() {
             }
         } else LazyColumn(Modifier.weight(1f).fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(7.dp), contentPadding = PaddingValues(vertical = 10.dp)) {
             items(results, key = { it.id }) { item ->
-                Row(Modifier.fillMaxWidth().background(PipedPanel, RoundedCornerShape(10.dp)).clickable { play(item, music) }.padding(9.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(Modifier.fillMaxWidth().background(PipedPanel, RoundedCornerShape(10.dp)).padding(9.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     if (item.thumbnail != null) coil.compose.AsyncImage(item.thumbnail, contentDescription = item.title, modifier = Modifier.width(112.dp).height(68.dp))
                     else Box(Modifier.width(112.dp).height(68.dp).background(Color(0xFF30352A)), contentAlignment = Alignment.Center) { Text("▶", color = PipedLime) }
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
                         Text(item.title, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
                         Text(item.uploader, color = PipedMuted, fontSize = 9.sp, maxLines = 1)
                         Text("${item.duration}  ·  ${item.views}", color = PipedMuted, fontSize = 9.sp)
-                        Text(if (music) "PLAY AUDIO INSIDE NEXUS" else "PLAY VIDEO INSIDE NEXUS", color = PipedLime, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                        Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+    TextButton(onClick = { play(item, music) }, contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp)) {
+        Text(if (music) "PLAY AUDIO" else "PLAY VIDEO", color = PipedLime, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+    }
+    TextButton(onClick = {
+        NexusLocalStore.save(context, NexusItem(
+            id = "yt:" + item.id, title = item.title,
+            description = item.uploader + " · " + item.duration + " · " + item.views,
+            image = item.thumbnail, source = "YouTube · " + item.uploader,
+            url = if (item.url.startsWith("http")) item.url else "https://www.youtube.com/watch?v=" + item.id,
+            kind = ContentKind.VIDEO
+        ))
+    }, contentPadding = PaddingValues(horizontal = 5.dp, vertical = 0.dp)) {
+        Text("+ SAVE", color = PipedMuted, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+    }
+}
                     }
                 }
             }
