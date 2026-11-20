@@ -31,7 +31,7 @@ private val paper=Color(0xFFF6F1FB)
 private val lilac=Color(0xFFE9E7F1)
 private val mutedDark=Color(0xFFBDB3CA)
 
-private data class Pick(val id:String,val title:String,val creator:String,val music:Boolean,val colors:List<Color>,val reason:String,val localPath:String?=null)
+private data class Pick(val id:String,val title:String,val creator:String,val music:Boolean,val colors:List<Color>,val reason:String,val localPath:String?=null,val sourceId:String?=null)
 private data class SubscribedChannel(val id:String,val title:String,val subscriberCount:String)
 class MainActivity:ComponentActivity(){
  private val openDownloadsState=androidx.compose.runtime.mutableStateOf(false)
@@ -87,7 +87,7 @@ class MainActivity:ComponentActivity(){
      when(tab){
       "Discover"->LiveDiscover(ink,muted,surface,saved,storeResult,saveResult,playResult,{result->storeResult(result);queuedIds=QueueStore.add(prefs,result.videoId)})
       "Downloads"->DownloadsScreen(ink,muted,surface,{media->
-       val pick=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath)
+       val pick=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath,media.sourceId)
        active=pick;playbackQueue=emptyList()
        persistPickMetadata(prefs,pick);metadata=metadata+(media.id to pick)
        history=listOf(media.id)+history.filterNot{x->x==media.id};persistHistory(prefs,history)
@@ -134,7 +134,7 @@ private fun loadPickMetadata(prefs:android.content.SharedPreferences):Map<String
   val id=keys.next()
   val item=root.optJSONObject(id)?:continue
   val localPath=item.optString("localPath").takeIf{it.isNotBlank()&&java.io.File(it).exists()}
-  result[id]=Pick(id,item.optString("title"),item.optString("creator"),item.optBoolean("music"),listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Saved from YouTube",localPath)
+  result[id]=Pick(id,item.optString("title"),item.optString("creator"),item.optBoolean("music"),listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Saved from YouTube",localPath,item.optString("sourceId").takeIf{it.isNotBlank()})
  }
  return result
 }
@@ -150,7 +150,7 @@ private fun persistChannelMetadata(prefs:android.content.SharedPreferences,chann
 }
 private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pick){
  val root=runCatching{org.json.JSONObject(prefs.getString("item_metadata","{}")?:"{}")}.getOrDefault(org.json.JSONObject())
- root.put(pick.id,org.json.JSONObject().put("title",pick.title).put("creator",pick.creator).put("music",pick.music).put("localPath",pick.localPath.orEmpty()))
+ root.put(pick.id,org.json.JSONObject().put("title",pick.title).put("creator",pick.creator).put("music",pick.music).put("localPath",pick.localPath.orEmpty()).put("sourceId",pick.sourceId.orEmpty()))
  prefs.edit().putString("item_metadata",root.toString()).apply()
 }
 
@@ -568,7 +568,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   controllerFuture.addListener({ controller = runCatching { controllerFuture.get() }.getOrNull() }, context.mainExecutor)
   onDispose { androidx.media3.session.MediaController.releaseFuture(controllerFuture) }
  }
- var url by remember(item.id){mutableStateOf(item.id.takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}.orEmpty())};var audio by remember(item.id){mutableStateOf(item.music)}
+ var url by remember(item.id){mutableStateOf((item.sourceId?.takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}?:item.id.takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}).orEmpty())};var audio by remember(item.id){mutableStateOf(item.music)}
  var quality by remember(item.id){mutableIntStateOf(0)}
  var mp3Format by remember(item.id){mutableStateOf(false)}
  var mp4Format by remember(item.id){mutableStateOf(true)}
