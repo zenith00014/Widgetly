@@ -35,18 +35,31 @@ private data class Pick(val id:String,val title:String,val creator:String,val mu
 private data class SubscribedChannel(val id:String,val title:String,val subscriberCount:String)
 class MainActivity:ComponentActivity(){
  private val openDownloadsRequest=androidx.compose.runtime.mutableIntStateOf(0)
+ private val pipModeState=androidx.compose.runtime.mutableStateOf(false)
+ fun enterPlayerPip(){
+  if(android.os.Build.VERSION.SDK_INT>=26){
+   val params=android.app.PictureInPictureParams.Builder()
+    .setAspectRatio(android.util.Rational(16,9))
+    .build()
+   enterPictureInPictureMode(params)
+  }
+ }
  override fun onCreate(savedInstanceState:Bundle?){
   super.onCreate(savedInstanceState)
   if(intent.getBooleanExtra("open_downloads",false))openDownloadsRequest.intValue++
-  setContent{RushApp(getSharedPreferences("rush_prefs",Context.MODE_PRIVATE),openDownloadsRequest.intValue)}
+  setContent{RushApp(getSharedPreferences("rush_prefs",Context.MODE_PRIVATE),openDownloadsRequest.intValue,pipModeState.value)}
  }
  override fun onNewIntent(intent:android.content.Intent){
   super.onNewIntent(intent)
   setIntent(intent)
   if(intent.getBooleanExtra("open_downloads",false))openDownloadsRequest.intValue++
  }
+ override fun onPictureInPictureModeChanged(isInPictureInPictureMode:Boolean,newConfig:android.content.res.Configuration){
+  super.onPictureInPictureModeChanged(isInPictureInPictureMode,newConfig)
+  pipModeState.value=isInPictureInPictureMode
+ }
 }
-@Composable private fun RushApp(prefs:android.content.SharedPreferences,openDownloadsRequest:Int=0){
+@Composable private fun RushApp(prefs:android.content.SharedPreferences,openDownloadsRequest:Int=0,isInPipMode:Boolean=false){
  var tab by remember{mutableStateOf(if(openDownloadsRequest>0)"Downloads" else "Home")};var light by remember{mutableStateOf(prefs.getBoolean("light",false))}
  var active by remember{mutableStateOf<Pick?>(null)}
  var playbackQueue by remember{mutableStateOf<List<Pick>>(emptyList())}
@@ -80,7 +93,7 @@ class MainActivity:ComponentActivity(){
    if(active!=null)RushPlayer(active!!,light,{active=null;playbackQueue=emptyList()},playbackQueue,{id->
     history=listOf(id)+history.filterNot{it==id}
     persistHistory(prefs,history)
-   })
+   },isInPipMode)
    else{
     Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=14.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
      Column{Text("RUSH",color=if(light)magenta else mint,fontSize=12.sp,fontWeight=FontWeight.Bold,letterSpacing=3.sp);Text(when(tab){"Discover"->"Find your next favourite";"Downloads"->"Offline library";"Subscriptions"->"Latest uploads";"Library"->"Your collection";else->"Your daily signal"},color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold)}
