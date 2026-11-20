@@ -48,14 +48,14 @@ object NexusContentRepository {
         }
     }
 
-    suspend fun news(): List<NexusItem> = withContext(Dispatchers.IO) {
-        feeds.flatMap { (url, source) ->
+    suspend fun news(context: android.content.Context? = null): List<NexusItem> = withContext(Dispatchers.IO) {
+        feeds.filter { (_, source) -> context == null || context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE).getBoolean("source_" + source.lowercase().replace(Regex("[^a-z0-9]+"), "_"), true) }.flatMap { (url, source) ->
             runCatching { parseRss(get(url), source, ContentKind.NEWS) }.getOrDefault(emptyList())
         }.distinctBy { it.id }.take(30)
     }
 
-    suspend fun videos(): List<NexusItem> = withContext(Dispatchers.IO) {
-        channels.flatMap { (channel, source) ->
+    suspend fun videos(context: android.content.Context? = null): List<NexusItem> = withContext(Dispatchers.IO) {
+        channels.filter { (_, source) -> context == null || context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE).getBoolean("source_" + source.lowercase().replace(Regex("[^a-z0-9]+"), "_"), true) }.flatMap { (channel, source) ->
             runCatching {
                 parseRss(get("https://www.youtube.com/feeds/videos.xml?channel_id=$channel"), source, ContentKind.VIDEO)
             }.getOrDefault(emptyList())
