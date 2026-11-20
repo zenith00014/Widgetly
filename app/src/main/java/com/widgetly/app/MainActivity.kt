@@ -9,6 +9,9 @@ import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -29,6 +32,7 @@ import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
 import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import org.json.JSONArray
 import org.json.JSONObject
 import java.text.DateFormat
@@ -131,6 +135,21 @@ private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
     var dailyRefresh by remember { mutableIntStateOf(0) }
     val dailyUsed = remember(dailyRefresh) { NexusUsage.used(context) }
     val dailyBudget = NexusUsage.budget(context)
+    val dailySeconds = remember(dailyRefresh) { NexusUsage.seconds(context) }
+    val dailyTimeBudget = NexusUsage.timeBudgetSeconds(context)
+    val lifecycleOwner = LocalLifecycleOwner.current
+    var appVisible by remember { mutableStateOf(lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) }
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_START) appVisible = true
+            if (event == Lifecycle.Event.ON_STOP) appVisible = false
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
+    }
+    LaunchedEffect(appVisible) {
+        if (appVisible) while (true) { delay(1000); NexusUsage.addDiscoverSecond(context); dailyRefresh++ }
+    }
     var kind by remember { mutableStateOf(ContentKind.VIDEO) }
     var refresh by remember { mutableIntStateOf(0) }
     var data by remember { mutableStateOf<List<NexusItem>>(emptyList()) }
@@ -162,7 +181,7 @@ private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
             }
             Slider(value=sessionLimit.toFloat(),onValueChange={sessionLimit=it.toInt().coerceIn(5,30)},valueRange=5f..30f,steps=4)
             Text("A finite set. Autoplay stays off.",color=Muted,fontSize=10.sp)
-            Text("TODAY  /  $dailyUsed OF $dailyBudget ITEMS",color=Muted,fontSize=9.sp)
+            Text("TODAY  /  $dailyUsed OF $dailyBudget ITEMS · ${dailySeconds/60} OF ${dailyTimeBudget/60} MIN",color=Muted,fontSize=9.sp)
             TextButton(onClick={context.getSharedPreferences(PREFS_NAME,Context.MODE_PRIVATE).edit().putInt("session_limit",sessionLimit).apply();refresh++}) { Text("APPLY SESSION LIMIT",color=Lime,fontSize=9.sp) }
         }
         Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.SpaceBetween) {
@@ -170,9 +189,9 @@ private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
             Text("AUTOPLAY OFF",color=Lime,fontSize=9.sp)
         }
         when {
-            dailyUsed >= dailyBudget -> Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center) { Slab {
+            dailyUsed >= dailyBudget || dailySeconds >= dailyTimeBudget -> Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center) { Slab {
                 Text("TODAY’S STOPPING POINT",color=Lime,fontWeight=FontWeight.Bold,fontSize=13.sp)
-                Text("You reached your daily Discover item budget. Come back tomorrow, or change the limit in Library → Settings.",color=Muted,fontSize=12.sp)
+                Text("You reached your daily Discover limit. Come back tomorrow, or adjust your limits in Library → Settings.",color=Muted,fontSize=12.sp)
             } }
             loading -> Box(Modifier.fillMaxSize(),contentAlignment=Alignment.Center) { CircularProgressIndicator(color=Lime) }
             data.isEmpty() -> Column(Modifier.padding(24.dp),verticalArrangement=Arrangement.spacedBy(8.dp)) {
