@@ -52,6 +52,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  var query by remember{mutableStateOf("")};var filter by remember{mutableStateOf("All")};var active by remember{mutableStateOf<Pick?>(null)}
  var saved by remember{mutableStateOf(prefs.getStringSet("saved",emptySet())?.toSet()?:emptySet())}
  var history by remember{mutableStateOf(prefs.getStringSet("history",emptySet())?.toList()?:emptyList())}
+ var metadata by remember{mutableStateOf(loadPickMetadata(prefs))}
  val bg=if(light)lilac else bgDark;val surface=if(light)Color.White else panelDark
  val ink=if(light)Color(0xFF241B32) else paper;val muted=if(light)Color(0xFF70677D) else mutedDark
  MaterialTheme(colorScheme=if(light)lightColorScheme(primary=magenta,background=bg,surface=surface,onSurface=ink)else darkColorScheme(primary=magenta,background=bg,surface=surface,onSurface=ink)){
@@ -64,9 +65,9 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
     }
     Box(Modifier.weight(1f)){
      when(tab){
-      "Discover"->LiveDiscover(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Live YouTube result");active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};prefs.edit().putStringSet("history",history.toSet()).apply()})
+      "Discover"->LiveDiscover(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Live YouTube result");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};prefs.edit().putStringSet("history",history.toSet()).apply()})
       "Downloads"->DownloadsScreen(ink,muted,surface,{media->active=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath)})
-      "Library"->Library(saved,history,ink,muted,surface,{id->picks.find{it.id==id}?.let{active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()})
+      "Library"->Library(saved,history,metadata,ink,muted,surface,{id->(metadata[id]?:picks.find{it.id==id})?.let{active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()})
       else->Home(ink,muted,surface,saved,{open(it){active=it;history=listOf(it.id)+history.filterNot{x->x==it.id};prefs.edit().putStringSet("history",history.toSet()).apply()}},{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()})
      }
     }
@@ -197,8 +198,9 @@ private fun open(p:Pick,cb:(Pick)->Unit){cb(p)}
  }
 }
 
-@Composable private fun Library(saved:Set<String>,history:List<String>,ink:Color,muted:Color,surface:Color,play:(String)->Unit,remove:(String)->Unit){
- val kept=picks.filter{it.id in saved};val recent=history.distinct().mapNotNull{id->picks.find{it.id==id}}
+@Composable private fun Library(saved:Set<String>,history:List<String>,metadata:Map<String,Pick>,ink:Color,muted:Color,surface:Color,play:(String)->Unit,remove:(String)->Unit){
+ val all=picks.associateBy{it.id}+metadata
+ val kept=saved.mapNotNull{all[it]};val recent=history.distinct().mapNotNull{all[it]}
  LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
   item{Shelf("Your shelf","Saved items",ink)}
   if(kept.isEmpty())item{Text("Nothing here yet. Use the heart in any player to save it.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(18.dp))}
