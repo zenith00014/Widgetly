@@ -1,5 +1,10 @@
 package com.widgetly.app
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import org.json.JSONObject
+import java.io.BufferedReader
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -18,6 +23,28 @@ fun NexusSettingsPanel() {
     var dailyItems by remember { mutableIntStateOf(prefs.getInt("daily_item_budget", 20)) }
     var sessionItems by remember { mutableIntStateOf(prefs.getInt("session_limit", 12)) }
     var saved by remember { mutableStateOf(false) }
+    var backupStatus by remember { mutableStateOf<String?>(null) }
+    val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri: Uri? ->
+        if (uri != null) {
+            val json = JSONObject()
+            prefs.all.forEach { (key,value) -> if (value is String || value is Boolean || value is Int || value is Long || value is Float) json.put(key,value) }
+            runCatching { context.contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { it.write(json.toString(2)) } ?: error("Could not create backup") }
+                .onSuccess { backupStatus = "Backup exported." }.onFailure { backupStatus = "Export failed: ${it.localizedMessage}" }
+        }
+    }
+    val importLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri: Uri? ->
+        if (uri != null) runCatching {
+            val raw = context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: error("Could not read backup")
+            val json = JSONObject(raw)
+            val editor = prefs.edit().clear()
+            val keys = json.keys()
+            while (keys.hasNext()) {
+                val key = keys.next(); val value = json.get(key)
+                when(value) { is String -> editor.putString(key,value); is Boolean -> editor.putBoolean(key,value); is Int -> editor.putInt(key,value); is Long -> editor.putLong(key,value); is Double -> editor.putFloat(key,value.toFloat()) }
+            }
+            editor.apply()
+        }.onSuccess { backupStatus = "Backup restored. Reopen Nexus to refresh all sections." }.onFailure { backupStatus = "Import failed: ${it.localizedMessage}" }
+    }
     Column(Modifier.fillMaxSize().background(Color(0xFF0E0F0C)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Column(Modifier.fillMaxWidth().background(Color(0xFF1A1B17)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("DISCOVER LIMITS", color = Color(0xFFC8F23A), fontSize = 11.sp, fontWeight = FontWeight.Bold)
@@ -31,6 +58,15 @@ fun NexusSettingsPanel() {
                 saved=true
             },colors=ButtonDefaults.buttonColors(containerColor=Color(0xFFC8F23A),contentColor=Color(0xFF0E0F0C))) { Text("SAVE LIMITS") }
             if(saved) Text("Preferences saved on this device.",color=Color(0xFFC8F23A),fontSize=10.sp)
+        }
+        Column(Modifier.fillMaxWidth().background(Color(0xFF1A1B17)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("BACKUP & RESTORE",color=Color(0xFFC8F23A),fontSize=11.sp,fontWeight=FontWeight.Bold)
+            Text("Export or restore your notes, saved media, selected contact shortcuts, inbox history and preferences as a local JSON file.",color=Color(0xFF8B8D82),fontSize=11.sp)
+            Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+                Button(onClick={exportLauncher.launch("nexus-backup.json")},colors=ButtonDefaults.buttonColors(containerColor=Color(0xFFC8F23A),contentColor=Color(0xFF0E0F0C))) { Text("EXPORT") }
+                OutlinedButton(onClick={importLauncher.launch(arrayOf("application/json","text/json"))}) { Text("RESTORE") }
+            }
+            if(backupStatus!=null) Text(backupStatus!!,color=Color(0xFFC8F23A),fontSize=10.sp)
         }
         Column(Modifier.fillMaxWidth().background(Color(0xFF1A1B17)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("PRIVACY & BEHAVIOUR",color=Color(0xFFC8F23A),fontSize=11.sp,fontWeight=FontWeight.Bold)
