@@ -15,19 +15,19 @@ Nexus is a private, single-owner Android app. Keep it native, local-first, light
 - [ ] Get a clean Android debug APK build on the latest branch head.
 - [ ] Fix any compile/runtime errors found by build and device testing.
 - [ ] Verify Discover feeds, thumbnails, embedded video/article/movie viewing, and back navigation.
-- [ ] Improve Inbox: search, app filters, clear individual/all history, timestamps, and expired-reply fallback.
+- [x] Improve Inbox: search, app filters, clear individual/all history, timestamps, and expired-reply fallback.
 - [ ] Make Saved Library refresh and item removal reliable; handle missing/broken saved URLs.
 
 ### P1 — Personal media and communication
-- [ ] Music: local audio picker, saved track list, playback, pause/resume, seek, next/previous, and background playback/notification controls if feasible without excessive size.
-- [ ] Contacts: permission-based Android contacts picker; create call/message shortcuts using system intents; never scrape contact data or promise third-party message sending.
-- [ ] Settings: source selection, theme, session-size defaults, notification access help, and privacy controls.
+- [x] Music: local audio picker, saved track list, playback, pause/resume, seek, next/previous. Background notification controls remain a separate enhancement.
+- [x] Contacts: Android system phone-contact picker with local shortcuts for Call and SMS app hand-off; no broad contact-book permission.
+- [ ] Settings: source selection, theme, notification access help, and further privacy controls. (Local session/daily item limits and privacy explanations are implemented.)
 
 ### P2 — Anti-doomscrolling and data ownership
-- [ ] Add a daily Discover time budget and item budget with a clear stop screen.
+- [ ] Add a daily Discover time budget and item budget with a clear stop screen. (Daily item budget and stop screen are coded; waiting for build verification. Time budget remains.)
 - [ ] Add optional break reminders; no streaks, rewards, autoplay, or engagement tracking.
 - [ ] Add offline article saving/reading and bounded image/content cache.
-- [ ] Add local export/import for personal notes, saved items, settings, and Inbox history; avoid exporting transient notification action tokens.
+- [ ] Add local export/import for personal notes, saved items, settings, contacts and Inbox history; avoid exporting transient notification action tokens. (Implemented; waiting for build verification.)
 - [ ] Add reset/clear-data controls and explain exactly what is removed.
 
 ### P3 — Quality and release readiness
