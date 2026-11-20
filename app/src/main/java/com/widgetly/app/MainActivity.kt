@@ -65,7 +65,7 @@ private fun NexusApp() {
                     "DISCOVER" -> "A finite discovery session"
                     "INBOX" -> "Your message center"
                     "LIBRARY" -> "Your saved collection"
-                    "MUSIC" -> "Music from LibreTube"
+                    "MUSIC" -> "YouTube and music inside Nexus"
                     "MOVIES" -> "Your provider movie library"
                     else -> "Less scrolling. More signal."
                 }, color=Paper, fontSize=20.sp, fontWeight=FontWeight.Bold)
@@ -109,7 +109,7 @@ private fun HomePage(onDiscover:()->Unit,onInbox:()->Unit,onLibrary:()->Unit,onO
             QuickTile("INBOX","Messages & replies",Modifier.weight(1f),onInbox)
             QuickTile("LIBRARY","Saved for later",Modifier.weight(1f),onLibrary)
         } }
-        item { Text("MUSIC  /  YOUR LOCAL AUDIO",color=Muted,fontSize=9.sp,modifier=Modifier.clickable { onLibrary() }) }
+        item { Text("YOUTUBE + MUSIC  /  IN-APP PLAYER",color=Muted,fontSize=9.sp,modifier=Modifier.clickable { onLibrary() }) }
         item { SectionLabel("A FEW GOOD VIDEOS","MAX 3") }
         if(loading) item { Text("Loading selected channels…",color=Muted,fontSize=12.sp) }
         if(!loading && videos.isEmpty()) item { Text("Video shelf unavailable. Open Discover to retry.",color=Muted,fontSize=12.sp) }
