@@ -159,11 +159,42 @@ object LiveYouTubeSearch {
     @Throws(IOException::class)
     fun latestUploads(channelId: String): List<YouTubeSearchResult> {
         require(channelId.startsWith("UC")) { "Invalid YouTube channel ID." }
+        val channelRoot = browseChannel(channelId)
+        val videoTab = findChannelVideosTarget(channelRoot)
+        val firstPage = if (videoTab == null) channelRoot else
+            runCatching { browseChannel(videoTab.first, videoTab.second) }.getOrDefault(channelRoot)
+        val found = LinkedHashMap<String, YouTubeSearchResult>()
+        collect(firstPage, found, false, false, false)
+        var continuation = findContinuation(firstPage)
+        var pageCount = 0
+        while (!continuation.isNullOrBlank() && pageCount < 4 && found.size < 120) {
+            val page = browseChannel(continuation = continuation)
+            collect(page, found, false, false, false)
+            val next = findContinuation(page)
+            if (next.isNullOrBlank() || next == continuation) break
+            continuation = next
+            pageCount++
+        }
+        return found.values.filter { it.videoId.isNotBlank() }.take(100)
+    }
+
+    private fun browseChannel(
+        browseId: String? = null,
+        params: String? = null,
+        continuation: String? = null
+    ): JSONObject {
         val body = JSONObject()
             .put("context", JSONObject().put("client", JSONObject()
                 .put("clientName", "WEB")
                 .put("clientVersion", "2.20261119.01.00")))
-            .put("browseId", channelId)
+            .apply {
+                if (continuation.isNullOrBlank()) {
+                    put("browseId", browseId)
+                    if (!params.isNullOrBlank()) put("params", params)
+                } else {
+                    put("continuation", continuation)
+                }
+            }
             .toString()
         val request = Request.Builder()
             .url("https://www.youtube.com/youtubei/v1/browse")
@@ -173,14 +204,38 @@ object LiveYouTubeSearch {
             .header("Referer", "https://www.youtube.com/")
             .build()
         client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("Could not load channel uploads (HTTP ${response.code}).")
-            val root = JSONObject(response.body?.string().orEmpty())
-            val found = LinkedHashMap<String, YouTubeSearchResult>()
-            collect(root, found, false, false, false)
-            return found.values.take(30)
+            if (!response.isSuccessful) throw IOException("Could not load channel uploads.")
+            return JSONObject(response.body?.string().orEmpty())
         }
     }
 
+    private fun findChannelVideosTarget(value: Any?): Pair<String, String?>? {
+        when (value) {
+            is JSONObject -> {
+                val tab = value.optJSONObject("tabRenderer")
+                if (tab != null) {
+                    val title = text(tab.optJSONObject("title")).trim().lowercase()
+                    if (title == "videos" || title == "uploads") {
+                        val endpoint = tab.optJSONObject("endpoint")?.optJSONObject("browseEndpoint")
+                            ?: tab.optJSONObject("navigationEndpoint")?.optJSONObject("browseEndpoint")
+                        val browseId = endpoint?.optString("browseId").orEmpty()
+                        if (browseId.isNotBlank()) {
+                            val params = endpoint?.optString("params")?.takeIf { it.isNotBlank() }
+                            return browseId to params
+                        }
+                    }
+                }
+                val keys = value.keys()
+                while (keys.hasNext()) {
+                    findChannelVideosTarget(value.opt(keys.next()))?.let { return it }
+                }
+            }
+            is JSONArray -> for (index in 0 until value.length()) {
+                findChannelVideosTarget(value.opt(index))?.let { return it }
+            }
+        }
+        return null
+    }
     @Throws(IOException::class)
     fun browseMusicCollection(browseId: String): List<YouTubeSearchResult> {
         require(browseId.isNotBlank()) { "Invalid music collection." }
