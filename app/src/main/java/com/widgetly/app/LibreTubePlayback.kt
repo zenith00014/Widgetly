@@ -65,12 +65,14 @@ object LibreTubePlayback {
     fun resolve(input: String, audioOnly: Boolean): String =
         resolveMedia(input, audioOnly).url
 
-    fun resolveMedia(input: String, audioOnly: Boolean, maxHeight: Int? = null): ResolvedMedia {
+    fun resolveMedia(input: String, audioOnly: Boolean, maxHeight: Int? = null, maxAudioBitrate: Int? = null): ResolvedMedia {
         initialize()
         val videoId = extractVideoId(input)
         val info = StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId")
         if (audioOnly) {
-            val stream = info.audioStreams.maxByOrNull { it.averageBitrate }
+            val audioCandidates = if(maxAudioBitrate==null)info.audioStreams else info.audioStreams.filter{it.averageBitrate/1000<=maxAudioBitrate}
+            val stream = audioCandidates.maxByOrNull { it.averageBitrate }
+                ?: info.audioStreams.minByOrNull { kotlin.math.abs(it.averageBitrate/1000-(maxAudioBitrate?:0)) }
                 ?: throw IOException("No playable audio stream was found.")
             if (!stream.isUrl || stream.content.isBlank()) throw IOException("The extractor did not return a direct stream URL.")
             val format = stream.format
