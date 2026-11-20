@@ -73,7 +73,7 @@ object LibreTubePlayback {
     fun resolve(input: String, audioOnly: Boolean): String =
         resolveMedia(input, audioOnly).url
 
-    fun resolveMedia(input: String, audioOnly: Boolean, maxHeight: Int? = null, maxAudioBitrate: Int? = null, preferMp4: Boolean = false, preferDash: Boolean = false): ResolvedMedia {
+    fun resolveMedia(input: String, audioOnly: Boolean, maxHeight: Int? = null, maxAudioBitrate: Int? = null, preferMp4: Boolean = false, preferDash: Boolean = false, allowDashFallback: Boolean = false): ResolvedMedia {
         initialize()
         val videoId = extractVideoId(input)
         val info = StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId")
@@ -91,8 +91,9 @@ object LibreTubePlayback {
                 "${stream.averageBitrate / 1000} kbps"
             )
         }
+        val hasProgressiveVideo = info.videoStreams.any { it.isUrl && it.content.isNotBlank() }
         if (
-            preferDash && !preferMp4 &&
+            !preferMp4 && (preferDash || (allowDashFallback && !hasProgressiveVideo)) &&
             info.dashMpdUrl.isNotBlank() &&
             info.videoOnlyStreams.any { it.isUrl && it.content.isNotBlank() } &&
             info.audioStreams.any { it.isUrl && it.content.isNotBlank() }
