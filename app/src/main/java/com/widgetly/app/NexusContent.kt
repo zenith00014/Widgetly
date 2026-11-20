@@ -62,7 +62,8 @@ object NexusContentRepository {
         }.distinctBy { it.id }.take(24)
     }
 
-    suspend fun movies(): List<NexusItem> = withContext(Dispatchers.IO) {
+    suspend fun movies(context: android.content.Context? = null): List<NexusItem> = withContext(Dispatchers.IO) {
+        if (context != null && !context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE).getBoolean("source_internet_archive_movies", true)) return@withContext emptyList()
         val query = URLEncoder.encode("mediatype:movies AND (collection:feature_films OR collection:classic_tv)", "UTF-8")
         val raw = get("https://archive.org/advancedsearch.php?q=$query&fl[]=identifier,title,description,year&sort[]=downloads+desc&rows=24&page=1&output=json")
         val docs = JSONObject(raw).optJSONObject("response")?.optJSONArray("docs") ?: return@withContext emptyList()
