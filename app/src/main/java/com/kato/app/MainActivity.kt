@@ -638,8 +638,14 @@ private fun buildNexusSocialSession(
     val remaining = pool.toMutableList()
     val result = mutableListOf<SocialEntry>()
     while (remaining.isNotEmpty() && result.size < sessionSize) {
-        val next = remaining.maxByOrNull { candidate ->
-            val recent = result.takeLast(2)
+        val recent = result.takeLast(2)
+        val diverseCandidates = if (recent.size == 2) {
+            remaining.filter { candidate ->
+                recent.none { it.source == candidate.source || it.topic == candidate.topic }
+            }
+        } else remaining
+        val candidates = diverseCandidates.ifEmpty { remaining }
+        val next = candidates.maxByOrNull { candidate ->
             val diversityBonus = if (recent.none { it.source == candidate.source || it.topic == candidate.topic }) 0.15f else 0f
             candidate.score + diversityBonus
         } ?: break
@@ -730,10 +736,21 @@ private fun SocialPostCard(
     onSave: () -> Unit,
     onLike: () -> Unit
 ) {
-    Card(shape = RectangleShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(
+        shape = RectangleShape,
+        modifier = Modifier.fillMaxWidth().shadow(4.dp, RectangleShape).border(2.dp, MaterialTheme.colorScheme.outline),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
         Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
             if (entry.image.isNotBlank()) {
-                NexusRemoteImage(entry.image, Modifier.fillMaxWidth().height(174.dp))
+                NexusRemoteImage(entry.image, Modifier.fillMaxWidth().height(174.dp), entry.title)
+            } else {
+                Box(
+                    Modifier.fillMaxWidth().height(110.dp).background(MaterialTheme.colorScheme.surfaceVariant),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text("+-- ${entry.type.uppercase(Locale.ROOT)} THUMBNAIL --+", color = MaterialTheme.colorScheme.onSurfaceVariant, fontFamily = FontFamily.Monospace, fontSize = 10.sp)
+                }
             }
             Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
