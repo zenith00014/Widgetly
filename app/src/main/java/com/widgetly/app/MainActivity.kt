@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
-import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import org.json.JSONArray
@@ -56,9 +55,6 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun NexusApp() {
-    val context = LocalContext.current
-    val musicPlayer = remember { ExoPlayer.Builder(context).build() }
-    DisposableEffect(musicPlayer) { onDispose { musicPlayer.release() } }
     var tab by remember { mutableStateOf("HOME") }
     var opened by remember { mutableStateOf<NexusItem?>(null) }
     Surface(Modifier.fillMaxSize(), color=Ink) {
