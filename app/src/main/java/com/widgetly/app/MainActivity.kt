@@ -65,7 +65,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
     }
     Box(Modifier.weight(1f)){
      when(tab){
-      "Discover"->LiveDiscover(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Live YouTube result");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};prefs.edit().putStringSet("history",history.toSet()).apply()})
+      "Discover"->LiveDiscover(ink,muted,surface,saved,{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()},{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Live YouTube result");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};prefs.edit().putStringSet("history",history.toSet()).apply()})
       "Downloads"->DownloadsScreen(ink,muted,surface,{media->active=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath)})
       "Library"->Library(saved,history,metadata,ink,muted,surface,{id->(metadata[id]?:picks.find{it.id==id})?.let{active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()})
       else->Home(ink,muted,surface,saved,{open(it){active=it;history=listOf(it.id)+history.filterNot{x->x==it.id};prefs.edit().putStringSet("history",history.toSet()).apply()}},{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()})
@@ -79,6 +79,22 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
 }
 private fun toggle(s:Set<String>,id:String)=if(id in s)s-id else s+id
 private fun open(p:Pick,cb:(Pick)->Unit){cb(p)}
+private fun loadPickMetadata(prefs:android.content.SharedPreferences):Map<String,Pick>{
+ val root=runCatching{org.json.JSONObject(prefs.getString("item_metadata","{}")?:"{}")}.getOrDefault(org.json.JSONObject())
+ val result=linkedMapOf<String,Pick>()
+ val keys=root.keys()
+ while(keys.hasNext()){
+  val id=keys.next()
+  val item=root.optJSONObject(id)?:continue
+  result[id]=Pick(id,item.optString("title"),item.optString("creator"),item.optBoolean("music"),listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Saved from YouTube")
+ }
+ return result
+}
+private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pick){
+ val root=runCatching{org.json.JSONObject(prefs.getString("item_metadata","{}")?:"{}")}.getOrDefault(org.json.JSONObject())
+ root.put(pick.id,org.json.JSONObject().put("title",pick.title).put("creator",pick.creator).put("music",pick.music))
+ prefs.edit().putString("item_metadata",root.toString()).apply()
+}
 
 @Composable private fun Home(ink:Color,muted:Color,surface:Color,saved:Set<String>,play:(Pick)->Unit,save:(String)->Unit){
  LazyColumn(contentPadding=PaddingValues(bottom=18.dp)){
@@ -101,7 +117,7 @@ private fun open(p:Pick,cb:(Pick)->Unit){cb(p)}
   item{Text(if(found.isEmpty())"No matches in this shelf." else "End of these picks. Search again to explore more.",color=muted,fontSize=11.sp,modifier=Modifier.padding(12.dp))}
  }
 }
-@Composable private fun LiveDiscover(ink:Color,muted:Color,surface:Color,play:(YouTubeSearchResult)->Unit){
+@Composable private fun LiveDiscover(ink:Color,muted:Color,surface:Color,saved:Set<String>,save:(String)->Unit,play:(YouTubeSearchResult)->Unit){
  var query by remember { mutableStateOf("") }
  var filter by remember { mutableStateOf("Videos") }
  var results by remember { mutableStateOf<List<YouTubeSearchResult>>(emptyList()) }
@@ -136,7 +152,7 @@ private fun open(p:Pick,cb:(Pick)->Unit){cb(p)}
       Text(result.title,color=ink,fontSize=14.sp,fontWeight=FontWeight.SemiBold,maxLines=2,overflow=TextOverflow.Ellipsis)
       Text(result.creator + if(result.duration.isNotBlank()) " · ${result.duration}" else "",color=muted,fontSize=11.sp,maxLines=1)
      }
-     Text("Play",color=magenta,fontSize=12.sp)
+     Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result.videoId)}.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
     }
    }
   }
