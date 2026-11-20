@@ -14,15 +14,16 @@ Nexus is a private, single-owner Android app for one person's daily use. It is n
 ## Main areas
 
 - **Home:** a concise personal dashboard with a small, finite selection of useful content.
-- **Discover:** finite Videos, News, and Movies shelves. No endless feed, autoplay, or engagement loops.
+- **Discover:** finite Videos, News, and Movies shelves with selectable curated sources, a configurable session size, daily item/time budgets, and a stopping screen. No endless feed, autoplay, or engagement loops.
 - **Videos:** curated YouTube channel feeds with thumbnails and in-app embedded playback. YouTube controls its player and may show ads.
-- **News:** RSS/Atom sources with thumbnails where available; open articles in an in-app reader and save a text-only copy for offline reading when the publisher exposes readable paragraphs.
+- **News:** selectable RSS sources with thumbnails where available; open articles in an in-app reader and save a bounded, text-only copy for offline reading when the publisher exposes readable paragraphs.
 - **Movies:** public catalog discovery and in-app playback when an item is legally available and embeddable.
 - **Inbox:** search and filter notification previews by app, remove individual previews or clear history, use Android quick-reply actions while available, and otherwise hand off to the original app. This is not full private-chat synchronization.
 - **Contacts:** choose individual phone contacts through Android's system picker; call and SMS shortcuts hand off to the phone's own apps.
 - **Music:** choose local audio files with Android's document picker and play them in Nexus. The current player is local-file focused; background media notification controls are not yet implemented.
 - **Library:** personal saved videos, articles and films with filters, plus a local personal note. Nexus does not include home-screen widgets.
-- **Settings:** local session and daily item limits, privacy explanations, and JSON backup/restore for personal app data.
+- **Settings:** source selection, session and daily item/time limits, notification-access help, JSON backup/restore, and a confirmed clear-all-data action.
+- **Widgets:** removed. Nexus no longer includes home-screen widgets or the Glance dependency.
 
 ## Build and test
 
@@ -32,7 +33,7 @@ Requirements: JDK 17, Android SDK 35, Gradle 8.9 (or Android Studio).
 
 APK output: app/build/outputs/apk/debug/app-debug.apk.
 
-GitHub Actions builds a debug APK for the owner's testing. A public release pipeline, store listing, signing/release automation, and distribution infrastructure are out of scope unless requested.
+GitHub Actions builds a debug APK for the owner's testing. The latest verified build is available from [the Nexus build workflow](https://github.com/zenith00014/Widgetly/actions/runs/44711799043). A public release pipeline, store listing, signing/release automation, and distribution infrastructure are out of scope unless requested.
 
 ## Platform boundaries
 
