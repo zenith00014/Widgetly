@@ -47,7 +47,8 @@ data class OfflineMedia(
     val complete: Boolean,
     val maxHeight: Int? = null,
     val maxAudioBitrate: Int? = null,
-    val transcodeToMp3: Boolean = false
+    val transcodeToMp3: Boolean = false,
+    val preferMp4: Boolean = false
 )
 
 object OfflineDownloads {
@@ -63,7 +64,8 @@ object OfflineDownloads {
         media: ResolvedMedia,
         maxHeight: Int? = null,
         maxAudioBitrate: Int? = null,
-        transcodeToMp3: Boolean = false
+        transcodeToMp3: Boolean = false,
+        preferMp4: Boolean = false
     ): UUID {
         require(!transcodeToMp3 || isAudio) { "MP3 conversion is only available for audio downloads." }
         val safeId = safeId(id, media.url)
@@ -82,6 +84,7 @@ object OfflineDownloads {
             .put("maxHeight", maxHeight ?: 0)
             .put("maxAudioBitrate", maxAudioBitrate ?: 0)
             .put("transcodeToMp3", transcodeToMp3)
+            .put("preferMp4", preferMp4)
             .put("complete", destination.exists() && destination.length() > 0)
         metadata.writeText(details.toString())
 
@@ -115,7 +118,8 @@ object OfflineDownloads {
                 media.id,
                 media.isAudio,
                 media.maxHeight,
-                media.maxAudioBitrate
+                media.maxAudioBitrate,
+                media.preferMp4
             )
         }
         return enqueue(
@@ -127,7 +131,8 @@ object OfflineDownloads {
             resolved,
             media.maxHeight,
             media.maxAudioBitrate,
-            media.transcodeToMp3
+            media.transcodeToMp3,
+            media.preferMp4
         )
     }
 
@@ -151,7 +156,8 @@ object OfflineDownloads {
                         complete = json.optBoolean("complete") && file.exists() && file.length() > 0,
                         maxHeight = json.optInt("maxHeight", 0).takeIf { it > 0 },
                         maxAudioBitrate = json.optInt("maxAudioBitrate", 0).takeIf { it > 0 },
-                        transcodeToMp3 = json.optBoolean("transcodeToMp3", false)
+                        transcodeToMp3 = json.optBoolean("transcodeToMp3", false),
+                        preferMp4 = json.optBoolean("preferMp4", false)
                     )
                 }.getOrNull()
             }
