@@ -749,7 +749,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     val audioOnly=if(isCurrentItem)latestAudio else source.music
     val maxHeight=if(isCurrentItem&&!audioOnly)latestQuality.takeIf{it>0} else null
     val maxBitrate=if(isCurrentItem&&audioOnly)latestQuality.takeIf{it>0} else null
-    val preferMp4=if(isCurrentItem)!audioOnly&&latestMp4Format else !audioOnly
+    val preferMp4=if(isCurrentItem)!audioOnly&&latestMp4Format else false
     val startPosition=player.currentPosition.coerceAtLeast(0L)
     status="Refreshing stream after playback error…"
     scope.launch{
@@ -861,10 +861,12 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    else scope.launch{
     status="Resolving stream…"
     try{
+     var resolvedQuality=""
      val mediaItem=if(localFileAvailable){
       androidx.media3.common.MediaItem.Builder().setMediaId(item.id).setUri(java.io.File(item.localPath!!).toURI().toString()).setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(item.title).setArtist(item.creator).build()).build()
      }else{
       val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format)}
+      resolvedQuality=resolved.qualityLabel
       val captions=if(audio)emptyList() else withContext(Dispatchers.IO){runCatching { LibreTubePlayback.resolveSubtitles(url) }.getOrDefault(emptyList())}
       val subtitleConfigs=captions.map{subtitle->
        androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
@@ -878,7 +880,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      activePlayer.setMediaItem(mediaItem)
      val savedPosition=PlaybackProgress.resumePositionMs(context,item.id)
      if(savedPosition>0)activePlayer.seekTo(savedPosition)
-     activePlayer.prepare();activePlayer.play();status=if(localFileAvailable)"Playing offline" else "Stream ready"
+     activePlayer.prepare();activePlayer.play();status=if(localFileAvailable)"Playing offline" else "Playing · $resolvedQuality"
     }catch(e:Exception){status=e.localizedMessage?:"Unable to load this stream."}
    }
   },enabled=controller!=null,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text(if(localFileAvailable)"Play offline" else "Load and play",color=Color.White)}
