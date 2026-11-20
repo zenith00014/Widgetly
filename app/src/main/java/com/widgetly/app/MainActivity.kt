@@ -79,7 +79,7 @@ private fun NexusApp() {
                     "DISCOVER" -> DiscoverPage { opened=it }
                     "INBOX" -> InboxPage()
                     "LIBRARY" -> LibraryPage { opened=it }
-                    "MUSIC" -> NexusMusicPage(musicPlayer)
+                    "MUSIC" -> NexusLibreTubePage()
                     "MOVIES" -> NexusMoviesPage()
                     else -> HomePage({tab="DISCOVER"}, {tab="INBOX"}, {tab="LIBRARY"}, {opened=it})
                 }
@@ -268,7 +268,9 @@ private fun InboxPage() {
     }
     Column(Modifier.fillMaxSize().padding(horizontal=16.dp,vertical=8.dp)) {
         Slab {
-            Text("HYBRID MESSAGE INBOX",color=Lime,fontSize=10.sp,fontWeight=FontWeight.Bold)
+            Text("BEEPER MESSAGING",color=Lime,fontSize=10.sp,fontWeight=FontWeight.Bold)
+            NexusBeeperLaunchButton()
+            Text("Notification previews below are a separate Android feature; full conversations open in Beeper.",color=Muted,fontSize=11.sp)
             Text("PREVIEW = notification history. LIVE = only with an authorized integration. Nexus does not silently read private chats.",color=Muted,fontSize=11.sp)
             OutlinedTextField(value=search,onValueChange={search=it},modifier=Modifier.fillMaxWidth(),singleLine=true,label={Text("Search previews")})
             Row(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
@@ -404,7 +406,7 @@ private fun NexusViewer(item:NexusItem,onBack:()->Unit) {
                 if(offlineStatus!=null) Text(offlineStatus!!,color=Muted,fontSize=9.sp,maxLines=2)
             }
         }
-        EmbeddedMedia(item,Modifier.weight(1f).fillMaxWidth(),offlineVersion)
+        if(item.kind==ContentKind.VIDEO) NexusLibreTubeVideoHandoff(item.url) else EmbeddedMedia(item,Modifier.weight(1f).fillMaxWidth(),offlineVersion)
     }
 }
 
