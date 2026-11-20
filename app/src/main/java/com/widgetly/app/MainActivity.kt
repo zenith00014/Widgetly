@@ -364,7 +364,8 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  var uploads by remember{mutableStateOf<List<YouTubeSearchResult>>(emptyList())}
  var status by remember{mutableStateOf("Latest uploads from channels you follow.")}
  var loading by remember{mutableStateOf(false)}
- LaunchedEffect(channels.map{it.id}) {
+ var refresh by remember{mutableIntStateOf(0)}
+ LaunchedEffect(channels.map{it.id},refresh) {
   loading=true
   try {
    uploads=withContext(Dispatchers.IO){channels.flatMap{channel->runCatching{LiveYouTubeSearch.latestUploads(channel.id)}.getOrDefault(emptyList())}.distinctBy{it.videoId}.take(60)}
@@ -374,8 +375,10 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  }
  LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
   item{
-   Text("Subscriptions",color=ink,fontSize=20.sp,fontWeight=FontWeight.Bold)
-   Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(top=5.dp))
+   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+    Column{Text("Subscriptions",color=ink,fontSize=20.sp,fontWeight=FontWeight.Bold);Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(top=5.dp))}
+    TextButton(enabled=!loading,onClick={refresh++}){Text("Refresh",color=magenta)}
+   }
   }
   if(channels.isEmpty())item{Text("No subscriptions yet. Search for a channel in Discover and subscribe to it.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(surface).padding(16.dp))}
   items(channels,key={it.id}){channel->
