@@ -356,6 +356,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
 }
 
 @Composable private fun Library(saved:Set<String>,history:List<String>,metadata:Map<String,Pick>,prefs:android.content.SharedPreferences,ink:Color,muted:Color,surface:Color,play:(String)->Unit,remove:(String)->Unit){
+ val context=androidx.compose.ui.platform.LocalContext.current
  val all=metadata
  val kept=saved.mapNotNull{all[it]};val recent=history.distinct().mapNotNull{all[it]}
  var playlists by remember{mutableStateOf(PlaylistStore.load(prefs))}
@@ -379,10 +380,10 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
       scope.launch {
        playlistMessage="Resolving playlist streams…"
        var queued=0
-       tracksForPlaylist@ for(track in playlist.itemIds.mapNotNull{all[it]}){
+       for(track in tracks){
         try{
          val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.id,track.music)}
-         withContext(Dispatchers.IO){OfflineDownloads.enqueue(context=prefsContext(prefs),id=track.id,title=track.title,creator=track.creator,isAudio=track.music,media=resolved)}
+         withContext(Dispatchers.IO){OfflineDownloads.enqueue(context=context,id=track.id,title=track.title,creator=track.creator,isAudio=track.music,media=resolved)}
          queued++
         }catch(_:Exception){}
        }
