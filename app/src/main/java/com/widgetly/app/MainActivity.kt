@@ -37,6 +37,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
 @Composable private fun RushApp(prefs:android.content.SharedPreferences){
  var tab by remember{mutableStateOf("Home")};var light by remember{mutableStateOf(prefs.getBoolean("light",false))}
  var active by remember{mutableStateOf<Pick?>(null)}
+ var playbackQueue by remember{mutableStateOf<List<Pick>>(emptyList())}
  var saved by remember{mutableStateOf(prefs.getStringSet("saved",emptySet())?.toSet()?:emptySet())}
  var history by remember{mutableStateOf(loadHistory(prefs))}
  var metadata by remember{mutableStateOf(loadPickMetadata(prefs))}
@@ -44,7 +45,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  val ink=if(light)Color(0xFF241B32) else paper;val muted=if(light)Color(0xFF70677D) else mutedDark
  MaterialTheme(colorScheme=if(light)lightColorScheme(primary=magenta,background=bg,surface=surface,onSurface=ink)else darkColorScheme(primary=magenta,background=bg,surface=surface,onSurface=ink)){
   Surface(Modifier.fillMaxSize(),color=bg){Column(Modifier.fillMaxSize()){
-   if(active!=null)RushPlayer(active!!,light){active=null}
+   if(active!=null)RushPlayer(active!!,light,{active=null;playbackQueue=emptyList()},playbackQueue)
    else{
     Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=14.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
      Column{Text("RUSH",color=if(light)magenta else mint,fontSize=12.sp,fontWeight=FontWeight.Bold,letterSpacing=3.sp);Text(when(tab){"Discover"->"Find your next favourite";"Downloads"->"Offline library";"Subscriptions"->"Latest uploads";"Library"->"Your collection";else->"Your daily signal"},color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold)}
@@ -55,7 +56,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
       "Discover"->LiveDiscover(ink,muted,surface,saved,{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()},{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Live YouTube result");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};persistHistory(prefs,history)})
       "Downloads"->DownloadsScreen(ink,muted,surface,{media->active=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath)})
       "Subscriptions"->SubscriptionsScreen(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Latest upload");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};persistHistory(prefs,history)})
-      "Library"->Library(saved,history,metadata,prefs,ink,muted,surface,{id->metadata[id]?.let{active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()})
+      "Library"->Library(saved,history,metadata,prefs,ink,muted,surface,{id->metadata[id]?.let{playbackQueue=emptyList();active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()},{queue->playbackQueue=queue;active=queue.firstOrNull()})
       else->Home(ink,muted,surface,prefs,saved,metadata,history,{pick->persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};persistHistory(prefs,history)},{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()},{tab="Discover"})
      }
     }
@@ -355,7 +356,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  }
 }
 
-@Composable private fun Library(saved:Set<String>,history:List<String>,metadata:Map<String,Pick>,prefs:android.content.SharedPreferences,ink:Color,muted:Color,surface:Color,play:(String)->Unit,remove:(String)->Unit){
+@Composable private fun Library(saved:Set<String>,history:List<String>,metadata:Map<String,Pick>,prefs:android.content.SharedPreferences,ink:Color,muted:Color,surface:Color,play:(String)->Unit,remove:(String)->Unit,playQueue:(List<Pick>)->Unit){
  val context=androidx.compose.ui.platform.LocalContext.current
  val all=metadata
  val kept=saved.mapNotNull{all[it]};val recent=history.distinct().mapNotNull{all[it]}
@@ -374,6 +375,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   if(playlists.isEmpty())item{Text("Create a playlist, then add videos or music from Discover.",color=muted,fontSize=11.sp)}
   items(playlists,key={it.id}){playlist->
    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(surface).padding(12.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
+    val tracks=playlist.itemIds.mapNotNull{all[it]}
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
      Column(Modifier.weight(1f)){Text(playlist.name,color=ink,fontSize=14.sp,fontWeight=FontWeight.Bold);Text("${playlist.itemIds.size} items",color=muted,fontSize=10.sp)}
      TextButton(onClick={
@@ -390,9 +392,9 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
        playlistMessage="Queued $queued of ${playlist.itemIds.size} playlist downloads."
       }
      }){Text("Download all",color=magenta,fontSize=10.sp)}
+     if(tracks.isNotEmpty())TextButton(onClick={playQueue(tracks)}){Text("Play all",color=magenta,fontSize=10.sp)}
      TextButton(onClick={playlists=PlaylistStore.delete(prefs,playlist.id)}){Text("Delete",color=muted,fontSize=10.sp)}
     }
-    val tracks=playlist.itemIds.mapNotNull{all[it]}
     if(tracks.isEmpty())Text("No items yet. Add videos or music from Discover.",color=muted,fontSize=10.sp)
     tracks.forEach{track->
      Row(Modifier.fillMaxWidth().clickable{play(track.id)}.padding(vertical=5.dp),verticalAlignment=Alignment.CenterVertically){
@@ -419,7 +421,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   dismissButton={TextButton(onClick={showCreate=false;playlistName=""}){Text("Cancel")}}
  )
 }
-@Composable private fun RushPlayer(item:Pick,light:Boolean,back:()->Unit){
+@Composable private fun RushPlayer(item:Pick,light:Boolean,back:()->Unit,queue:List<Pick>){
  val context=androidx.compose.ui.platform.LocalContext.current;val scope=rememberCoroutineScope()
  var controller by remember { mutableStateOf<androidx.media3.session.MediaController?>(null) }
  val controllerFuture = remember(context) {
