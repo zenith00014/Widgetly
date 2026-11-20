@@ -97,14 +97,14 @@ object NexusContentRepository {
         while (event != XmlPullParser.END_DOCUMENT) {
             when (event) {
                 XmlPullParser.START_TAG -> {
-                    tag = parser.name.lowercase()
+                    tag = parser.name.substringAfterLast(':').lowercase()
                     if (tag == "item" || tag == "entry") {
                         inItem = true; title = ""; link = ""; description = ""; image = null; published = ""; videoId = ""
                     } else if (inItem && tag == "link") {
                         val href = parser.getAttributeValue(null, "href")
                         if (!href.isNullOrBlank()) link = href
-                    } else if (inItem && (tag == "thumbnail" || tag == "content") && image == null) {
-                        image = parser.getAttributeValue(null, "url")
+                    } else if (inItem && (tag == "thumbnail" || tag == "content" || tag == "enclosure") && image == null) {
+                        image = parser.getAttributeValue(null, "url") ?: parser.getAttributeValue(null, "href")
                     } else if (inItem && tag == "videoid") {
                         videoId = ""
                     }
