@@ -1,46 +1,37 @@
 package com.widgetly.app
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.widget.Toast
+import android.provider.Settings
+import android.webkit.WebChromeClient
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.material3.darkColorScheme
+import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.glance.appwidget.updateAll
 import kotlinx.coroutines.launch
 
 internal const val PREFS_NAME = "widgetly_prefs"
 internal const val NOTE_KEY = "quick_note"
-
 private val Ink = Color(0xFF111411)
 private val Panel = Color(0xFF1B211C)
-private val PanelRaised = Color(0xFF252D25)
 private val Lime = Color(0xFFC5E879)
 private val Muted = Color(0xFFA4AEA1)
 
@@ -48,141 +39,133 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme(
-                colorScheme = darkColorScheme(
-                    primary = Lime,
-                    onPrimary = Ink,
-                    background = Ink,
-                    surface = Panel,
-                    onSurface = Color(0xFFF0F2EA)
-                )
-            ) {
-                WidgetlyHome(this)
+            MaterialTheme(colorScheme = darkColorScheme(primary=Lime, onPrimary=Ink, background=Ink, surface=Panel)) {
+                WidgetlyApp()
             }
         }
     }
 }
 
 @Composable
-private fun WidgetlyHome(context: Context) {
-    val prefs = remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
-    var note by remember { mutableStateOf(prefs.getString(NOTE_KEY, "Make today count.") ?: "") }
+private fun WidgetlyApp() {
+    var tab by remember { mutableStateOf("Home") }
+    Surface(Modifier.fillMaxSize(), color=Ink) {
+        Column(Modifier.fillMaxSize()) {
+            Row(Modifier.fillMaxWidth().padding(horizontal=20.dp, vertical=18.dp), horizontalArrangement=Arrangement.SpaceBetween) {
+                Column {
+                    Text("WIDGETLY", color=Lime, fontSize=12.sp, fontWeight=FontWeight.Bold, letterSpacing=2.sp)
+                    Text(when(tab){"Watch"->"Video deck";"Listen"->"Music deck";"Inbox"->"Message center";"Widgets"->"Pocket gadgets";else->"Your pocket dashboard."}, color=Color.White, fontSize=23.sp, fontWeight=FontWeight.SemiBold)
+                }
+                Text("●  READY", color=Lime, fontSize=10.sp, modifier=Modifier.padding(top=8.dp))
+            }
+            Box(Modifier.weight(1f)) {
+                when(tab) {
+                    "Watch" -> MediaPage("YOUTUBE", "Browse and play YouTube videos inside Widgetly. Playback is provided by YouTube's own embedded/mobile experience.", "https://m.youtube.com")
+                    "Listen" -> MediaPage("SPOTIFY", "Open Spotify's web player inside Widgetly. Spotify account, playback and Premium restrictions still apply.", "https://open.spotify.com")
+                    "Inbox" -> InboxPage()
+                    "Widgets" -> WidgetsPage()
+                    else -> HomePage(onOpen={tab=it})
+                }
+            }
+            NavigationBar(containerColor=Panel, contentColor=Color.White) {
+                listOf("Home","Watch","Listen","Inbox","Widgets").forEach { item ->
+                    NavigationBarItem(selected=tab==item, onClick={tab=item}, icon={Text(when(item){"Home"->"⌂";"Watch"->"▣";"Listen"->"♫";"Inbox"->"▤";else->"▦"}, fontSize=18.sp)}, label={Text(item,fontSize=10.sp)}, colors=NavigationBarItemDefaults.colors(selectedIconColor=Lime, selectedTextColor=Lime, indicatorColor=Color(0xFF303A2D), unselectedTextColor=Muted, unselectedIconColor=Muted))
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HomePage(onOpen:(String)->Unit) {
+    Column(Modifier.fillMaxSize().padding(horizontal=18.dp).padding(bottom=16.dp), verticalArrangement=Arrangement.spacedBy(14.dp)) {
+        Text("YOUR CENTERS", color=Muted, fontSize=11.sp, fontWeight=FontWeight.Bold, letterSpacing=2.sp)
+        HubCard("01  /  VIDEO", "YouTube playback inside Widgetly", "Open video deck") { onOpen("Watch") }
+        HubCard("02  /  MUSIC", "Spotify web player inside Widgetly", "Open music deck") { onOpen("Listen") }
+        HubCard("03  /  SOCIAL", "Collect supported message notifications in one inbox", "Open message center") { onOpen("Inbox") }
+        HubCard("04  /  GADGETS", "Quick Note and Retro Clock home-screen widgets", "View widgets") { onOpen("Widgets") }
+        Text("Retro hardware, rebuilt as a lightweight Android dashboard.", color=Muted, fontSize=12.sp)
+    }
+}
+
+@Composable
+private fun HubCard(kicker:String, description:String, action:String, onClick:()->Unit) {
+    Card(colors=CardDefaults.cardColors(containerColor=Panel), shape=RoundedCornerShape(20.dp), modifier=Modifier.fillMaxWidth()) {
+        Column(Modifier.padding(17.dp), verticalArrangement=Arrangement.spacedBy(9.dp)) {
+            Text(kicker, color=Lime, fontSize=10.sp, fontWeight=FontWeight.Bold, letterSpacing=1.5.sp)
+            Text(description, color=Color.White, fontSize=16.sp, fontWeight=FontWeight.Medium)
+            Button(onClick=onClick, colors=ButtonDefaults.buttonColors(containerColor=Color(0xFF303A2D), contentColor=Lime), shape=RoundedCornerShape(12.dp)) { Text(action) }
+        }
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun MediaPage(title:String, description:String, url:String) {
+    var address by remember(url) { mutableStateOf(url) }
+    var current by remember(url) { mutableStateOf(url) }
+    Column(Modifier.fillMaxSize().padding(horizontal=12.dp), verticalArrangement=Arrangement.spacedBy(8.dp)) {
+        Text(title, color=Lime, fontSize=11.sp, fontWeight=FontWeight.Bold, letterSpacing=2.sp)
+        Text(description, color=Muted, fontSize=12.sp)
+        Row(horizontalArrangement=Arrangement.spacedBy(6.dp)) {
+            OutlinedTextField(value=address, onValueChange={address=it}, modifier=Modifier.weight(1f), singleLine=true, textStyle=LocalTextStyle.current.copy(fontSize=12.sp), label={Text("Video / playlist / track URL")})
+            Button(onClick={current=if(address.startsWith("http")) address else "https://www.google.com/search?q="+Uri.encode(address)}, contentPadding=PaddingValues(horizontal=12.dp, vertical=8.dp)) { Text("Go") }
+        }
+        EmbeddedBrowser(current, Modifier.weight(1f).fillMaxWidth())
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun EmbeddedBrowser(url:String, modifier:Modifier=Modifier) {
+    AndroidView(modifier=modifier, factory={ctx ->
+        WebView(ctx).apply {
+            settings.javaScriptEnabled=true
+            settings.domStorageEnabled=true
+            settings.mediaPlaybackRequiresUserGesture=true
+            settings.javaScriptCanOpenWindowsAutomatically=true
+            webChromeClient=WebChromeClient()
+            webViewClient=WebViewClient()
+            loadUrl(url)
+        }
+    }, update={view -> if(view.tag != url) { view.tag=url; view.loadUrl(url) } })
+}
+
+@Composable
+private fun InboxPage() {
+    val context= LocalContext.current
+    Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        Text("UNIFIED NOTIFICATION INBOX", color=Lime, fontSize=11.sp, fontWeight=FontWeight.Bold, letterSpacing=1.5.sp)
+        Text("Android does not allow third-party apps unrestricted access to private WhatsApp, Instagram or Messenger inboxes. Widgetly can collect message notifications after you grant notification access.", color=Color.White, fontSize=14.sp)
+        Card(colors=CardDefaults.cardColors(containerColor=Panel), shape=RoundedCornerShape(18.dp)) {
+            Column(Modifier.padding(16.dp), verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                Text("CONNECT NOTIFICATIONS", color=Lime, fontWeight=FontWeight.Bold)
+                Text("Enable Widgetly in Android Settings → Notification access. This lets it read notifications from selected apps; it does not provide full chat history or guaranteed message replies.", color=Muted, fontSize=12.sp)
+                Button(onClick={context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))}, colors=ButtonDefaults.buttonColors(containerColor=Lime, contentColor=Ink)) { Text("Open notification access settings") }
+            }
+        }
+        Text("Connected services and live message aggregation will appear here after the notification listener is implemented and enabled in a future build.", color=Muted, fontSize=12.sp)
+    }
+}
+
+@Composable
+private fun WidgetsPage() {
+    val context= LocalContext.current
+    val prefs= remember { context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE) }
+    var note by remember { mutableStateOf(prefs.getString(NOTE_KEY,"Make today count.") ?: "") }
     var saved by remember { mutableStateOf(false) }
-    val scope = rememberCoroutineScope()
-
-    Surface(modifier = Modifier.fillMaxSize(), color = Ink) {
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(18.dp)
-        ) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                    Text("WIDGETLY", color = Lime, fontSize = 12.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-                    Text("Your pocket dashboard.", color = Color.White, fontSize = 25.sp, fontWeight = FontWeight.SemiBold)
-                }
-                Text("●", color = Lime, fontSize = 18.sp)
-            }
-
-            Text("CENTERS", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-            CenterCard("Entertainment", "Your media, one simple place.", "01", listOf(
-                CenterAction("YouTube", "com.google.android.youtube", "https://m.youtube.com"),
-                CenterAction("Spotify", "com.spotify.music", "https://open.spotify.com")
-            ), context)
-            CenterCard("Social", "Quick access to your conversations.", "02", listOf(
-                CenterAction("WhatsApp", "com.whatsapp", "https://web.whatsapp.com"),
-                CenterAction("Telegram", "org.telegram.messenger", "https://web.telegram.org"),
-                CenterAction("Instagram", "com.instagram.android", "https://www.instagram.com"),
-                CenterAction("Messenger", "com.facebook.orca", "https://www.messenger.com")
-            ), context)
-
-            Text("YOUR WIDGETS", color = Muted, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 2.sp)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(22.dp),
-                colors = CardDefaults.cardColors(containerColor = Panel)
-            ) {
-                Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        Text("QUICK NOTE", color = Lime, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
-                        Text("2 × 2", color = Muted, fontSize = 11.sp)
-                    }
-                    Text(note.ifBlank { "Your note will appear here." }, color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Medium)
-                    Text("A small reminder on your home screen.", color = Muted, fontSize = 13.sp)
-                    OutlinedTextField(
-                        value = note,
-                        onValueChange = { note = it; saved = false },
-                        modifier = Modifier.fillMaxWidth(),
-                        label = { Text("Edit your note") },
-                        minLines = 2,
-                        maxLines = 3,
-                        shape = RoundedCornerShape(14.dp)
-                    )
-                    Button(
-                        onClick = {
-                            prefs.edit().putString(NOTE_KEY, note.trim()).apply()
-                            scope.launch {
-                                QuickNoteWidget().updateAll(context)
-                                saved = true
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = ButtonDefaults.buttonColors(containerColor = Lime, contentColor = Ink),
-                        shape = RoundedCornerShape(14.dp)
-                    ) { Text("Save widget", fontWeight = FontWeight.Bold) }
-                    if (saved) Text("Widget updated.", color = Lime, fontSize = 12.sp)
-                }
-            }
-            Text("Add Quick Note (2 × 2) or Retro Clock (2 × 1) from your home screen's Widgets menu.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 12.dp))
-        }
-    }
-}
-
-private data class CenterAction(val label: String, val packageName: String, val webUrl: String)
-
-@Composable
-private fun CenterCard(title: String, subtitle: String, marker: String, actions: List<CenterAction>, context: Context) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        shape = RoundedCornerShape(22.dp),
-        colors = CardDefaults.cardColors(containerColor = Panel)
-    ) {
-        Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                Text(title, color = Color.White, fontSize = 21.sp, fontWeight = FontWeight.SemiBold)
-                Text(marker, color = Lime, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-            }
-            Text(subtitle, color = Muted, fontSize = 13.sp)
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                actions.chunked(2).forEach { pair ->
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        pair.forEach { action ->
-                            Button(
-                                onClick = { openAppOrWeb(context, action) },
-                                modifier = Modifier.weight(1f),
-                                colors = ButtonDefaults.buttonColors(containerColor = PanelRaised, contentColor = Color.White),
-                                shape = RoundedCornerShape(12.dp)
-                            ) { Text(action.label, fontSize = 12.sp) }
-                        }
-                        if (pair.size == 1) Spacer(Modifier.weight(1f))
-                    }
-                }
+    val scope= rememberCoroutineScope()
+    Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement=Arrangement.spacedBy(12.dp)) {
+        Text("HOME-SCREEN GADGETS", color=Lime, fontSize=11.sp, fontWeight=FontWeight.Bold, letterSpacing=1.5.sp)
+        Card(colors=CardDefaults.cardColors(containerColor=Panel), shape=RoundedCornerShape(18.dp)) {
+            Column(Modifier.padding(16.dp), verticalArrangement=Arrangement.spacedBy(10.dp)) {
+                Text("QUICK NOTE  /  2 × 2", color=Lime, fontWeight=FontWeight.Bold)
+                OutlinedTextField(value=note, onValueChange={note=it;saved=false}, modifier=Modifier.fillMaxWidth(), label={Text("Your note")})
+                Button(onClick={prefs.edit().putString(NOTE_KEY,note.trim()).apply(); scope.launch { QuickNoteWidget().updateAll(context); saved=true }}, colors=ButtonDefaults.buttonColors(containerColor=Lime,contentColor=Ink)) { Text("Save note widget") }
+                if(saved) Text("Updated",color=Lime)
             }
         }
-    }
-}
-
-private fun openAppOrWeb(context: Context, action: CenterAction) {
-    val launchIntent = context.packageManager.getLaunchIntentForPackage(action.packageName)
-    try {
-        if (launchIntent != null) {
-            context.startActivity(launchIntent)
-        } else {
-            context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(action.webUrl)))
-        }
-    } catch (_: Exception) {
-        Toast.makeText(context, "Unable to open " + action.label, Toast.LENGTH_SHORT).show()
+        Text("RETRO CLOCK  /  2 × 1", color=Lime, fontWeight=FontWeight.Bold)
+        Text("Add either widget from your Android home screen's Widgets picker.", color=Muted, fontSize=12.sp)
     }
 }
