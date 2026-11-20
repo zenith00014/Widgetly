@@ -415,10 +415,9 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
    TextButton(enabled=libraryMessage.isBlank(),onClick={
     val prefs=context.getSharedPreferences("rush_prefs",Context.MODE_PRIVATE)
     tracks.forEach(store)
-    val created=PlaylistStore.create(prefs,collection.title,tracks.first().videoId)
-    val playlistId=created.last().id
-    tracks.drop(1).forEach{PlaylistStore.add(prefs,playlistId,it.videoId)}
-    libraryMessage="Saved "+tracks.size+" items to Library as \""+collection.title+"\"."
+    val sourceKey=(if(collection.isMusic)"youtube-music:" else "youtube-playlist:")+collection.collectionId
+    PlaylistStore.importCollection(prefs,collection.title,sourceKey,tracks.map{it.videoId})
+    libraryMessage="Imported "+tracks.size+" items into Library as \""+collection.title+"\"."
    }){Text("Save to Library",color=magenta)}
    if(libraryMessage.isNotBlank())Text(libraryMessage,color=muted,fontSize=10.sp)
   }
