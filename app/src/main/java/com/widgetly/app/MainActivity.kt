@@ -651,7 +651,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
     withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,item.id,item.title,item.creator,audio,media,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,audio&&mp3Format,!audio&&mp4Format)}
     status="Download queued · ${media.qualityLabel} · .${media.extension}"
    }catch(e:Exception){status=e.localizedMessage?:"Could not start download."}
-  }},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=raised)){Text(if(audio&&mp3Format)"Download MP3" else "Download offline",color=ink)}
+  }},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=raised)){Text(when{audio&&mp3Format->"Download MP3";!audio&&mp4Format->"Download MP4";else->"Download offline"},color=ink)}
   androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).apply{this.player=controller;useController=true}},update={it.player=controller},modifier=Modifier.fillMaxWidth().height(if(audio)70.dp else 180.dp))
   Text(status,color=muted,fontSize=11.sp);Text("Use offline downloads only where permitted. Formats and quality depend on the source.",color=muted,fontSize=10.sp)
   Spacer(Modifier.weight(.5f))
