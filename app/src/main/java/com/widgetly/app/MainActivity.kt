@@ -576,7 +576,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      else -> "Preparing download"
     },color=if(media.complete)mint else muted,fontSize=11.sp)
     if(active){
-     if(converting)LinearProgressIndicator(modifier=Modifier.fillMaxWidth())
+     if(converting||progress==0)LinearProgressIndicator(modifier=Modifier.fillMaxWidth())
      else LinearProgressIndicator(progress={progress/100f},modifier=Modifier.fillMaxWidth())
     }
     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
