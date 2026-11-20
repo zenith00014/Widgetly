@@ -7,6 +7,7 @@ Rush is an Android-only video and music streaming client built with Kotlin, Jetp
 - YouTube video search and playback
 - YouTube Music search and audio playback
 - Channel search, subscriptions and latest uploads
+- Public YouTube video playlist and YouTube Music album browsing, with bulk offline downloads
 - Local video/music playlists and queue playback
 - Watch and listening history
 - Background audio/video playback through a Media3 media session
@@ -18,7 +19,7 @@ Out of scope for this phase: Movies, TV series, Shorts, Trending and custom reco
 
 ## Current implementation
 
-The development branch includes live YouTube and YouTube Music search adapters, channel subscriptions and latest-upload feeds, local playlists, ordered playback history, Media3 background playback, playback controls, caption-track extraction, and a WorkManager-based private download library.
+The development branch includes live YouTube and YouTube Music search adapters, channel subscriptions and latest-upload feeds, public video playlist and music album browsing, local playlists and reorderable queue, ordered playback history with resume positions, Media3 background playback with wake-lock support, playback controls, caption-track extraction, and a WorkManager-based private download library.
 
 Downloads use the source's available stream format and extension (for example, M4A or WebM where supplied). Audio downloads can optionally be converted on-device to MP3 using the LGPL FFmpegKit-maintained audio package with LAME. Video formats and selectable qualities depend on what the source exposes. Interrupted transfers resume from partial files where the server supports HTTP range requests; a manual resume re-resolves the source stream because signed URLs may expire.
 
