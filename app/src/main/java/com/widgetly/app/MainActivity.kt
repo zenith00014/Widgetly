@@ -26,14 +26,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
-import androidx.glance.appwidget.updateAll
 import coil.compose.AsyncImage
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
 
 internal const val PREFS_NAME = "widgetly_prefs"
-internal const val NOTE_KEY = "quick_note"
+internal const val NOTE_KEY = "nexus_personal_note"
 private val Ink = Color(0xFF0E0F0C)
 private val Panel = Color(0xFF1A1B17)
 private val Paper = Color(0xFFECE9DF)
@@ -67,7 +66,7 @@ private fun NexusApp() {
                 if (opened != null) NexusViewer(opened!!, { opened=null }) else when(tab) {
                     "DISCOVER" -> DiscoverPage { opened=it }
                     "INBOX" -> InboxPage()
-                    "LIBRARY" -> LibraryPage()
+                    "LIBRARY" -> LibraryPage { opened=it }
                     else -> HomePage({tab="DISCOVER"}, {tab="INBOX"}, {tab="LIBRARY"}, {opened=it})
                 }
             }
@@ -118,6 +117,8 @@ private fun QuickTile(title:String,subtitle:String,modifier:Modifier,onClick:()-
 
 @Composable
 private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
+    val context=LocalContext.current
+    var sessionLimit by remember { mutableIntStateOf(context.getSharedPreferences(PREFS_NAME,Context.MODE_PRIVATE).getInt("session_limit",12)) }
     var kind by remember { mutableStateOf(ContentKind.VIDEO) }
     var refresh by remember { mutableIntStateOf(0) }
     var data by remember { mutableStateOf<List<NexusItem>>(emptyList()) }
@@ -141,8 +142,17 @@ private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
             Spacer(Modifier.weight(1f))
             TextButton(onClick={refresh++}) { Text("REFRESH",color=Lime,fontSize=10.sp) }
         }
+        Slab(Modifier.padding(horizontal=14.dp)) {
+            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                Text("SESSION LIMIT",color=Lime,fontSize=10.sp,fontWeight=FontWeight.Bold)
+                Text("$sessionLimit ITEMS",color=Paper,fontSize=10.sp)
+            }
+            Slider(value=sessionLimit.toFloat(),onValueChange={sessionLimit=it.toInt().coerceIn(5,30)},valueRange=5f..30f,steps=4)
+            Text("A finite set. Autoplay stays off.",color=Muted,fontSize=10.sp)
+            TextButton(onClick={context.getSharedPreferences(PREFS_NAME,Context.MODE_PRIVATE).edit().putInt("session_limit",sessionLimit).apply();refresh++}) { Text("APPLY SESSION LIMIT",color=Lime,fontSize=9.sp) }
+        }
         Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),horizontalArrangement=Arrangement.SpaceBetween) {
-            Text("FINITE SESSION  /  ${data.size} ITEMS",color=Muted,fontSize=9.sp)
+            Text("FINITE SESSION  /  ${minOf(data.size,sessionLimit)} ITEMS",color=Muted,fontSize=9.sp)
             Text("AUTOPLAY OFF",color=Lime,fontSize=9.sp)
         }
         when {
@@ -153,7 +163,7 @@ private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
                 OutlinedButton(onClick={refresh++}) { Text("TRY AGAIN") }
             }
             else -> LazyColumn(Modifier.fillMaxSize().padding(horizontal=14.dp),verticalArrangement=Arrangement.spacedBy(9.dp),contentPadding=PaddingValues(vertical=12.dp)) {
-                items(data,key={it.id}) { ContentCard(it) { onOpen(it) } }
+                items(data.take(sessionLimit),key={it.id}) { ContentCard(it) { onOpen(it) } }
                 item { Slab {
                     Text("END OF SESSION",color=Lime,fontWeight=FontWeight.Bold,fontSize=12.sp)
                     Text("You've reached the end of this set. Save an item or close Discover.",color=Muted,fontSize=12.sp)
@@ -165,6 +175,9 @@ private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
 
 @Composable
 private fun ContentCard(item:NexusItem,onClick:()->Unit) {
+    val context = LocalContext.current
+    var saved by remember(item.id) { mutableStateOf(NexusLocalStore.isSaved(context, item.id)) }
+    Column {
     Row(Modifier.fillMaxWidth().background(Panel).clickable(onClick=onClick).padding(10.dp),horizontalArrangement=Arrangement.spacedBy(10.dp)) {
         if(!item.image.isNullOrBlank()) AsyncImage(model=item.image,contentDescription="Thumbnail for ${item.title}",modifier=Modifier.width(112.dp).height(82.dp))
         else Box(Modifier.width(112.dp).height(82.dp).background(Color(0xFF30352A)),contentAlignment=Alignment.Center) { Text("N X",color=Lime,fontWeight=FontWeight.Black) }
@@ -173,9 +186,11 @@ private fun ContentCard(item:NexusItem,onClick:()->Unit) {
             Text(item.title,color=Paper,fontSize=14.sp,fontWeight=FontWeight.SemiBold,maxLines=3)
             Text(item.description.ifBlank { item.published },color=Muted,fontSize=10.sp,maxLines=2)
             Text(when(item.kind){ContentKind.VIDEO->"▶ PLAY INSIDE NEXUS";ContentKind.NEWS->"READ INSIDE NEXUS";ContentKind.MOVIE->"▶ WATCH INSIDE NEXUS"},color=Lime,fontSize=9.sp,fontWeight=FontWeight.Bold)
+            TextButton(onClick={ saved = if(saved) { NexusLocalStore.remove(context,item.id); false } else { NexusLocalStore.save(context,item); true } }) { Text(if(saved) "SAVED ✓" else "+ SAVE",color=if(saved) Lime else Muted,fontSize=9.sp) }
         }
     }
     HorizontalDivider(color=Line,thickness=1.dp)
+    }
 }
 
 @Composable
@@ -249,26 +264,28 @@ private fun InboxPage() {
 }
 
 @Composable
-private fun LibraryPage() {
+private fun LibraryPage(onOpen:(NexusItem)->Unit) {
     val context=LocalContext.current
     val prefs=remember { context.getSharedPreferences(PREFS_NAME,Context.MODE_PRIVATE) }
     var note by remember { mutableStateOf(prefs.getString(NOTE_KEY,"Make today count.") ?: "") }
-    var saved by remember { mutableStateOf(false) }
-    val scope=rememberCoroutineScope()
-    Column(Modifier.fillMaxSize().padding(16.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+    var noteSaved by remember { mutableStateOf(false) }
+    var refresh by remember { mutableIntStateOf(0) }
+    val savedItems = remember(refresh) { NexusLocalStore.all(context) }
+    Column(Modifier.fillMaxSize().padding(horizontal=16.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
         Slab {
             Text("YOUR LIBRARY",color=Lime,fontWeight=FontWeight.Bold,fontSize=11.sp)
-            Text("Saved items and collections will share one local library. This first pass keeps the existing quick-note tool available.",color=Muted,fontSize=12.sp)
+            Text("Saved videos, articles and films stay on this device.",color=Muted,fontSize=12.sp)
+            Text("${savedItems.size} SAVED ITEMS",color=Paper,fontSize=10.sp,fontWeight=FontWeight.Bold)
         }
         Slab {
-            Text("QUICK NOTE WIDGET",color=Lime,fontWeight=FontWeight.Bold,fontSize=11.sp)
-            OutlinedTextField(value=note,onValueChange={note=it;saved=false},modifier=Modifier.fillMaxWidth(),label={Text("Your note")})
-            Button(onClick={prefs.edit().putString(NOTE_KEY,note.trim()).apply();scope.launch { QuickNoteWidget().updateAll(context);saved=true }},colors=ButtonDefaults.buttonColors(containerColor=Lime,contentColor=Ink),shape=RectangleShape) { Text("SAVE NOTE WIDGET") }
-            if(saved) Text("Widget updated.",color=Lime,fontSize=11.sp)
+            Text("PERSONAL NOTE",color=Lime,fontWeight=FontWeight.Bold,fontSize=11.sp)
+            OutlinedTextField(value=note,onValueChange={note=it;noteSaved=false},modifier=Modifier.fillMaxWidth(),label={Text("Write a note")})
+            Button(onClick={prefs.edit().putString(NOTE_KEY,note.trim()).apply();noteSaved=true},colors=ButtonDefaults.buttonColors(containerColor=Lime,contentColor=Ink),shape=RectangleShape) { Text("SAVE NOTE") }
+            if(noteSaved) Text("Saved on this device.",color=Lime,fontSize=11.sp)
         }
-        Slab {
-            Text("RETRO CLOCK",color=Lime,fontWeight=FontWeight.Bold,fontSize=11.sp)
-            Text("Add the Retro Clock or Quick Note from your Android home-screen Widgets picker.",color=Muted,fontSize=12.sp)
+        if(savedItems.isEmpty()) Slab { Text("NOTHING SAVED YET",color=Paper,fontWeight=FontWeight.Bold); Text("Use + SAVE on any video, article or movie card.",color=Muted,fontSize=12.sp) }
+        else LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=18.dp)) {
+            items(savedItems,key={it.id}) { item -> ContentCard(item) { onOpen(item) } }
         }
     }
 }
