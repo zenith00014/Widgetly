@@ -125,26 +125,31 @@ object LiveYouTubeSearch {
     @Throws(IOException::class)
     fun browseVideoPlaylist(playlistId: String): List<YouTubeSearchResult> {
         val browseId = if (playlistId.startsWith("VL")) playlistId else "VL$playlistId"
-        val body = JSONObject()
-            .put("context", JSONObject().put("client", JSONObject()
-                .put("clientName", "WEB")
-                .put("clientVersion", "2.20261119.01.00")))
-            .put("browseId", browseId)
-            .toString()
-        val request = Request.Builder()
-            .url("https://www.youtube.com/youtubei/v1/browse")
-            .post(body.toRequestBody(jsonType))
-            .header("User-Agent", USER_AGENT)
-            .header("Origin", "https://www.youtube.com")
-            .header("Referer", "https://www.youtube.com/")
-            .build()
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("Could not load YouTube playlist (HTTP ${response.code}).")
-            val root = JSONObject(response.body?.string().orEmpty())
-            val found = LinkedHashMap<String, YouTubeSearchResult>()
-            collect(root, found, false, false, false)
-            return found.values.filter { it.videoId.isNotBlank() }.take(200)
+        val found = LinkedHashMap<String, YouTubeSearchResult>()
+        var continuation: String? = null
+        repeat(10) {
+            val body = JSONObject()
+                .put("context", JSONObject().put("client", JSONObject()
+                    .put("clientName", "WEB")
+                    .put("clientVersion", "2.20261119.01.00")))
+                .apply { if (continuation == null) put("browseId", browseId) else put("continuation", continuation) }
+                .toString()
+            val request = Request.Builder()
+                .url("https://www.youtube.com/youtubei/v1/browse")
+                .post(body.toRequestBody(jsonType))
+                .header("User-Agent", USER_AGENT)
+                .header("Origin", "https://www.youtube.com")
+                .header("Referer", "https://www.youtube.com/")
+                .build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw IOException("Could not load YouTube playlist (HTTP ${response.code}).")
+                val root = JSONObject(response.body?.string().orEmpty())
+                collect(root, found, false, false, false)
+                continuation = findContinuation(root)
+            }
+            if (continuation.isNullOrBlank() || found.size >= 1000) return@repeat
         }
+        return found.values.filter { it.videoId.isNotBlank() }.take(1000)
     }
 
     @Throws(IOException::class)
@@ -175,26 +180,48 @@ object LiveYouTubeSearch {
     @Throws(IOException::class)
     fun browseMusicCollection(browseId: String): List<YouTubeSearchResult> {
         require(browseId.isNotBlank()) { "Invalid music collection." }
-        val body = JSONObject()
-            .put("context", JSONObject().put("client", JSONObject()
-                .put("clientName", "WEB_REMIX")
-                .put("clientVersion", "1.20261119.01.00")))
-            .put("browseId", browseId)
-            .toString()
-        val request = Request.Builder()
-            .url("https://music.youtube.com/youtubei/v1/browse")
-            .post(body.toRequestBody(jsonType))
-            .header("User-Agent", USER_AGENT)
-            .header("Origin", "https://music.youtube.com")
-            .header("Referer", "https://music.youtube.com/")
-            .build()
-        client.newCall(request).execute().use { response ->
-            if (!response.isSuccessful) throw IOException("Could not load music collection (HTTP ${response.code}).")
-            val root = JSONObject(response.body?.string().orEmpty())
-            val found = LinkedHashMap<String, YouTubeSearchResult>()
-            collect(root, found, true, false, false)
-            return found.values.filter { it.videoId.isNotBlank() }.take(100)
+        val found = LinkedHashMap<String, YouTubeSearchResult>()
+        var continuation: String? = null
+        repeat(10) {
+            val body = JSONObject()
+                .put("context", JSONObject().put("client", JSONObject()
+                    .put("clientName", "WEB_REMIX")
+                    .put("clientVersion", "1.20261119.01.00")))
+                .apply { if (continuation == null) put("browseId", browseId) else put("continuation", continuation) }
+                .toString()
+            val request = Request.Builder()
+                .url("https://music.youtube.com/youtubei/v1/browse")
+                .post(body.toRequestBody(jsonType))
+                .header("User-Agent", USER_AGENT)
+                .header("Origin", "https://music.youtube.com")
+                .header("Referer", "https://music.youtube.com/")
+                .build()
+            client.newCall(request).execute().use { response ->
+                if (!response.isSuccessful) throw IOException("Could not load music collection (HTTP ${response.code}).")
+                val root = JSONObject(response.body?.string().orEmpty())
+                collect(root, found, true, false, false)
+                continuation = findContinuation(root)
+            }
+            if (continuation.isNullOrBlank() || found.size >= 1000) return@repeat
         }
+        return found.values.filter { it.videoId.isNotBlank() }.take(1000)
+    }
+
+    private fun findContinuation(value: Any?): String? {
+        when (value) {
+            is JSONObject -> {
+                value.optJSONObject("nextContinuationData")?.optString("continuation")
+                    ?.takeIf { it.isNotBlank() }?.let { return it }
+                value.optJSONObject("continuationCommand")?.optString("token")
+                    ?.takeIf { it.isNotBlank() }?.let { return it }
+                val keys = value.keys()
+                while (keys.hasNext()) findContinuation(value.opt(keys.next()))?.let { return it }
+            }
+            is JSONArray -> for (index in 0 until value.length()) {
+                findContinuation(value.opt(index))?.let { return it }
+            }
+        }
+        return null
     }
 
     private fun addMusic(item: JSONObject, out: MutableMap<String, YouTubeSearchResult>) {
