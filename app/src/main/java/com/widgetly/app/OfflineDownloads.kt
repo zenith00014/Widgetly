@@ -48,7 +48,8 @@ data class OfflineMedia(
     val maxHeight: Int? = null,
     val maxAudioBitrate: Int? = null,
     val transcodeToMp3: Boolean = false,
-    val preferMp4: Boolean = false
+    val preferMp4: Boolean = false,
+    val sourceId: String = ""
 )
 
 object OfflineDownloads {
@@ -68,12 +69,23 @@ object OfflineDownloads {
         preferMp4: Boolean = false
     ): UUID {
         require(!transcodeToMp3 || isAudio) { "MP3 conversion is only available for audio downloads." }
-        val safeId = safeId(id, media.url)
+        val key = listOf(
+            id,
+            media.extension,
+            media.qualityLabel,
+            isAudio.toString(),
+            maxHeight?.toString().orEmpty(),
+            maxAudioBitrate?.toString().orEmpty(),
+            preferMp4.toString(),
+            transcodeToMp3.toString()
+        ).joinToString("|")
+        val safeId = safeId(key)
         val directory = File(context.filesDir, DIRECTORY).apply { mkdirs() }
         val destination = File(directory, "$safeId.${media.extension}")
         val metadata = File(directory, "$safeId.json")
         val details = JSONObject()
             .put("id", safeId)
+            .put("sourceId", id)
             .put("title", title)
             .put("creator", creator)
             .put("isAudio", isAudio)
@@ -115,7 +127,7 @@ object OfflineDownloads {
         if (media.complete) return null
         val resolved = withContext(Dispatchers.IO) {
             LibreTubePlayback.resolveMedia(
-                media.id,
+                media.sourceId.ifBlank { media.id },
                 media.isAudio,
                 media.maxHeight,
                 media.maxAudioBitrate,
@@ -124,7 +136,7 @@ object OfflineDownloads {
         }
         return enqueue(
             context,
-            media.id,
+            media.sourceId.ifBlank { media.id },
             media.title,
             media.creator,
             media.isAudio,
@@ -157,7 +169,8 @@ object OfflineDownloads {
                         maxHeight = json.optInt("maxHeight", 0).takeIf { it > 0 },
                         maxAudioBitrate = json.optInt("maxAudioBitrate", 0).takeIf { it > 0 },
                         transcodeToMp3 = json.optBoolean("transcodeToMp3", false),
-                        preferMp4 = json.optBoolean("preferMp4", false)
+                        preferMp4 = json.optBoolean("preferMp4", false),
+                        sourceId = json.optString("sourceId").ifBlank { json.getString("id") }
                     )
                 }.getOrNull()
             }
@@ -188,11 +201,8 @@ object OfflineDownloads {
 
     fun workName(id: String) = "rush-download-$id"
 
-    private fun safeId(id: String, url: String): String {
-        val normalized = id.filter { it.isLetterOrDigit() || it == '-' || it == '_' }
-        return if (normalized.length in 8..64) normalized
-        else UUID.nameUUIDFromBytes("$id|$url".toByteArray()).toString().replace("-", "")
-    }
+    private fun safeId(key: String): String =
+        UUID.nameUUIDFromBytes(key.toByteArray()).toString().replace("-", "")
 }
 
 class OfflineDownloadWorker(
