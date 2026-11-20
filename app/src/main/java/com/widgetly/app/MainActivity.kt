@@ -244,7 +244,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
     }) { Text(if(loading)"…" else "Search") }
    }
    Spacer(Modifier.height(8.dp))
-   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+   Row(Modifier.horizontalScroll(rememberScrollState()),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
     listOf("Videos","Music","Channels","Playlists").forEach { FilterChip(selected=filter==it,onClick={filter=it;results=emptyList()},label={Text(it)}) }
    }
    Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(vertical=8.dp))
