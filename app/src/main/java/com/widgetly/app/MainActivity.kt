@@ -163,7 +163,7 @@ private fun open(p:Pick,cb:(Pick)->Unit){cb(p)}
 @Composable private fun RushPlayer(item:Pick,light:Boolean,back:()->Unit){
  val context=androidx.compose.ui.platform.LocalContext.current;val scope=rememberCoroutineScope()
  val player=remember(item.id){androidx.media3.exoplayer.ExoPlayer.Builder(context).build()}
- var url by remember(item.id){mutableStateOf("")};var audio by remember(item.id){mutableStateOf(item.music)}
+ var url by remember(item.id){mutableStateOf(item.id.takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}.orEmpty())};var audio by remember(item.id){mutableStateOf(item.music)}
  var status by remember(item.id){mutableStateOf("Paste a YouTube link or video ID to play.")}
  val ink=if(light)Color(0xFF241B32)else paper;val muted=if(light)Color(0xFF70677D)else mutedDark;val surface=if(light)Color.White else panelDark
  DisposableEffect(player){onDispose{player.release()}}
