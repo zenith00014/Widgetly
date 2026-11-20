@@ -312,6 +312,8 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  val context=androidx.compose.ui.platform.LocalContext.current
  var downloads by remember { mutableStateOf<List<OfflineMedia>>(emptyList()) }
  var workInfos by remember { mutableStateOf<List<androidx.work.WorkInfo>>(emptyList()) }
+ var resumeMessage by remember{mutableStateOf("")}
+ val scope=rememberCoroutineScope()
  LaunchedEffect(context) {
   while (true) {
    downloads=withContext(Dispatchers.IO){OfflineDownloads.list(context)}
@@ -326,6 +328,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    Text("Offline downloads",color=ink,fontSize=20.sp,fontWeight=FontWeight.Bold)
    Text("${downloads.size} items · ${android.text.format.Formatter.formatShortFileSize(context,storageBytes)} used",color=muted,fontSize=11.sp,modifier=Modifier.padding(top=4.dp))
    Text("Files stay in Rush's private app storage. Download only content you are permitted to keep offline.",color=muted,fontSize=10.sp,modifier=Modifier.padding(top=7.dp))
+   if(resumeMessage.isNotBlank())Text(resumeMessage,color=muted,fontSize=10.sp,modifier=Modifier.padding(top=4.dp))
   }
   if(downloads.isEmpty()) item {
    Text("Your offline library is empty. Open a video or music player and choose Download offline.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(18.dp))
@@ -348,7 +351,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
      if(media.complete) Button(onClick={play(media)},colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Play offline")}
      else if(active) OutlinedButton(onClick={OfflineDownloads.cancel(context,media.id)}){Text("Cancel")}
-     else Button(onClick={OfflineDownloads.resume(context,media)},colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Resume")}
+     else Button(onClick={scope.launch{resumeMessage="Refreshing stream and resuming download…";try{OfflineDownloads.resume(context,media);resumeMessage="Download resumed."}catch(e:Exception){resumeMessage=e.localizedMessage?:"Could not refresh this download. Try downloading it again."}}},colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Resume")}
      TextButton(onClick={OfflineDownloads.delete(context,media)}){Text("Delete",color=muted)}
     }
    }
@@ -515,7 +518,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    status="Preparing offline download…"
    try{
     val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null)}
-    withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,item.id,item.title,item.creator,audio,media)}
+    withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,item.id,item.title,item.creator,audio,media,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null)}
     status="Download queued · ${media.qualityLabel} · .${media.extension}"
    }catch(e:Exception){status=e.localizedMessage?:"Could not start download."}
   }},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=raised)){Text("Download offline",color=ink)}
