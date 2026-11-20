@@ -833,7 +833,9 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      androidx.media3.common.MediaItem.Builder().setMediaId(queued.id).setUri(uri).apply{resolved?.mimeType?.let{setMimeType(it)}}.setMediaMetadata(metadata).build()
     }
     val firstItems=ArrayList<androidx.media3.common.MediaItem>()
-    for(queued in queue.take(2)){
+    var nextQueueIndex=0
+    while(nextQueueIndex<queue.size&&firstItems.size<2){
+     val queued=queue[nextQueueIndex++]
      try{firstItems+=prepareQueueItem(queued)}
      catch(cancelled:kotlinx.coroutines.CancellationException){throw cancelled}
      catch(_:Exception){skipped++}
@@ -847,8 +849,8 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     if(savedPosition>0)activeController.seekTo(0,savedPosition)
     activeController.prepare()
     activeController.play()
-    status="Playing queue · preparing ${queue.size-firstItems.size} more"
-    for(queued in queue.drop(2)){
+    status="Playing queue · preparing ${queue.size-nextQueueIndex} more"
+    for(queued in queue.drop(nextQueueIndex)){
      try{activeController.addMediaItem(prepareQueueItem(queued))}
      catch(cancelled:kotlinx.coroutines.CancellationException){throw cancelled}
      catch(_:Exception){skipped++}
