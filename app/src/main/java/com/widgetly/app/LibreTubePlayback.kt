@@ -69,20 +69,30 @@ object LibreTubePlayback {
         initialize()
         val videoId = extractVideoId(input)
         val info = StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId")
-        val stream = if (audioOnly) {
-            info.audioStreams.maxByOrNull { it.averageBitrate }
-        } else {
-            val candidates = info.videoStreams.filter { maxHeight == null || it.height <= maxHeight }
-            (candidates.ifEmpty { info.videoStreams }).maxByOrNull { it.height }
-        } ?: throw IOException(if (audioOnly) "No playable audio stream was found." else "No playable video stream was found.")
-        if (!stream.isUrl || stream.content.isBlank()) {
-            throw IOException("The extractor did not return a direct stream URL.")
+        if (audioOnly) {
+            val stream = info.audioStreams.maxByOrNull { it.averageBitrate }
+                ?: throw IOException("No playable audio stream was found.")
+            if (!stream.isUrl || stream.content.isBlank()) throw IOException("The extractor did not return a direct stream URL.")
+            val format = stream.format
+            return ResolvedMedia(
+                stream.content,
+                format?.suffix?.takeIf { it.isNotBlank() } ?: "m4a",
+                format?.mimeType?.takeIf { it.isNotBlank() } ?: "audio/*",
+                "${stream.averageBitrate / 1000} kbps"
+            )
         }
+        val candidates = if (maxHeight == null) info.videoStreams else info.videoStreams.filter { it.height <= maxHeight }
+        val stream = candidates.maxByOrNull { it.height }
+            ?: info.videoStreams.minByOrNull { kotlin.math.abs(it.height - (maxHeight ?: 0)) }
+            ?: throw IOException("No playable video stream was found.")
+        if (!stream.isUrl || stream.content.isBlank()) throw IOException("The extractor did not return a direct stream URL.")
         val format = stream.format
-        val extension = format?.suffix?.takeIf { it.isNotBlank() } ?: if (audioOnly) "m4a" else "mp4"
-        val mimeType = format?.mimeType?.takeIf { it.isNotBlank() } ?: if (audioOnly) "audio/*" else "video/*"
-        val quality = if (audioOnly) "${stream.averageBitrate / 1000} kbps" else "${stream.height}p"
-        return ResolvedMedia(stream.content, extension, mimeType, quality)
+        return ResolvedMedia(
+            stream.content,
+            format?.suffix?.takeIf { it.isNotBlank() } ?: "mp4",
+            format?.mimeType?.takeIf { it.isNotBlank() } ?: "video/*",
+            "${stream.height}p"
+        )
     }
 
     private fun extractVideoId(input: String): String {
