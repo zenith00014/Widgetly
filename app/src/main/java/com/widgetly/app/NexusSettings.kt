@@ -9,6 +9,8 @@ import org.json.JSONObject
 import java.io.BufferedReader
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -28,6 +30,8 @@ fun NexusSettingsPanel() {
     var saved by remember { mutableStateOf(false) }
     var backupStatus by remember { mutableStateOf<String?>(null) }
     var showClearConfirmation by remember { mutableStateOf(false) }
+    val sources = listOf("BBC Science","NASA","ScienceDaily","Kurzgesagt","CrashCourse","TED-Ed","Internet Archive Movies")
+    var sourceRefresh by remember { mutableIntStateOf(0) }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri: Uri? ->
         if (uri != null) {
             val json = JSONObject()
@@ -49,7 +53,19 @@ fun NexusSettingsPanel() {
             editor.apply()
         }.onSuccess { backupStatus = "Backup restored. Reopen Nexus to refresh all sections." }.onFailure { backupStatus = "Import failed: ${it.localizedMessage}" }
     }
-    Column(Modifier.fillMaxSize().background(Color(0xFF0E0F0C)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+    Column(Modifier.fillMaxSize().background(Color(0xFF0E0F0C)).verticalScroll(rememberScrollState()).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(Modifier.fillMaxWidth().background(Color(0xFF1A1B17)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("YOUR CONTENT SOURCES",color=Color(0xFFC8F23A),fontSize=11.sp,fontWeight=FontWeight.Bold)
+            Text("Choose which curated feeds appear in Discover. These preferences stay on this device.",color=Color(0xFF8B8D82),fontSize=11.sp)
+            sources.forEach { source ->
+                val key = "source_" + source.lowercase().replace(Regex("[^a-z0-9]+"), "_")
+                var enabled by remember(sourceRefresh,source) { mutableStateOf(prefs.getBoolean(key,true)) }
+                Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
+                    Text(source,color=Color(0xFFECE9DF),fontSize=12.sp)
+                    Switch(checked=enabled,onCheckedChange={ enabled=it; prefs.edit().putBoolean(key,it).apply(); sourceRefresh++ })
+                }
+            }
+        }
         Column(Modifier.fillMaxWidth().background(Color(0xFF1A1B17)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text("DISCOVER LIMITS", color = Color(0xFFC8F23A), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             Text("Daily item budget · $dailyItems opened items", color = Color(0xFFECE9DF), fontSize = 13.sp)
