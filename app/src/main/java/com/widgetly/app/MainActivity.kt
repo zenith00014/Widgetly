@@ -33,7 +33,19 @@ private val mutedDark=Color(0xFFBDB3CA)
 
 private data class Pick(val id:String,val title:String,val creator:String,val music:Boolean,val colors:List<Color>,val reason:String,val localPath:String?=null)
 private data class SubscribedChannel(val id:String,val title:String,val subscriberCount:String)
-class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);setContent{RushApp(getSharedPreferences("rush_prefs",Context.MODE_PRIVATE),intent.getBooleanExtra("open_downloads",false))}}}
+class MainActivity:ComponentActivity(){
+ private val openDownloadsState=androidx.compose.runtime.mutableStateOf(false)
+ override fun onCreate(savedInstanceState:Bundle?){
+  super.onCreate(savedInstanceState)
+  openDownloadsState.value=intent.getBooleanExtra("open_downloads",false)
+  setContent{RushApp(getSharedPreferences("rush_prefs",Context.MODE_PRIVATE),openDownloadsState.value)}
+ }
+ override fun onNewIntent(intent:android.content.Intent){
+  super.onNewIntent(intent)
+  setIntent(intent)
+  openDownloadsState.value=intent.getBooleanExtra("open_downloads",false)
+ }
+}
 @Composable private fun RushApp(prefs:android.content.SharedPreferences,openDownloads:Boolean=false){
  var tab by remember{mutableStateOf(if(openDownloads)"Downloads" else "Home")};var light by remember{mutableStateOf(prefs.getBoolean("light",false))}
  var active by remember{mutableStateOf<Pick?>(null)}
@@ -42,6 +54,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  var saved by remember{mutableStateOf(prefs.getStringSet("saved",emptySet())?.toSet()?:emptySet())}
  var history by remember{mutableStateOf(loadHistory(prefs))}
  var metadata by remember{mutableStateOf(loadPickMetadata(prefs))}
+ LaunchedEffect(openDownloads){if(openDownloads)tab="Downloads"}
  val storeResult:(YouTubeSearchResult)->Unit={result->
   val pick=result.toPick()
   persistPickMetadata(prefs,pick)
