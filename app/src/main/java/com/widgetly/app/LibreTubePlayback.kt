@@ -62,6 +62,9 @@ object LibreTubePlayback {
                         }
                     }
                 })
+                org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeStreamExtractor.setPoTokenProvider(
+                    com.widgetly.app.potoken.PoTokenGenerator(RushApplication.instance)
+                )
                 initialized = true
             }
         }
