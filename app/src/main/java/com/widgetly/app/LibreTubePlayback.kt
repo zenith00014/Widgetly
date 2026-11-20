@@ -25,7 +25,11 @@ data class ResolvedSubtitle(val url: String, val languageTag: String, val label:
 
 object LibreTubePlayback {
     @Volatile private var initialized = false
-    private val client = OkHttpClient()
+    private val client = OkHttpClient.Builder()
+        .connectTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(45, java.util.concurrent.TimeUnit.SECONDS)
+        .callTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
 
     private fun initialize() {
         if (initialized) return
@@ -80,7 +84,7 @@ object LibreTubePlayback {
             return ResolvedMedia(
                 stream.content,
                 format?.suffix?.takeIf { it.isNotBlank() } ?: "m4a",
-                format?.mimeType?.takeIf { it.isNotBlank() } ?: "audio/*",
+                format?.mimeType?.takeIf { it.isNotBlank() } ?: if (format?.suffix.equals("webm", ignoreCase = true)) "audio/webm" else "audio/mp4",
                 "${stream.averageBitrate / 1000} kbps"
             )
         }
@@ -101,7 +105,7 @@ object LibreTubePlayback {
         return ResolvedMedia(
             stream.content,
             format?.suffix?.takeIf { it.isNotBlank() } ?: "mp4",
-            format?.mimeType?.takeIf { it.isNotBlank() } ?: "video/*",
+            format?.mimeType?.takeIf { it.isNotBlank() } ?: if (format?.suffix.equals("webm", ignoreCase = true)) "video/webm" else "video/mp4",
             "${stream.height}p"
         )
     }
@@ -132,5 +136,5 @@ object LibreTubePlayback {
     }
 
     private const val USER_AGENT =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0"
 }
