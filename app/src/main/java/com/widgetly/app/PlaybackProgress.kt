@@ -8,6 +8,15 @@ object PlaybackProgress {
     fun positionMs(context: Context, mediaId: String): Long =
         preferences(context).getLong(positionKey(mediaId), 0L).coerceAtLeast(0L)
 
+    fun durationMs(context: Context, mediaId: String): Long =
+        preferences(context).getLong(durationKey(mediaId), 0L).coerceAtLeast(0L)
+
+    fun resumePositionMs(context: Context, mediaId: String): Long {
+        val position = positionMs(context, mediaId)
+        val duration = durationMs(context, mediaId)
+        return if (duration > 0 && position >= duration - 15_000L) 0L else position
+    }
+
     fun save(context: Context, mediaId: String, positionMs: Long, durationMs: Long) {
         if (mediaId.isBlank()) return
         preferences(context).edit()
