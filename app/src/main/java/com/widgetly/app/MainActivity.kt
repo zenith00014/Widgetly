@@ -240,7 +240,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
        Text(when{result.isChannel->result.creator.ifBlank{"YouTube channel"};result.isCollection->result.creator.ifBlank{"Artist / album"};else->result.creator + if(result.duration.isNotBlank()) " · ${result.duration}" else ""},color=muted,fontSize=11.sp,maxLines=1)
       }
       if(result.isChannel||result.isCollection) Text("Open",color=magenta,fontSize=12.sp)
-      else Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result)}.padding(4.dp));Text("＋",color=magenta,modifier=Modifier.clickable{playlistTarget=result}.padding(4.dp));Text("↥",color=magenta,modifier=Modifier.clickable{enqueue(result)}.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
+      else Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result)}.padding(4.dp));Text("＋",color=magenta,modifier=Modifier.clickable{playlistTarget=result}.padding(4.dp));Text("Queue ↥",color=magenta,fontSize=10.sp,modifier=Modifier.clickable{enqueue(result)}.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
      }
     }
    }
@@ -596,7 +596,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   if(audio)Disc(item,Modifier.size(240.dp))else Cover(item,Modifier.fillMaxWidth().height(190.dp))
   Text(playingTitle,color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold);Text(playingCreator,color=muted)
   if(item.localPath==null) {
-   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=audio,onClick={audio=true},label={Text("Audio only")});FilterChip(selected=!audio,onClick={audio=false},label={Text("Video")})}
+   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=audio,onClick={audio=true;quality=0},label={Text("Audio only")});FilterChip(selected=!audio,onClick={audio=false;quality=0},label={Text("Video")})}
    if(!audio) Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",720 to "720p",480 to "480p",360 to "360p").forEach{(height,label)->FilterChip(selected=quality==height,onClick={quality=height},label={Text(label)})}} else Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",160 to "160 kbps",96 to "96 kbps").forEach{(bitrate,label)->FilterChip(selected=quality==bitrate,onClick={quality=bitrate},label={Text(label)})}}
    if(!audio)Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){FilterChip(selected=mp4Format,onClick={mp4Format=true},label={Text("MP4")});FilterChip(selected=!mp4Format,onClick={mp4Format=false},label={Text("Original format")})}
    if(audio)Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){FilterChip(selected=!mp3Format,onClick={mp3Format=false},label={Text("Original format")});FilterChip(selected=mp3Format,onClick={mp3Format=true},label={Text("MP3 · 192 kbps")})}
