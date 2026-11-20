@@ -145,6 +145,13 @@ object OfflineDownloads {
         File(media.file.parentFile, "${media.id}.${media.extension}.part").delete()
     }
 
+    fun storageBytes(context: Context): Long {
+        val directory = File(context.filesDir, DIRECTORY)
+        return directory.walkTopDown()
+            .filter { it.isFile && it.extension != "json" }
+            .sumOf { it.length() }
+    }
+
     fun cancel(context: Context, id: String) {
         WorkManager.getInstance(context).cancelUniqueWork(workName(id))
     }
