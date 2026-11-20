@@ -218,30 +218,44 @@ object NexusContentRepository {
             when (parser.next()) {
                 XmlPullParser.START_TAG -> {
                     depth++
-                    when (parser.name.lowercase(Locale.ROOT)) {
-                        "title" -> { if (title.isBlank()) title = parser.nextText().trim(); depth-- }
-                        "description", "summary", "content" -> { if (summary.isBlank()) summary = parser.nextText().trim(); depth-- }
-                        "link" -> {
-                            val href = parser.getAttributeValue(null, "href")
-                            if (!href.isNullOrBlank()) link = href else if (link.isBlank()) link = parser.nextText().trim().also { depth-- }
+                    val rawName = parser.name.lowercase(Locale.ROOT)
+                    val localName = rawName.substringAfter(':')
+                    val prefix = rawName.substringBefore(':', "").ifBlank { parser.prefix.orEmpty().lowercase(Locale.ROOT) }
+                    when {
+                        localName == "title" -> {
+                            val value = readElementText(parser).trim()
+                            if (title.isBlank()) title = value
+                            depth--
                         }
-                        "pubdate", "published", "updated", "date" -> { if (date.isBlank()) date = parser.nextText().trim(); depth-- }
-                        "thumbnail", "content", "image" -> {
-                            // RSS media:thumbnail/media:content, iTunes images and
-                            // other common feed image extensions.
-                            val candidate = firstImageAttribute(parser)
-                            val medium = parser.getAttributeValue(null, "medium").orEmpty()
-                            val type = parser.getAttributeValue(null, "type").orEmpty()
-                            val looksLikeImage = medium.equals("image", true) ||
-                                type.startsWith("image/", true) ||
-                                parser.name.contains("thumbnail", true) ||
-                                parser.name.contains("image", true)
-                            if (!candidate.isNullOrBlank() && looksLikeImage && image.isBlank()) image = candidate
+                        localName in listOf("description", "summary", "encoded", "content") &&
+                            !(prefix == "media" && localName == "content") -> {
+                            val value = readElementText(parser).trim()
+                            if (summary.isBlank()) summary = value
+                            depth--
                         }
-                        "enclosure" -> {
+                        localName == "link" -> {
+                            val href = firstImageAttribute(parser)
+                            if (!href.isBlank()) {
+                                if (link.isBlank() || parser.getAttributeValue(null, "rel").orEmpty() == "alternate") link = href
+                            } else if (link.isBlank()) {
+                                link = readElementText(parser).trim()
+                                depth--
+                            }
+                        }
+                        localName in listOf("pubdate", "published", "updated", "date") -> {
+                            val value = readElementText(parser).trim()
+                            if (date.isBlank()) date = value
+                            depth--
+                        }
+                        localName == "thumbnail" || localName == "image" ||
+                            (prefix == "media" && localName == "content") -> {
+                            val candidate = firstImageAttribute(parser)
+                            if (candidate.isNotBlank() && image.isBlank()) image = candidate
+                        }
+                        localName == "enclosure" -> {
                             val type = parser.getAttributeValue(null, "type").orEmpty()
                             val candidate = firstImageAttribute(parser)
-                            if (!candidate.isNullOrBlank() && type.startsWith("image", true) && image.isBlank()) image = candidate
+                            if (candidate.isNotBlank() && type.startsWith("image", true) && image.isBlank()) image = candidate
                         }
                     }
                 }
@@ -268,6 +282,17 @@ object NexusContentRepository {
             date = parseDate(date),
             image = resolvedImage
         ).takeIf { it.title.isNotBlank() && it.url.isNotBlank() }
+    }
+
+    private fun readElementText(parser: XmlPullParser): String {
+        val targetDepth = parser.depth
+        val text = StringBuilder()
+        while (true) {
+            when (parser.next()) {
+                XmlPullParser.TEXT, XmlPullParser.CDSECT, XmlPullParser.ENTITY_REF -> text.append(parser.text)
+                XmlPullParser.END_TAG -> if (parser.depth == targetDepth) return text.toString()
+            }
+        }
     }
 
     private fun firstImageAttribute(parser: XmlPullParser): String {
