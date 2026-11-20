@@ -800,25 +800,42 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   }
  }
  LaunchedEffect(controller,queue.map{it.id}.joinToString("|")){
-  if(controller!=null&&queue.isNotEmpty()){
+  val activeController=controller
+  if(activeController!=null&&queue.isNotEmpty()){
    status="Preparing playlist queue…"
+   var skipped=0
    try{
-    val mediaItems=withContext(Dispatchers.IO){
-     queue.map{queued->
-      val localFile=queued.localPath?.let{java.io.File(it)}?.takeIf{it.isFile}
-      val resolved=if(localFile==null)LibreTubePlayback.resolveMedia(queued.sourceId?:queued.id,queued.music) else null
-      val uri=localFile?.toURI()?.toString()?:resolved!!.url
-      val metadata=androidx.media3.common.MediaMetadata.Builder().setTitle(queued.title).setArtist(queued.creator).build()
-      androidx.media3.common.MediaItem.Builder().setMediaId(queued.id).setUri(uri).apply{resolved?.mimeType?.let{setMimeType(it)}}.setMediaMetadata(metadata).build()
-     }
+    suspend fun prepareQueueItem(queued:Pick):androidx.media3.common.MediaItem=withContext(Dispatchers.IO){
+     val localFile=queued.localPath?.let{java.io.File(it)}?.takeIf{it.isFile}
+     val resolved=if(localFile==null)LibreTubePlayback.resolveMedia(queued.sourceId?:queued.id,queued.music) else null
+     val uri=localFile?.toURI()?.toString()?:resolved!!.url
+     val metadata=androidx.media3.common.MediaMetadata.Builder().setTitle(queued.title).setArtist(queued.creator).build()
+     androidx.media3.common.MediaItem.Builder().setMediaId(queued.id).setUri(uri).apply{resolved?.mimeType?.let{setMimeType(it)}}.setMediaMetadata(metadata).build()
     }
-    controller?.setMediaItems(mediaItems)
-    val savedPosition=PlaybackProgress.resumePositionMs(context,queue.first().id)
-    if(savedPosition>0)controller?.seekTo(0,savedPosition)
-    controller?.prepare()
-    controller?.play()
-    status="Playing queue · ${queue.size} items"
-   }catch(e:Exception){status=e.localizedMessage?:"Could not prepare this playlist queue."}
+    val firstItems=ArrayList<androidx.media3.common.MediaItem>()
+    for(queued in queue.take(2)){
+     try{firstItems+=prepareQueueItem(queued)}
+     catch(cancelled:kotlinx.coroutines.CancellationException){throw cancelled}
+     catch(_:Exception){skipped++}
+    }
+    if(firstItems.isEmpty()){
+     status="No tracks in this queue could be resolved."
+     return@LaunchedEffect
+    }
+    activeController.setMediaItems(firstItems)
+    val savedPosition=PlaybackProgress.resumePositionMs(context,firstItems.first().mediaId)
+    if(savedPosition>0)activeController.seekTo(0,savedPosition)
+    activeController.prepare()
+    activeController.play()
+    status="Playing queue · preparing ${queue.size-firstItems.size} more"
+    for(queued in queue.drop(2)){
+     try{activeController.addMediaItem(prepareQueueItem(queued))}
+     catch(cancelled:kotlinx.coroutines.CancellationException){throw cancelled}
+     catch(_:Exception){skipped++}
+    }
+    status="Queue ready · ${queue.size-skipped} of ${queue.size} tracks"+if(skipped>0)" · $skipped unavailable" else ""
+   }catch(cancelled:kotlinx.coroutines.CancellationException){throw cancelled}
+   catch(e:Exception){status=e.localizedMessage?:"Could not prepare this playlist queue."}
   }
  }
  val ink=if(light)Color(0xFF241B32)else paper;val muted=if(light)Color(0xFF70677D)else mutedDark;val surface=if(light)Color.White else panelDark
