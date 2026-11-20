@@ -1,48 +1,38 @@
-# Nexus — Remaining Work Tracker
+# Nexus — implementation tracker
 
-Nexus is a private, single-owner Android app. Keep it native, local-first, lightweight, free, ad-free by design, and widget-free. Do not add public accounts, multi-user infrastructure, monetization, analytics, or growth mechanics.
+Nexus is a private, single-owner Android app. Keep it native, local-first, lightweight, free, and free of ads, analytics and public-user infrastructure.
 
-## Completed in the current implementation
-- [x] Remove home-screen widgets, widget receivers, resource XML, and Glance dependencies.
-- [x] Add local Saved Library for videos, news, and movies with media filters.
-- [x] Add personal note inside the app.
-- [x] Add a configurable finite Discover item limit (5–30); autoplay remains off.
-- [x] Keep notification-preview Inbox and supported Android RemoteInput reply hand-off.
+## Implemented in source (build/device verification pending where noted)
 
-## Remaining work — implementation order
+- [x] Native SLAB//GLASS app shell, Home, Discover, Library and Settings.
+- [x] Local saved media, notes, contacts picker, JSON backup/restore and clear-data controls.
+- [x] Finite Discover item and daily time limits; autoplay remains off.
+- [x] Anonymous FTP catalogue for `192.168.100.100:21`, local catalogue cache, search, refresh and custom Media3 FTP DataSource.
+- [x] Replace Beeper app launcher with an in-app Matrix client: homeserver login, joined rooms, direct-room creation, recent message history and text sending.
+- [x] Replace LibreTube app launcher with an in-app Piped-compatible YouTube/music client: search, thumbnails, stream resolution and Media3 playback.
+- [x] Remove the external Beeper/LibreTube launcher implementation and package queries.
 
-### P0 — Build and core reliability
-- [x] Run a clean Android debug APK build after source-selection and cleanup changes (GitHub Actions run 44711799043 succeeded on commit b8f2c44).
-- [ ] Fix any compile/runtime errors found by build and device testing.
-- [ ] Verify Discover feeds, thumbnails, embedded video/article/movie viewing, and back navigation.
-- [x] Improve Inbox: search, app filters, clear individual/all history, timestamps, and expired-reply fallback.
-- [ ] Make Saved Library refresh and item removal reliable; handle missing/broken saved URLs.\n- [ ] Verify in-app Matrix client build and homeserver/device behavior; implemented sign-in, joined rooms, direct-room creation, history and text sending for sign-in, joined rooms, direct-room creation, message history and text sending (homeserver/bridge availability still requires setup).\n- [ ] Verify in-app Piped-compatible YouTube/music search and Media3 playback against a working API instance and on-device (public API instance and real-device playback need verification).
+## Remaining verification and work
 
-### P1 — Personal media and communication
-- [x] Music: local audio picker, saved track list, playback, pause/resume, seek, next/previous. Background notification controls remain a separate enhancement.
-- [x] Contacts: Android system phone-contact picker with local shortcuts for Call and SMS app hand-off; no broad contact-book permission.
-- [x] Settings: source selection for curated feeds, notification-access shortcut/help, local session/daily item/time limits, privacy explanations, JSON backup/restore, and clear-all-data confirmation. Theme remains the fixed SLAB//GLASS dark appearance.
+- [ ] Build the current branch and fix all compile errors.
+- [ ] Test Matrix login, room listing, sending and receiving on a real homeserver.
+- [ ] Configure and test bridges if third-party messaging networks are required. Beeper's private bridge backend is not assumed accessible.
+- [ ] Test the selected Piped-compatible endpoint; verify search, video streams, music streams, seek and playback on device.
+- [ ] Add robust account-token encryption, incremental Matrix sync, message notifications, pagination and attachments.
+- [ ] Add YouTube subscriptions, playlists, watch history, queue and background audio controls.
+- [ ] Test FTP catalogue, streaming, seeking and reconnect behaviour on provider Wi-Fi.
+- [ ] Add movie artwork/metadata where server files or an authorized metadata source provide it; add favorites and resume history.
+- [ ] Verify Saved Library refresh/removal, accessibility, reduced motion, startup, memory, app size and Android 8+ compatibility.
+- [ ] Produce and test a downloadable debug APK after the current branch build succeeds.
 
-### P2 — Anti-doomscrolling and data ownership
-- [x] Add a daily Discover item budget with a clear stop screen. Daily time budget has now been coded with lifecycle-aware tracking; latest build verification is pending.
-- [ ] Add optional break reminders; no streaks, rewards, autoplay, or engagement tracking.
-- [ ] Add offline article saving/reading and bounded image/content cache. (Text-only article save/read with a 50-article cap is coded and passed an earlier build; general image/content cache remains.)
-- [x] Add local JSON export/import for personal notes, saved items, settings, selected contacts and Inbox history; transient notification action tokens are not exported.
-- [x] Add reset/clear-data controls and explain exactly what is removed.
+## Technical boundaries
 
-### P3 — Quality and release readiness
-- [ ] Add accessibility labels, adequate touch targets, and reduced-motion behavior.
-- [ ] Verify app size, startup, memory, and background battery use.
-- [ ] Check Android 8+ compatibility (minSdk 26), Android 13+ permissions, and Android 15/16 behavior.
-- [x] Produce a downloadable debug APK artifact (GitHub Actions artifact attached to run 44711799043; expires 2026-12-04).
-- [ ] Update README and this tracker after the new implementation build and device verification.
-
-## Constraints and integration notes
-- The Matrix DM client is not a Beeper API clone. Third-party network access requires a homeserver and working bridges; notification previews remain separate from full chat synchronization.
-- Nexus's in-app YouTube/music client uses a Piped-compatible API endpoint. Availability depends on the selected instance and upstream extraction support; do not claim permanent ad-free availability.
-- Only list films with source/rights information; Internet Archive availability alone does not prove public-domain status.
-- Local music uses files the owner selects. Spotify remains an official-app/deep-link integration unless authorized APIs and account rules permit more.
-- Prefer Android system pickers/intents and local storage over broad permissions or backend services.
+- Matrix direct messages work with Matrix-compatible users. Third-party platforms require working bridges on the signed-in homeserver.
+- Public Piped-compatible instances may be unavailable, rate-limited or broken by upstream changes; the endpoint is configurable.
+- FTP media playback requires passive FTP data connections. Seeking requires server REST support.
+- Android notification previews are not full private-chat synchronization.
+- Keep all personal content and settings on-device unless a specific connected service requires remote storage.
 
 ## Status discipline
-A checkbox is complete only after code is committed and the relevant build/test has passed. Features that need real-device verification must remain marked as needing device testing until verified.
+
+A feature is not complete for release until CI builds and the relevant behavior has been verified on the Android device. Source implementation and runtime verification must be reported separately.
