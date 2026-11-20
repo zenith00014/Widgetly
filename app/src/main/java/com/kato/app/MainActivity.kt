@@ -414,7 +414,7 @@ private fun HomeScreen(
     val context = LocalContext.current
     val inbox = remember(refreshKey) { readInbox(context) }
     val unread = inbox.filter { it.unread }
-    val selectedNews = news.sortedByDescending { it.publishedAt }.take(3)
+    val selectedNews = news.sortedByDescending { it.publishedAt }.take(5)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -424,6 +424,7 @@ private fun HomeScreen(
         item {
             Card(
                 shape = RectangleShape,
+                modifier = Modifier.fillMaxWidth().shadow(4.dp, RectangleShape).border(2.dp, MaterialTheme.colorScheme.outline),
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Row(
@@ -1403,7 +1404,7 @@ private fun NexusWebView(type: String, target: String, videoId: String, modifier
                         request: android.webkit.WebResourceRequest?
                     ): android.webkit.WebResourceResponse? {
                         val uri = request?.url ?: return super.shouldInterceptRequest(view, request)
-                        if (NexusAdBlocker.shouldBlock(uri)) {
+                        if (type == "Web" && NexusAdBlocker.shouldBlock(uri)) {
                             return android.webkit.WebResourceResponse(
                                 "text/plain", "utf-8", ByteArrayInputStream(ByteArray(0))
                             )
@@ -1459,7 +1460,11 @@ private object NexusAdBlocker {
 
 @Composable
 private fun SettingsCard(title: String, detail: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(shape = RectangleShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(
+        shape = RectangleShape,
+        modifier = Modifier.fillMaxWidth().shadow(3.dp, RectangleShape).border(1.dp, MaterialTheme.colorScheme.outline),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 10.sp, letterSpacing = 1.2.sp)
             Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, lineHeight = 14.sp)
@@ -1470,7 +1475,11 @@ private fun SettingsCard(title: String, detail: String, content: @Composable Col
 
 @Composable
 private fun QuietCard(title: String, detail: String) {
-    Card(shape = RectangleShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(
+        shape = RectangleShape,
+        modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outline),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
         Column(modifier = Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, lineHeight = 16.sp)
@@ -1480,9 +1489,15 @@ private fun QuietCard(title: String, detail: String) {
 
 @Composable
 private fun SectionHeading(title: String, subtitle: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Text(title, color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
-        Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text(
+            "+-- ${title.uppercase(Locale.ROOT)} --+",
+            color = MaterialTheme.colorScheme.primary,
+            fontSize = 10.sp,
+            fontWeight = FontWeight.Bold,
+            fontFamily = FontFamily.Monospace
+        )
+        Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
     }
 }
 
