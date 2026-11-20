@@ -26,6 +26,11 @@ Offline downloads use direct source streams and the source's available format an
 
 Data is currently stored locally using SharedPreferences and app-private files. It is not synced to a YouTube account. Search/extraction relies on unofficial YouTube web endpoints and NewPipeExtractor, so service changes can break compatibility. A successful CI build proves compilation/package creation only; real-device playback, background operation, download reliability and source compatibility still need device testing.
 
+
+### Streaming compatibility
+
+Playback uses the LibreTube-maintained NewPipeExtractor fork and its proof-of-origin token provider. Rush tries progressive media first, then adaptive DASH/HLS, and uses the LibreTube-derived SABR/UMP Media3 source when the source exposes server-adaptive streaming metadata. Stream support remains dependent on YouTube's changing endpoints and actual device playback validation. Offline downloads continue to use complete direct media streams rather than saving adaptive manifests.
+
 ## Build
 
 Requirements: JDK 17, Android SDK 35 and Gradle 8.9.
