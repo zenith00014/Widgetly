@@ -20,7 +20,10 @@ data class YouTubeSearchResult(
     val isChannel: Boolean = false,
     val channelId: String = "",
     val isCollection: Boolean = false,
-    val collectionId: String = ""
+    val collectionId: String = "",
+    val description: String = "",
+    val videoCount: String = "",
+    val thumbnailUrl: String = ""
 )
 
 object LiveYouTubeSearch {
@@ -47,7 +50,12 @@ object LiveYouTubeSearch {
                     })
                 }
             }
-        return executeSearch(body, music, channels, playlists)
+        val primary = executeSearch(body, music, channels, playlists)
+        if (primary.items.isNotEmpty() || music) return primary
+        // Retry without restrictive search params when YouTube returns no filtered matches.
+        val fallback = searchContext(false).put("query", query)
+        val broad = executeSearch(fallback, false, channels, playlists)
+        return YouTubeSearchPage((primary.items + broad.items).distinctBy { resultKey(it) }.take(40), broad.continuation ?: primary.continuation)
     }
 
     @Throws(IOException::class)
@@ -112,6 +120,12 @@ object LiveYouTubeSearch {
         }
     }
 
+    private fun resultKey(result: YouTubeSearchResult): String = when {
+        result.isChannel -> "channel:" + result.channelId
+        result.isCollection -> "collection:" + result.collectionId
+        else -> result.videoId
+    }
+
     private fun addVideo(item: JSONObject, out: MutableMap<String, YouTubeSearchResult>, music: Boolean) {
         val id = item.optString("videoId")
         val title = text(item.optJSONObject("title"))
@@ -126,7 +140,12 @@ object LiveYouTubeSearch {
         val title = text(item.optJSONObject("title"))
         if (id.isBlank() || title.isBlank()) return
         val subscribers = text(item.optJSONObject("subscriberCountText"))
-        out.putIfAbsent("channel:$id", YouTubeSearchResult("", title, subscribers, "", false, true, id))
+        val description = text(item.optJSONObject("descriptionSnippet")).ifBlank { text(item.optJSONObject("description")) }
+        val videoCount = text(item.optJSONObject("videoCountText"))
+        val thumbnail = item.optJSONObject("thumbnail")?.optJSONArray("thumbnails")?.let { images ->
+            images.optJSONObject(images.length() - 1)?.optString("url").orEmpty()
+        }.orEmpty()
+        out.putIfAbsent("channel:$id", YouTubeSearchResult("", title, subscribers, videoCount, false, true, id, description = description, videoCount = videoCount, thumbnailUrl = thumbnail))
     }
 
     private fun addPlaylist(item: JSONObject, out: MutableMap<String, YouTubeSearchResult>) {
