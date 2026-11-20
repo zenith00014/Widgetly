@@ -1,27 +1,33 @@
-# Rush
+# Widgetly
 
-Rush is a mobile-first entertainment app built with Kotlin, Jetpack Compose and AndroidX Media3. It brings curated music, videos, a concise news briefing and a personal library into one calm interface. Movie listings and playback are intentionally excluded until a suitable free source is selected.
+Widgetly is an Android-only video and music streaming client built with Kotlin, Jetpack Compose and AndroidX Media3.
 
-## Current experience
+## Current project scope
 
-- **Home:** a featured pick, music shelf, recent playback and a finite set of recommendations.
-- **Discover:** local catalogue filtering by title and creator, with Music and Videos categories.
-- **News:** expandable fictional briefing cards with publisher, source type, read time and selection rationale.
-- **Library:** locally saved tracks/videos and playback history.
-- **Players:** separate audio-first and video playback modes.
-- Dark and lilac light themes.
+- YouTube video search and playback
+- YouTube Music search and audio playback
+- Channel subscriptions
+- Music and video playlists
+- Watch and listening history
+- Background playback
 
-All catalogue artwork and editorial content are fictional placeholders. Discover currently filters the bundled sample catalogue; it does not yet perform live YouTube catalogue search.
+Out of scope for this development phase: Movies, TV series, Shorts, Trending and custom recommendation algorithms. The interface will remain functional and minimal until the streaming system is reliable; visual redesign comes later.
 
-## YouTube playback
+## Technology
 
-Rush uses a LibreTube-derived NewPipeExtractor integration to resolve a YouTube URL or 11-character video ID. AndroidX Media3 plays the resolved audio or video stream. This is URL-driven playback, not a complete YouTube search/browse integration. Stream availability depends on YouTube and extractor compatibility and can change without notice.
+- Kotlin, Android Gradle Plugin and Jetpack Compose
+- AndroidX Media3 for playback
+- NewPipeExtractor for YouTube extraction
+- Room/local persistence (to be implemented)
+- MediaSessionService for background playback (to be implemented)
 
-The playback integration adapts the extraction approach used by [LibreTube](https://github.com/Libre-tube/LibreTube), licensed under GPL-3.0-or-later. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and `LICENSES/LibreTube-GPL-3.0-or-later.txt`. Redistributed builds must comply with the GPL, including providing corresponding source.
+## Current implementation status
 
-## Build locally
+The repository currently contains a prototype UI and URL-based YouTube stream resolution. The bundled sample catalogue is placeholder data; live search, subscriptions, playlists and persistent playback services are not yet implemented. Do not treat the prototype as a completed streaming client.
 
-Requirements: JDK 17, Android SDK 35 and Gradle 8.9 (or Android Studio).
+## Build
+
+Requirements: JDK 17, Android SDK 35 and Gradle 8.9.
 
 ```bash
 gradle :app:assembleDebug
@@ -29,6 +35,8 @@ gradle :app:assembleDebug
 
 APK output: `app/build/outputs/apk/debug/app-debug.apk`.
 
-## Build on GitHub
+## Third-party code and compatibility
 
-Push to `main` or open the **Actions** tab and run **Build Android APK**. Download the `widgetly-debug-apk` artifact from the completed workflow.
+The playback adapter is derived from LibreTube/NewPipeExtractor work. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the included GPL-3.0-or-later license. Check license obligations before distributing builds.
+
+YouTube extraction is unofficial, can break when YouTube changes its service, and must be reviewed against applicable terms and distribution requirements.
