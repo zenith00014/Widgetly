@@ -1,6 +1,8 @@
 package com.widgetly.app
 
 import android.net.Uri
+import android.content.Intent
+import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import org.json.JSONObject
@@ -25,6 +27,7 @@ fun NexusSettingsPanel() {
     var dailyMinutes by remember { mutableIntStateOf(prefs.getInt("daily_time_budget_minutes", 30)) }
     var saved by remember { mutableStateOf(false) }
     var backupStatus by remember { mutableStateOf<String?>(null) }
+    var showClearConfirmation by remember { mutableStateOf(false) }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri: Uri? ->
         if (uri != null) {
             val json = JSONObject()
@@ -71,10 +74,30 @@ fun NexusSettingsPanel() {
             }
             if(backupStatus!=null) Text(backupStatus!!,color=Color(0xFFC8F23A),fontSize=10.sp)
         }
+        Column(Modifier.fillMaxWidth().background(Color(0xFF1A1B17)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("ANDROID PERMISSIONS",color=Color(0xFFC8F23A),fontSize=11.sp,fontWeight=FontWeight.Bold)
+            Text("Inbox previews only appear after you grant Notification Access in Android settings. Nexus cannot read complete private chats.",color=Color(0xFF8B8D82),fontSize=11.sp)
+            OutlinedButton(onClick={context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))}) { Text("OPEN NOTIFICATION ACCESS") }
+        }
         Column(Modifier.fillMaxWidth().background(Color(0xFF1A1B17)).padding(14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text("PRIVACY & BEHAVIOUR",color=Color(0xFFC8F23A),fontSize=11.sp,fontWeight=FontWeight.Bold)
             Text("Nexus stores your saved items, notes, contact shortcuts and usage limits on this device. It does not create an account or send analytics.",color=Color(0xFF8B8D82),fontSize=11.sp)
             Text("Autoplay is disabled. Notification previews require Android Notification Access. Contacts are selected individually through Android's picker.",color=Color(0xFF8B8D82),fontSize=11.sp)
+            Text("CLEAR PERSONAL DATA",color=Color(0xFFFF9A80),fontSize=11.sp,fontWeight=FontWeight.Bold)
+            Text("Permanently removes saved items, notes, selected contacts, local music list, inbox history, usage counters and preferences. Export a backup first if you want to keep them.",color=Color(0xFF8B8D82),fontSize=11.sp)
+            OutlinedButton(onClick={showClearConfirmation=true},colors=ButtonDefaults.outlinedButtonColors(contentColor=Color(0xFFFF9A80))) { Text("CLEAR ALL NEXUS DATA") }
         }
+        if(showClearConfirmation) AlertDialog(
+            onDismissRequest={showClearConfirmation=false},
+            title={Text("Clear all personal data?")},
+            text={Text("This removes all Nexus data stored on this device. This cannot be undone unless you exported a backup.")},
+            confirmButton={TextButton(onClick={
+                prefs.edit().clear().apply()
+                context.getDir("offline_articles",android.content.Context.MODE_PRIVATE).deleteRecursively()
+                backupStatus="Personal data cleared. Reopen Nexus to start fresh."
+                showClearConfirmation=false
+            }) { Text("CLEAR DATA",color=Color(0xFFFF9A80)) }},
+            dismissButton={TextButton(onClick={showClearConfirmation=false}) { Text("CANCEL") }}
+        )
     }
 }
