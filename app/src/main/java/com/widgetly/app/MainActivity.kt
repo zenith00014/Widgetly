@@ -69,7 +69,8 @@ private fun NexusApp() {
                     "DISCOVER" -> "A finite discovery session"
                     "INBOX" -> "Your message center"
                     "LIBRARY" -> "Your saved collection"
-                    "MUSIC" -> "Your local music shelf"
+                    "MUSIC" -> "Music from LibreTube"
+                    "MOVIES" -> "Your provider movie library"
                     else -> "Less scrolling. More signal."
                 }, color=Paper, fontSize=20.sp, fontWeight=FontWeight.Bold)
             }
@@ -79,13 +80,14 @@ private fun NexusApp() {
                     "INBOX" -> InboxPage()
                     "LIBRARY" -> LibraryPage { opened=it }
                     "MUSIC" -> NexusMusicPage(musicPlayer)
+                    "MOVIES" -> NexusMoviesPage()
                     else -> HomePage({tab="DISCOVER"}, {tab="INBOX"}, {tab="LIBRARY"}, {opened=it})
                 }
             }
             if (opened == null) NavigationBar(containerColor=Panel) {
-                listOf("HOME","DISCOVER","INBOX","LIBRARY","MUSIC").forEach { item ->
+                listOf("HOME","DISCOVER","INBOX","LIBRARY","MUSIC","MOVIES").forEach { item ->
                     NavigationBarItem(selected=tab==item,onClick={tab=item},
-                        icon={Text(when(item){"HOME"->"⌂";"DISCOVER"->"▣";"INBOX"->"▤";"LIBRARY"->"▦";else->"♫"},fontSize=19.sp)},
+                        icon={Text(when(item){"HOME"->"⌂";"DISCOVER"->"▣";"INBOX"->"▤";"LIBRARY"->"▦";"MOVIES"->"▣";else->"♫"},fontSize=19.sp)},
                         label={Text(item,fontSize=9.sp,letterSpacing=1.sp)},
                         colors=NavigationBarItemDefaults.colors(selectedIconColor=Lime,selectedTextColor=Lime,indicatorColor=Color(0xFF30352A),unselectedIconColor=Muted,unselectedTextColor=Muted))
                 }
