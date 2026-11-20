@@ -576,6 +576,16 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  }
  var shuffleEnabled by remember(item.id){mutableStateOf(false)}
  var repeatMode by remember(item.id){mutableIntStateOf(androidx.media3.common.Player.REPEAT_MODE_OFF)}
+ LaunchedEffect(controller,shuffleEnabled,repeatMode,speed,captionsEnabled){
+  controller?.let{player->
+   player.setShuffleModeEnabled(shuffleEnabled)
+   player.setRepeatMode(repeatMode)
+   player.setPlaybackParameters(androidx.media3.common.PlaybackParameters(speed))
+   player.trackSelectionParameters=player.trackSelectionParameters.buildUpon()
+    .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT,!captionsEnabled)
+    .build()
+  }
+ }
  LaunchedEffect(controller,queue.map{it.id}.joinToString("|")){
   if(controller!=null&&queue.isNotEmpty()){
    status="Preparing playlist queue…"
