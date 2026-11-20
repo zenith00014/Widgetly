@@ -92,19 +92,23 @@ object LibreTubePlayback {
             )
         }
         val hasProgressiveVideo = info.videoStreams.any { it.isUrl && it.content.isNotBlank() }
-        if (
-            !preferMp4 && (preferDash || (allowDashFallback && !hasProgressiveVideo)) &&
-            info.dashMpdUrl.isNotBlank() &&
-            info.videoOnlyStreams.any { it.isUrl && it.content.isNotBlank() } &&
-            info.audioStreams.any { it.isUrl && it.content.isNotBlank() }
-        ) {
-            return ResolvedMedia(
-                info.dashMpdUrl,
-                "mpd",
-                "application/dash+xml",
-                "Adaptive",
-                runCatching { mapSubtitles(info) }.getOrDefault(emptyList())
-            )
+        if (!preferMp4 && (preferDash || (allowDashFallback && !hasProgressiveVideo))) {
+            if (
+                info.dashMpdUrl.isNotBlank() &&
+                info.videoOnlyStreams.any { it.isUrl && it.content.isNotBlank() } &&
+                info.audioStreams.any { it.isUrl && it.content.isNotBlank() }
+            ) {
+                return ResolvedMedia(
+                    info.dashMpdUrl,
+                    "mpd",
+                    "application/dash+xml",
+                    "Adaptive DASH",
+                    runCatching { mapSubtitles(info) }.getOrDefault(emptyList())
+                )
+            }
+            if (info.hlsUrl.isNotBlank()) {
+                return ResolvedMedia(info.hlsUrl, "m3u8", "application/x-mpegURL", "Adaptive HLS")
+            }
         }
         val formatStreams = if (preferMp4) {
             info.videoStreams.filter { it.format?.suffix.equals("mp4", ignoreCase = true) }
