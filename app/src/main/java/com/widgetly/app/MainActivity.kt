@@ -779,6 +779,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
         androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
          .setMimeType(subtitle.mimeType)
          .setLanguage(subtitle.languageTag)
+         .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT)
          .setLabel(subtitle.label)
          .build()
        }
@@ -815,6 +816,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    player.setPlaybackParameters(androidx.media3.common.PlaybackParameters(speed))
    player.trackSelectionParameters=player.trackSelectionParameters.buildUpon()
     .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT,!captionsEnabled)
+    .setSelectTextByDefault(captionsEnabled)
     .setMaxVideoSize(Int.MAX_VALUE,if(!audio&&quality>0)quality else Int.MAX_VALUE)
     .build()
   }
@@ -900,7 +902,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   FilterChip(selected=captionsEnabled,onClick={
    captionsEnabled=!captionsEnabled
    playerPrefs.edit().putBoolean("captions_enabled",captionsEnabled).apply()
-   controller?.let{it.trackSelectionParameters=it.trackSelectionParameters.buildUpon().setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT,!captionsEnabled).build()}
+   controller?.let{it.trackSelectionParameters=it.trackSelectionParameters.buildUpon().setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT,!captionsEnabled).setSelectTextByDefault(captionsEnabled).build()}
   },label={Text(if(captionsEnabled)"Captions enabled when available" else "Captions off")})
   Row(horizontalArrangement=Arrangement.spacedBy(7.dp),verticalAlignment=Alignment.CenterVertically){
    FilterChip(selected=shuffleEnabled,onClick={shuffleEnabled=!shuffleEnabled;playerPrefs.edit().putBoolean("shuffle_enabled",shuffleEnabled).apply();controller?.setShuffleModeEnabled(shuffleEnabled)},label={Text("Shuffle")})
@@ -928,6 +930,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
        androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
         .setMimeType(subtitle.mimeType)
         .setLanguage(subtitle.languageTag)
+        .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT)
         .setLabel(subtitle.label)
         .build()
       }
