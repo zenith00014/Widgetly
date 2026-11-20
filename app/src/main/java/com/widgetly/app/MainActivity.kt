@@ -284,7 +284,8 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
       Box(Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).background(raised),contentAlignment=Alignment.Center){Text(if(result.isChannel)"◉" else if(result.isCollection)"▤" else if(result.isMusic)"♫" else "▶",color=mint,fontSize=20.sp)}
       Column(Modifier.weight(1f).padding(horizontal=10.dp)) {
        Text(result.title,color=ink,fontSize=14.sp,fontWeight=FontWeight.SemiBold,maxLines=2,overflow=TextOverflow.Ellipsis)
-       Text(when{result.isChannel->result.creator.ifBlank{"YouTube channel"};result.isCollection->result.creator.ifBlank{"Artist / album"};else->result.creator + if(result.duration.isNotBlank()) " · ${result.duration}" else ""},color=muted,fontSize=11.sp,maxLines=1)
+       Text(when{result.isChannel->listOf(result.creator,result.videoCount.takeIf{it.isNotBlank()}).filterNotNull().filter{it.isNotBlank()}.joinToString(" · ").ifBlank{"YouTube channel"};result.isCollection->result.creator.ifBlank{"Artist / album"};else->result.creator + if(result.duration.isNotBlank()) " · ${result.duration}" else ""},color=muted,fontSize=11.sp,maxLines=1)
+       if(result.isChannel&&result.description.isNotBlank())Text(result.description,color=muted,fontSize=10.sp,maxLines=2,overflow=TextOverflow.Ellipsis)
       }
       if(result.isChannel||result.isCollection) Text("Open",color=magenta,fontSize=12.sp)
       else Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result)}.padding(4.dp));Text("＋",color=magenta,modifier=Modifier.clickable{playlistTarget=result}.padding(4.dp));Text("Queue ↥",color=magenta,fontSize=10.sp,modifier=Modifier.clickable{enqueue(result)}.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
@@ -357,7 +358,8 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    }){Text(if(subscribed)"Subscribed" else "Subscribe")}
   }
   Text(channel.title,color=ink,fontSize=21.sp,fontWeight=FontWeight.Bold)
-  if(channel.creator.isNotBlank())Text(channel.creator,color=muted,fontSize=11.sp)
+  if(channel.creator.isNotBlank()||channel.videoCount.isNotBlank())Text(listOf(channel.creator,channel.videoCount.takeIf{it.isNotBlank()}).filterNotNull().filter{it.isNotBlank()}.joinToString(" · "),color=muted,fontSize=11.sp)
+  if(channel.description.isNotBlank())Text(channel.description,color=ink.copy(alpha=.82f),fontSize=12.sp,lineHeight=17.sp)
   Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(vertical=10.dp))
   LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)) {
    items(uploads,key={it.videoId}) { video ->
