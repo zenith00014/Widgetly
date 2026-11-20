@@ -583,7 +583,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      if(media.complete) Button(onClick={play(media)},colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Play offline")}
      else if(active) OutlinedButton(onClick={OfflineDownloads.cancel(context,media.id)}){Text("Cancel")}
      else Button(onClick={scope.launch{resumeMessage="Refreshing stream and resuming download…";try{OfflineDownloads.resume(context,media);resumeMessage="Download resumed."}catch(e:Exception){resumeMessage=e.localizedMessage?:"Could not refresh this download. Try downloading it again."}}},colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Resume")}
-     TextButton(onClick={OfflineDownloads.delete(context,media)}){Text("Delete",color=muted)}
+     TextButton(onClick={scope.launch{OfflineDownloads.delete(context,media)}}){Text("Delete",color=muted)}
     }
    }
   }
