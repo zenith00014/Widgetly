@@ -120,7 +120,8 @@ private fun loadPickMetadata(prefs:android.content.SharedPreferences):Map<String
  while(keys.hasNext()){
   val id=keys.next()
   val item=root.optJSONObject(id)?:continue
-  result[id]=Pick(id,item.optString("title"),item.optString("creator"),item.optBoolean("music"),listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Saved from YouTube")
+  val localPath=item.optString("localPath").takeIf{it.isNotBlank()&&java.io.File(it).exists()}
+  result[id]=Pick(id,item.optString("title"),item.optString("creator"),item.optBoolean("music"),listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Saved from YouTube",localPath)
  }
  return result
 }
@@ -136,7 +137,7 @@ private fun persistChannelMetadata(prefs:android.content.SharedPreferences,chann
 }
 private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pick){
  val root=runCatching{org.json.JSONObject(prefs.getString("item_metadata","{}")?:"{}")}.getOrDefault(org.json.JSONObject())
- root.put(pick.id,org.json.JSONObject().put("title",pick.title).put("creator",pick.creator).put("music",pick.music))
+ root.put(pick.id,org.json.JSONObject().put("title",pick.title).put("creator",pick.creator).put("music",pick.music).put("localPath",pick.localPath.orEmpty()))
  prefs.edit().putString("item_metadata",root.toString()).apply()
 }
 
