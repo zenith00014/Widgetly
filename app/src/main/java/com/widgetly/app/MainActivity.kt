@@ -679,6 +679,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
 }
 @Composable private fun RushPlayer(item:Pick,light:Boolean,back:()->Unit,queue:List<Pick>,onTrackChanged:(String)->Unit){
  val context=androidx.compose.ui.platform.LocalContext.current;val scope=rememberCoroutineScope()
+ val localFileAvailable=item.localPath?.let{java.io.File(it).isFile}==true
  val requestNotificationPermission=androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()){ }
  var controller by remember { mutableStateOf<androidx.media3.session.MediaController?>(null) }
  val controllerFuture = remember(context) {
@@ -695,7 +696,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
  var mp4Format by remember(item.id){mutableStateOf(true)}
  var speed by remember(item.id){mutableFloatStateOf(1f)}
  var captionsEnabled by remember(item.id){mutableStateOf(true)}
- var status by remember(item.id){mutableStateOf(if(item.localPath!=null)"Downloaded file ready." else "Paste a YouTube link or video ID to play.")}
+ var status by remember(item.id){mutableStateOf(if(localFileAvailable)"Downloaded file ready." else "Paste a YouTube link or video ID to play.")}
  var playingTitle by remember(item.id){mutableStateOf(item.title)}
  var playingCreator by remember(item.id){mutableStateOf(item.creator)}
  var retriedMediaIds by remember(item.id){mutableStateOf(emptySet<String>())}
@@ -718,7 +719,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     val mediaId=current.mediaId
     if(mediaId.isBlank()||mediaId in retriedMediaIds)return
     val source=latestQueue.firstOrNull{it.id==mediaId}?:item
-    if(source.localPath!=null)return
+    if(source.localPath?.let{java.io.File(it).isFile}==true)return
     retriedMediaIds=retriedMediaIds+mediaId
     val isCurrentItem=source.id==item.id
     val input=if(isCurrentItem)latestUrl else source.sourceId?:source.id
@@ -780,7 +781,8 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    try{
     val mediaItems=withContext(Dispatchers.IO){
      queue.map{queued->
-      val uri=queued.localPath?.let{java.io.File(it).toURI().toString()}?:LibreTubePlayback.resolveMedia(queued.id,queued.music).url
+      val localFile=queued.localPath?.let(::java.io.File)?.takeIf{it.isFile}
+      val uri=localFile?.toURI()?.toString()?:LibreTubePlayback.resolveMedia(queued.sourceId?:queued.id,queued.music).url
       val metadata=androidx.media3.common.MediaMetadata.Builder().setTitle(queued.title).setArtist(queued.creator).build()
       androidx.media3.common.MediaItem.Builder().setMediaId(queued.id).setUri(uri).setMediaMetadata(metadata).build()
      }
@@ -801,7 +803,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   Spacer(Modifier.weight(.2f))
   if(audio)Disc(item,Modifier.size(240.dp))else Cover(item,Modifier.fillMaxWidth().height(190.dp))
   Text(playingTitle,color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold);Text(playingCreator,color=muted)
-  if(item.localPath==null) {
+  if(!localFileAvailable) {
    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=audio,onClick={audio=true;quality=0},label={Text("Audio only")});FilterChip(selected=!audio,onClick={audio=false;quality=0},label={Text("Video")})}
    if(!audio) Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",2160 to "2160p",1440 to "1440p",1080 to "1080p",720 to "720p",480 to "480p",360 to "360p").forEach{(height,label)->FilterChip(selected=quality==height,onClick={quality=height},label={Text(label)})}} else Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",320 to "320 kbps",256 to "256 kbps",192 to "192 kbps",160 to "160 kbps",96 to "96 kbps").forEach{(bitrate,label)->FilterChip(selected=quality==bitrate,onClick={quality=bitrate},label={Text(label)})}}
    if(!audio)Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){FilterChip(selected=mp4Format,onClick={mp4Format=true},label={Text("MP4")});FilterChip(selected=!mp4Format,onClick={mp4Format=false},label={Text("Original format")})}
@@ -832,8 +834,8 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    else scope.launch{
     status="Resolving stream…"
     try{
-     val mediaItem=if(item.localPath!=null){
-      androidx.media3.common.MediaItem.Builder().setMediaId(item.id).setUri(java.io.File(item.localPath).toURI().toString()).setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(item.title).setArtist(item.creator).build()).build()
+     val mediaItem=if(localFileAvailable){
+      androidx.media3.common.MediaItem.Builder().setMediaId(item.id).setUri(java.io.File(item.localPath!!).toURI().toString()).setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(item.title).setArtist(item.creator).build()).build()
      }else{
       val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format)}
       val captions=if(audio)emptyList() else withContext(Dispatchers.IO){LibreTubePlayback.resolveSubtitles(url)}
@@ -849,11 +851,11 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      activePlayer.setMediaItem(mediaItem)
      val savedPosition=PlaybackProgress.resumePositionMs(context,item.id)
      if(savedPosition>0)activePlayer.seekTo(savedPosition)
-     activePlayer.prepare();activePlayer.play();status=if(item.localPath!=null)"Playing offline" else "Stream ready"
+     activePlayer.prepare();activePlayer.play();status=if(localFileAvailable)"Playing offline" else "Stream ready"
     }catch(e:Exception){status=e.localizedMessage?:"Unable to load this stream."}
    }
-  },enabled=controller!=null,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text(if(item.localPath!=null)"Play offline" else "Load and play",color=Color.White)}
-  if(item.localPath==null) Button(onClick={
+  },enabled=controller!=null,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text(if(localFileAvailable)"Play offline" else "Load and play",color=Color.White)}
+  if(!localFileAvailable) Button(onClick={
    if(android.os.Build.VERSION.SDK_INT>=33&&androidx.core.content.ContextCompat.checkSelfPermission(context,android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED){
     requestNotificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
    }
