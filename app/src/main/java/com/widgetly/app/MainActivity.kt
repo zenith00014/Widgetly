@@ -523,6 +523,7 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
    val work=working[media.id]
    val progress=work?.progress?.getInt("progress",0)?:0
    val downloadedBytes=work?.progress?.getLong("bytes",0L)?:0L
+   val converting=work?.progress?.getString("stage")=="Converting to MP3"
    val active=work?.state==androidx.work.WorkInfo.State.RUNNING || work?.state==androidx.work.WorkInfo.State.ENQUEUED || work?.state==androidx.work.WorkInfo.State.BLOCKED
    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
     Text(media.title,color=ink,fontSize=14.sp,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis)
@@ -534,7 +535,10 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
      work?.state==androidx.work.WorkInfo.State.FAILED || work?.state==androidx.work.WorkInfo.State.CANCELLED -> "Interrupted · resume to continue"
      else -> "Preparing download"
     },color=if(media.complete)mint else muted,fontSize=11.sp)
-    if(active) LinearProgressIndicator(progress={progress/100f},modifier=Modifier.fillMaxWidth())
+    if(active){
+     if(converting)LinearProgressIndicator(modifier=Modifier.fillMaxWidth())
+     else LinearProgressIndicator(progress={progress/100f},modifier=Modifier.fillMaxWidth())
+    }
     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
      if(media.complete) Button(onClick={play(media)},colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Play offline")}
      else if(active) OutlinedButton(onClick={OfflineDownloads.cancel(context,media.id)}){Text("Cancel")}
