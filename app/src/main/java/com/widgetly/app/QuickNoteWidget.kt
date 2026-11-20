@@ -31,14 +31,14 @@ class QuickNoteWidget : GlanceAppWidget() {
             Column(
                 modifier = GlanceModifier
                     .fillMaxSize()
-                    .background(ColorProvider(Color(0xFF242236)))
+                    .background(ColorProvider(Color(0xFF1A211C)))
                     .clickable(actionStartActivity<MainActivity>())
                     .padding(16.dp),
                 verticalAlignment = Alignment.Vertical.Top,
                 horizontalAlignment = Alignment.Horizontal.Start
             ) {
-                Text("WIDGETLY", style = TextStyle(
-                    color = ColorProvider(Color(0xFFB8A7FF)),
+                Text("NEXUS", style = TextStyle(
+                    color = ColorProvider(Color(0xFFC8F169)),
                     fontWeight = FontWeight.Bold
                 ))
                 Spacer(GlanceModifier.height(10.dp))
