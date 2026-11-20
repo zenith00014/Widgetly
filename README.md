@@ -46,3 +46,4 @@ APK output: `app/build/outputs/apk/debug/app-debug.apk`.
 The playback adapter is derived from LibreTube/NewPipeExtractor work. MP3 conversion uses the community-maintained FFmpegKit audio package under LGPL-3.0. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the included license texts. Check license obligations before distributing builds.
 
 Offline downloads should only be used for content and methods you are permitted to keep offline. Private app storage prevents ordinary sharing by the app; it does not grant download rights or bypass platform terms.
+The SABR adaptive player is validated through CI compilation; real stream negotiation and playback still require Android-device testing.
