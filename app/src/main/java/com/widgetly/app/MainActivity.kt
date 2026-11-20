@@ -532,6 +532,18 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  var speed by remember(item.id){mutableFloatStateOf(1f)}
  var captionsEnabled by remember(item.id){mutableStateOf(true)}
  var status by remember(item.id){mutableStateOf(if(item.localPath!=null)"Downloaded file ready." else "Paste a YouTube link or video ID to play.")}
+ var playingTitle by remember(item.id){mutableStateOf(item.title)}
+ var playingCreator by remember(item.id){mutableStateOf(item.creator)}
+ DisposableEffect(controller){
+  val listener=object:androidx.media3.common.Player.Listener{
+   override fun onMediaItemTransition(mediaItem:androidx.media3.common.MediaItem?,reason:Int){
+    playingTitle=mediaItem?.mediaMetadata?.title?.toString()?.ifBlank{item.title}?:item.title
+    playingCreator=mediaItem?.mediaMetadata?.artist?.toString()?.ifBlank{item.creator}?:item.creator
+   }
+  }
+  controller?.addListener(listener)
+  onDispose{controller?.removeListener(listener)}
+ }
  var shuffleEnabled by remember(item.id){mutableStateOf(false)}
  var repeatMode by remember(item.id){mutableIntStateOf(androidx.media3.common.Player.REPEAT_MODE_OFF)}
  LaunchedEffect(controller,queue.map{it.id}.joinToString("|")){
@@ -558,7 +570,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("← Back",color=muted,modifier=Modifier.clickable{back()}.padding(8.dp));Text(if(audio)"Music player"else"Video player",color=mint)}
   Spacer(Modifier.weight(.2f))
   if(audio)Disc(item,Modifier.size(240.dp))else Cover(item,Modifier.fillMaxWidth().height(190.dp))
-  Text(item.title,color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold);Text(item.creator,color=muted)
+  Text(playingTitle,color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold);Text(playingCreator,color=muted)
   if(item.localPath==null) {
    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=audio,onClick={audio=true},label={Text("Audio only")});FilterChip(selected=!audio,onClick={audio=false},label={Text("Video")})}
    if(!audio) Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",720 to "720p",480 to "480p",360 to "360p").forEach{(height,label)->FilterChip(selected=quality==height,onClick={quality=height},label={Text(label)})}} else Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",160 to "160 kbps",96 to "96 kbps").forEach{(bitrate,label)->FilterChip(selected=quality==bitrate,onClick={quality=bitrate},label={Text(label)})}}
@@ -590,7 +602,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
     status="Resolving stream…"
     try{
      val mediaItem=if(item.localPath!=null){
-      androidx.media3.common.MediaItem.fromUri(java.io.File(item.localPath).toURI().toString())
+      androidx.media3.common.MediaItem.Builder().setMediaId(item.id).setUri(java.io.File(item.localPath).toURI().toString()).setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(item.title).setArtist(item.creator).build()).build()
      }else{
       val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null)}
       val captions=if(audio)emptyList() else withContext(Dispatchers.IO){LibreTubePlayback.resolveSubtitles(url)}
@@ -601,7 +613,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
         .setLabel(subtitle.label)
         .build()
       }
-      androidx.media3.common.MediaItem.Builder().setUri(resolved.url).setSubtitleConfigurations(subtitleConfigs).build()
+      androidx.media3.common.MediaItem.Builder().setMediaId(item.id).setUri(resolved.url).setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(item.title).setArtist(item.creator).build()).setSubtitleConfigurations(subtitleConfigs).build()
      }
      activePlayer.setMediaItem(mediaItem);activePlayer.prepare();activePlayer.play();status=if(item.localPath!=null)"Playing offline" else "Stream ready"
     }catch(e:Exception){status=e.localizedMessage?:"Unable to load this stream."}
