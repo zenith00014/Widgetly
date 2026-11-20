@@ -147,8 +147,10 @@ private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
         lifecycleOwner.lifecycle.addObserver(observer)
         onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
     }
-    LaunchedEffect(appVisible) {
-        if (appVisible) while (true) { delay(1000); NexusUsage.addDiscoverSecond(context); dailyRefresh++ }
+    LaunchedEffect(appVisible,dailySeconds,dailyUsed) {
+        if (appVisible && dailySeconds < dailyTimeBudget && dailyUsed < dailyBudget) {
+            delay(1000); NexusUsage.addDiscoverSecond(context); dailyRefresh++
+        }
     }
     var kind by remember { mutableStateOf(ContentKind.VIDEO) }
     var refresh by remember { mutableIntStateOf(0) }
