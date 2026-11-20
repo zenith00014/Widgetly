@@ -1,26 +1,28 @@
-# Nexus
+# Nexus — personal Android app
 
-A lightweight, ad-free Android discovery and messaging companion designed to reduce doomscrolling. Nexus uses finite content sessions, local notification history, and in-app reading/playback rather than endless feeds.
+Nexus is a private, single-owner Android app for one person's daily use. It is not a public service, commercial product, or multi-user platform. Build decisions should favor usefulness on the owner's phone, low storage and battery use, simple maintenance, and local-first personal data.
 
-## Current implementation
+## Personal app principles
 
-- Home: compact dashboard with a limited video shelf and shortcuts.
-- Discover: finite Video, News, and Movies sessions.
-- Videos: educational YouTube channel RSS feeds with thumbnails; videos open in the embedded YouTube player inside Nexus. YouTube controls its own playback and may show its own ads.
-- News: RSS/Atom sources with thumbnails where supplied; articles open in an in-app WebView.
-- Movies: public catalog search through Internet Archive; film pages open in its embedded player. Availability and rights remain subject to each catalog item's terms.
-- Inbox: opt-in Android notification previews for WhatsApp, Telegram, Instagram, and Messenger. If a notification exposes a RemoteInput reply action, Nexus offers quick reply; otherwise it opens the original app. Previews are not full synced conversations.
-- Library: existing Quick Note and Retro Clock home-screen widgets remain available.
+- No public registration, profiles, subscriptions, ads, monetization, public discovery, or multi-user backend.
+- No analytics or telemetry unless explicitly requested by the owner.
+- Keep personal settings, saved items, notes, and contact preferences on-device by default.
+- Ask Android permissions only when the owner enables the corresponding feature.
+- Avoid adding abstractions, infrastructure, or settings that do not solve the owner's actual use cases.
+- Prefer free sources and integrations; never imply a platform provides access it does not expose.
 
-## Product principles
+## Main areas
 
-- No infinite scroll, autoplay, streaks, ads, subscriptions, or paid APIs.
-- No scraping or unauthorized access to private messages.
-- Notification rows are labelled PREVIEW; quick reply appears only when Android exposes a supported action.
-- Feeds refresh when the user opens or refreshes Discover.
-- UI follows the SLAB//GLASS system in DESIGN.md.
+- **Home:** a concise personal dashboard with a small, finite selection of useful content.
+- **Discover:** finite Videos, News, and Movies shelves. No endless feed, autoplay, or engagement loops.
+- **Videos:** curated YouTube channel feeds with thumbnails and in-app embedded playback. YouTube controls its player and may show ads.
+- **News:** RSS/Atom sources with thumbnails where available; open articles in an in-app reader when the publisher permits it.
+- **Movies:** public catalog discovery and in-app playback when an item is legally available and embeddable.
+- **Inbox:** a personal hybrid inbox. Collect supported app notifications, show previews, use Android notification quick-reply actions when present, and otherwise hand off to the original app. This is not full private-chat synchronization.
+- **Contacts:** personal contacts and shortcuts, not a public user directory. Add only the contact workflow the owner actually needs.
+- **Library:** personal saved items, notes, and existing home-screen widgets.
 
-## Build locally
+## Build and test
 
 Requirements: JDK 17, Android SDK 35, Gradle 8.9 (or Android Studio).
 
@@ -28,15 +30,10 @@ Requirements: JDK 17, Android SDK 35, Gradle 8.9 (or Android Studio).
 
 APK output: app/build/outputs/apk/debug/app-debug.apk.
 
-## Build on GitHub
+GitHub Actions builds a debug APK for the owner's testing. A public release pipeline, store listing, signing/release automation, and distribution infrastructure are out of scope unless requested.
 
-1. Open a pull request or push to main.
-2. Open the repository Actions tab.
-3. Wait for Build Android APK to finish.
-4. Download the widgetly-debug-apk artifact.
+## Platform boundaries
 
-The workflow currently produces an unsigned debug APK for testing. Configure signing before distributing a release APK.
+Android notification access can expose notification content and sometimes a reply action. It does not grant unrestricted access to private chats, message history, or sending APIs. Nexus must clearly distinguish a notification preview from a full conversation. Do not scrape private app databases or bypass platform protections.
 
-## Privacy and integration limits
-
-Nexus does not claim to remove YouTube ads or bypass platform restrictions. YouTube playback uses the embedded player. RSS feeds expose only content provided by each publisher. Messaging integrations are limited to Android notification previews and supported notification quick-reply actions; there is no private-chat scraping or full message synchronization.
+YouTube playback remains subject to YouTube's player and ad policies. News embeds depend on publisher restrictions. Movie playback depends on the catalog item's availability and rights.
