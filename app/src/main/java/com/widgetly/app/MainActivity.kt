@@ -375,6 +375,7 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
  var status by remember(collection.collectionId){mutableStateOf(if(collection.isMusic)"Loading songs…" else "Loading playlist…")}
  var loading by remember(collection.collectionId){mutableStateOf(false)}
  var downloadMessage by remember(collection.collectionId){mutableStateOf("")}
+ var libraryMessage by remember(collection.collectionId){mutableStateOf("")}
  var downloading by remember(collection.collectionId){mutableStateOf(false)}
  LaunchedEffect(collection.collectionId){
   loading=true
@@ -420,6 +421,17 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
     TextButton(onClick={tracks.forEach(enqueue);downloadMessage="Added ${tracks.size} videos to the queue."}){Text("Queue all",color=magenta)}
    }
    if(downloadMessage.isNotBlank())Text(downloadMessage,color=muted,fontSize=10.sp)
+  }
+  if(tracks.isNotEmpty()){
+   TextButton(onClick={
+    val prefs=context.getSharedPreferences("rush_prefs",Context.MODE_PRIVATE)
+    tracks.forEach{track->persistPickMetadata(prefs,track.toPick())}
+    val created=PlaylistStore.create(prefs,collection.title,tracks.first().videoId)
+    val playlistId=created.last().id
+    tracks.drop(1).forEach{PlaylistStore.add(prefs,playlistId,it.videoId)}
+    libraryMessage="Saved "+tracks.size+" items to Library as \""+collection.title+"\"."
+   }){Text("Save to Library",color=magenta)}
+   if(libraryMessage.isNotBlank())Text(libraryMessage,color=muted,fontSize=10.sp)
   }
   LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){
    items(tracks,key={it.videoId}){track->
