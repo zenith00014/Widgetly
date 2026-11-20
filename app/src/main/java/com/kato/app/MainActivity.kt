@@ -1130,7 +1130,7 @@ private fun NexusSettingsScreen(
             }
         }
         item {
-            SettingsCard("SPOTIFY PLAYLIST / ALBUM", "Paste a Spotify track, album or playlist URL. The official Spotify embed opens inside Nexus.")
+            SettingsCard("SPOTIFY PLAYLIST / ALBUM", "Paste a Spotify track, album or playlist URL. The official Spotify embed opens inside Nexus.") {
                 OutlinedTextField(
                     value = localSpotify,
                     onValueChange = { localSpotify = it },
