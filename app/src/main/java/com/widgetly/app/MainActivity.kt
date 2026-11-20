@@ -908,7 +908,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    scope.launch{
    status="Preparing offline download…"
    try{
-    val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null)}
+    val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format)}
     withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,item.id,item.title,item.creator,audio,media,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,audio&&mp3Format,!audio&&mp4Format)}
     status="Download queued · ${media.qualityLabel} · .${media.extension}"
    }catch(e:Exception){status=e.localizedMessage?:"Could not start download."}
