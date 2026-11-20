@@ -1,6 +1,8 @@
 package com.widgetly.app
 
 import android.content.Context
+import com.arthenica.ffmpegkit.FFmpegKit
+import com.arthenica.ffmpegkit.ReturnCode
 import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.Data
@@ -12,6 +14,7 @@ import androidx.work.NetworkType
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.suspendCancellableCoroutine
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -22,6 +25,7 @@ import java.io.IOException
 import java.util.UUID
 import java.util.concurrent.TimeUnit
 import kotlin.coroutines.coroutineContext
+import kotlin.coroutines.resume
 
 data class OfflineMedia(
     val id: String,
@@ -34,7 +38,8 @@ data class OfflineMedia(
     val sourceUrl: String,
     val complete: Boolean,
     val maxHeight: Int? = null,
-    val maxAudioBitrate: Int? = null
+    val maxAudioBitrate: Int? = null,
+    val transcodeToMp3: Boolean = false
 )
 
 object OfflineDownloads {
@@ -49,8 +54,10 @@ object OfflineDownloads {
         isAudio: Boolean,
         media: ResolvedMedia,
         maxHeight: Int? = null,
-        maxAudioBitrate: Int? = null
+        maxAudioBitrate: Int? = null,
+        transcodeToMp3: Boolean = false
     ): UUID {
+        require(!transcodeToMp3 || isAudio) { "MP3 conversion is only available for audio downloads." }
         val safeId = safeId(id, media.url)
         val directory = File(context.filesDir, DIRECTORY).apply { mkdirs() }
         val destination = File(directory, "$safeId.${media.extension}")
@@ -66,6 +73,7 @@ object OfflineDownloads {
             .put("sourceUrl", media.url)
             .put("maxHeight", maxHeight ?: 0)
             .put("maxAudioBitrate", maxAudioBitrate ?: 0)
+            .put("transcodeToMp3", transcodeToMp3)
             .put("complete", destination.exists() && destination.length() > 0)
         metadata.writeText(details.toString())
 
@@ -77,6 +85,7 @@ object OfflineDownloads {
                     .putString(OfflineDownloadWorker.KEY_ID, safeId)
                     .putString(OfflineDownloadWorker.KEY_URL, media.url)
                     .putString(OfflineDownloadWorker.KEY_EXTENSION, media.extension)
+                    .putBoolean(OfflineDownloadWorker.KEY_TRANSCODE_MP3, transcodeToMp3)
                     .build()
             )
             .addTag(WORK_TAG)
@@ -108,7 +117,8 @@ object OfflineDownloads {
             media.isAudio,
             resolved,
             media.maxHeight,
-            media.maxAudioBitrate
+            media.maxAudioBitrate,
+            media.transcodeToMp3
         )
     }
 
@@ -131,7 +141,8 @@ object OfflineDownloads {
                         sourceUrl = json.optString("sourceUrl", ""),
                         complete = json.optBoolean("complete") && file.exists() && file.length() > 0,
                         maxHeight = json.optInt("maxHeight", 0).takeIf { it > 0 },
-                        maxAudioBitrate = json.optInt("maxAudioBitrate", 0).takeIf { it > 0 }
+                        maxAudioBitrate = json.optInt("maxAudioBitrate", 0).takeIf { it > 0 },
+                        transcodeToMp3 = json.optBoolean("transcodeToMp3", false)
                     )
                 }.getOrNull()
             }
@@ -143,6 +154,7 @@ object OfflineDownloads {
         media.file.delete()
         File(media.file.parentFile, "${media.id}.json").delete()
         File(media.file.parentFile, "${media.id}.${media.extension}.part").delete()
+        File(media.file.parentFile, "${media.id}.converting.mp3").delete()
     }
 
     fun storageBytes(context: Context): Long {
@@ -177,6 +189,7 @@ class OfflineDownloadWorker(
         val url = inputData.getString(KEY_URL) ?: return@withContext Result.failure()
         val extension = inputData.getString(KEY_EXTENSION)?.takeIf { it.matches(Regex("[A-Za-z0-9]{1,8}")) }
             ?: return@withContext Result.failure()
+        val transcodeToMp3 = inputData.getBoolean(KEY_TRANSCODE_MP3, false)
 
         val directory = File(applicationContext.filesDir, "offline-media").apply { mkdirs() }
         val partial = File(directory, "$id.$extension.part")
@@ -227,11 +240,40 @@ class OfflineDownloadWorker(
                 }
             }
 
+            var completedFile = destination
+            var completedExtension = extension
+            if (transcodeToMp3 && extension != "mp3") {
+                setProgress(
+                    Data.Builder()
+                        .putInt("progress", 100)
+                        .putLong("bytes", destination.length())
+                        .putString("stage", "Converting to MP3")
+                        .build()
+                )
+                val converted = File(directory, "$id.converting.mp3")
+                converted.delete()
+                val command = "-y -i ${quote(destination.absolutePath)} -vn -map_metadata 0 -codec:a libmp3lame -b:a 192k ${quote(converted.absolutePath)}"
+                val success = runFfmpeg(command)
+                if (!success || !converted.exists() || converted.length() == 0L) {
+                    converted.delete()
+                    return@withContext Result.failure()
+                }
+                destination.delete()
+                completedFile = File(directory, "$id.mp3")
+                if (completedFile.exists()) completedFile.delete()
+                if (!converted.renameTo(completedFile)) {
+                    converted.copyTo(completedFile, overwrite = true)
+                    converted.delete()
+                }
+                completedExtension = "mp3"
+            }
+
             val json = runCatching { JSONObject(metadata.readText()) }.getOrElse { JSONObject() }
                 .put("complete", true)
-                .put("file", destination.name)
+                .put("file", completedFile.name)
+                .put("extension", completedExtension)
             metadata.writeText(json.toString())
-            setProgress(Data.Builder().putInt("progress", 100).putLong("bytes", destination.length()).build())
+            setProgress(Data.Builder().putInt("progress", 100).putLong("bytes", completedFile.length()).build())
             Result.success()
         } catch (cancelled: kotlinx.coroutines.CancellationException) {
             throw cancelled
@@ -246,6 +288,22 @@ class OfflineDownloadWorker(
         const val KEY_ID = "download_id"
         const val KEY_URL = "stream_url"
         const val KEY_EXTENSION = "extension"
+        const val KEY_TRANSCODE_MP3 = "transcode_mp3"
+
+        private suspend fun runFfmpeg(command: String): Boolean =
+            suspendCancellableCoroutine { continuation ->
+                val session = FFmpegKit.executeAsync(command) { result ->
+                    if (continuation.isActive) {
+                        continuation.resume(ReturnCode.isSuccess(result.returnCode))
+                    }
+                }
+                continuation.invokeOnCancellation { FFmpegKit.cancel(session.sessionId) }
+                if (!continuation.isActive) FFmpegKit.cancel(session.sessionId)
+            }
+
+        private fun quote(path: String): String =
+            "\"" + path.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
         private val CLIENT = OkHttpClient.Builder()
             .connectTimeout(30, TimeUnit.SECONDS)
             .readTimeout(0, TimeUnit.MILLISECONDS)
