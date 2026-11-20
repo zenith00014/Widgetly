@@ -64,7 +64,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
     }
     Box(Modifier.weight(1f)){
      when(tab){
-      "Discover"->Discover(query,{query=it},filter,{filter=it},ink,muted,surface,saved,{open(it){active=it;history=listOf(it.id)+history.filterNot{x->x==it.id};prefs.edit().putStringSet("history",history.toSet()).apply()}},{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()})
+      "Discover"->LiveDiscover(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Live YouTube result");active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};prefs.edit().putStringSet("history",history.toSet()).apply()})
       "News"->News(ink,muted,surface)
       "Library"->Library(saved,history,ink,muted,surface,{id->picks.find{it.id==id}?.let{active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()})
       else->Home(ink,muted,surface,saved,{open(it){active=it;history=listOf(it.id)+history.filterNot{x->x==it.id};prefs.edit().putStringSet("history",history.toSet()).apply()}},{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()})
@@ -98,6 +98,47 @@ private fun open(p:Pick,cb:(Pick)->Unit){cb(p)}
   item{Shelf("Selected for you","A finite collection",ink)}
   items(found){CardRow(it,ink,muted,surface,saved,play,save)}
   item{Text(if(found.isEmpty())"No matches in this shelf." else "End of these picks. Search again to explore more.",color=muted,fontSize=11.sp,modifier=Modifier.padding(12.dp))}
+ }
+}
+@Composable private fun LiveDiscover(ink:Color,muted:Color,surface:Color,play:(YouTubeSearchResult)->Unit){
+ var query by remember { mutableStateOf("") }
+ var filter by remember { mutableStateOf("Videos") }
+ var results by remember { mutableStateOf<List<YouTubeSearchResult>>(emptyList()) }
+ var status by remember { mutableStateOf("Search YouTube videos and music.") }
+ var loading by remember { mutableStateOf(false) }
+ val scope= rememberCoroutineScope()
+ Column(Modifier.fillMaxSize().padding(16.dp)) {
+  Text("Search YouTube",color=ink,fontSize=20.sp,fontWeight=FontWeight.Bold)
+  Spacer(Modifier.height(10.dp))
+  Row(verticalAlignment=Alignment.CenterVertically) {
+   BasicTextField(query,{query=it},Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(surface).padding(15.dp),textStyle=TextStyle(color=ink,fontSize=15.sp),singleLine=true,decorationBox={inner->if(query.isEmpty())Text("Videos, songs, artists or channels",color=muted);inner()})
+   Spacer(Modifier.width(8.dp))
+   Button(enabled=query.isNotBlank()&&!loading,onClick={
+    scope.launch {
+     loading=true;status="Searching…"
+     try { results=withContext(Dispatchers.IO){LiveYouTubeSearch.search(query,filter=="Music")};status="${results.size} results" }
+     catch(e:Exception){results=emptyList();status=e.localizedMessage?: "Search failed."}
+     finally {loading=false}
+    }
+   }) { Text(if(loading)"…" else "Search") }
+  }
+  Spacer(Modifier.height(8.dp))
+  Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+   listOf("Videos","Music").forEach { FilterChip(selected=filter==it,onClick={filter=it;results=emptyList()},label={Text(it)}) }
+  }
+  Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(vertical=8.dp))
+  LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+   items(results,key={it.videoId}) { result ->
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(surface).clickable{play(result)}.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
+     Box(Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).background(raised),contentAlignment=Alignment.Center){Text(if(result.isMusic)"♫" else "▶",color=mint,fontSize=20.sp)}
+     Column(Modifier.weight(1f).padding(horizontal=10.dp)) {
+      Text(result.title,color=ink,fontSize=14.sp,fontWeight=FontWeight.SemiBold,maxLines=2,overflow=TextOverflow.Ellipsis)
+      Text(result.creator + if(result.duration.isNotBlank()) " · ${result.duration}" else "",color=muted,fontSize=11.sp,maxLines=1)
+     }
+     Text("Play",color=magenta,fontSize=12.sp)
+    }
+   }
+  }
  }
 }
 @Composable private fun News(ink:Color,muted:Color,surface:Color){
