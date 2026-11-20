@@ -1,12 +1,14 @@
 package com.widgetly.app
 
 import android.content.Context
+import androidx.work.Constraints
 import androidx.work.CoroutineWorker
 import androidx.work.Data
 import androidx.work.ExistingWorkPolicy
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkInfo
 import androidx.work.WorkManager
+import androidx.work.NetworkType
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ensureActive
@@ -68,6 +70,8 @@ object OfflineDownloads {
         metadata.writeText(details.toString())
 
         val request = OneTimeWorkRequestBuilder<OfflineDownloadWorker>()
+            .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
+            .setBackoffCriteria(androidx.work.BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .setInputData(
                 Data.Builder()
                     .putString(OfflineDownloadWorker.KEY_ID, safeId)
