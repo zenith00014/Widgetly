@@ -1,40 +1,52 @@
-# Kato
+# Nexus
 
-Kato is a lightweight, local-first Android app for intentional communication, discovery and entertainment. It is designed around finite lists, user-selected sources and natural stopping points rather than endless feeds.
+Nexus is a free, ad-free-by-design, local-first Android app for intentional communication and selected-topic content discovery. It has four destinations: Home, Social, Inbox and Library.
 
-## Current foundation build
+## Current implementation
 
 - Native Android app using Kotlin and Jetpack Compose.
-- Four primary destinations: Home, Social, Discover and Library.
+- Home dashboard with unread message previews, latest selected-topic news, followed YouTube channel uploads, a Spotify embed shortcut and public-domain film discovery.
+- Social timeline combining selected-topic RSS news with chronological uploads from user-followed YouTube channels. The list is finite and manually refreshed.
+- Inbox with optional notification previews from WhatsApp, Telegram, Instagram and Facebook Messenger, including unread markers and profile icons when the source notification provides them.
+- Library with saved items, Watch Later, Likes, search, notes and local JSON export.
+- Local SQLite storage and SharedPreferences. No account, mandatory backend, advertising SDK, paid API or subscription dependency.
 - Dark, light and system themes.
-- Local SQLite library for saved links, categories, completion state and personal notes.
-- Local JSON library export through Android's share sheet.
-- Optional Android notification access for limited WhatsApp, Telegram, Instagram and Messenger notification previews.
-- No account, mandatory backend, advertising SDK, paid API or subscription dependency.
-- External links open through Android's normal link handler; Kato does not bypass ads, logins, paywalls or platform restrictions.
+- News feeds, YouTube channel feeds and public-domain movie metadata are fetched directly from public endpoints. No API keys are required for those feed methods.
 
-## Important limitations
+## Honest platform limits
 
-The Social inbox is a **notification preview inbox**, not a unified messaging API. It does not provide full message history, guaranteed delivery, read receipts or replies. Notification access is optional and is only enabled by the user in Android Settings.
+- The Inbox is based on Android notification previews. It is not a full messaging API and cannot guarantee complete chat history, read receipts, message delivery or replies. Android requires the user to enable notification access manually.
+- YouTube channel uploads use public channel Atom feeds. Playback uses the official YouTube embedded player; YouTube controls its own playback availability and advertising.
+- Spotify uses the official Spotify embed. Spotify controls playback, account requirements, and any advertising shown by its service. Nexus cannot remove those restrictions.
+- Public-domain films are searched through Internet Archive metadata. A catalog entry is not a guarantee that a particular video file is playable in every country or at every time.
+- Publisher links open in the browser. Nexus does not strip publisher ads, paywalls or login requirements.
 
-Discover is currently a working navigation and interface foundation. RSS news, YouTube channel subscriptions/playback, podcast RSS playback, local audio playback, article reader mode and movie-source verification are not yet implemented. No sample content is presented as real news or available media.
+## Configure your sources
+
+Open Library → Settings:
+1. Select the news topics you want.
+2. Add YouTube channel IDs (one per line). A channel label may follow a vertical bar, e.g. `UC... | Khan Academy`.
+3. Paste a Spotify playlist, album or track URL.
+4. Add optional RSS / Atom source URLs.
+
+The app starts with World, Bangladesh, Technology, Science, Education and Football topics selected.
 
 ## Build
 
-Requirements: JDK 17, Android SDK 35 and Gradle 8.9 (or Android Studio).
+Requirements: JDK 17, Android SDK 35 and Gradle 8.9.
 
-\`\`\`bash
+```bash
 gradle :app:assembleDebug
-\`\`\`
+```
 
-APK output: \`app/build/outputs/apk/debug/app-debug.apk\`.
+APK output: `app/build/outputs/apk/debug/app-debug.apk`.
 
 ## GitHub Actions
 
-Push to \`main\`, \`master\` or \`kato-phase-1\`, open a pull request, or run the **Build Kato APK** workflow manually. The workflow uploads an unsigned debug APK named \`kato-debug-apk\`.
+Push to `main`, `master` or `kato-phase-1`, open a pull request, or run the **Build Nexus APK** workflow manually. The workflow uploads an unsigned debug APK named `nexus-debug-apk`.
 
-A signed release APK requires a signing key. Do not distribute the debug APK as a production release.
+A signed release APK requires a signing key. The debug APK is for testing, not production distribution.
 
 ## Privacy
 
-The app does not require account creation or a server. Saved library items and preferences live in the app's private local storage. Notification previews are stored locally only after the user enables Android notification access. Clearing local content removes the library and captured previews.
+Nexus does not require account creation or a server. Saved links, notes, preferences and captured notification previews are stored in the app's private local storage. Notification capture is optional and starts only after the user enables Android notification access. Clearing local content removes the local library and captured previews.
