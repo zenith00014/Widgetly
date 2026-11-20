@@ -107,6 +107,15 @@ object QueueStore {
         return updated
     }
 
+    fun move(prefs: SharedPreferences, fromIndex: Int, toIndex: Int): List<String> {
+        val updated = load(prefs).toMutableList()
+        if (fromIndex !in updated.indices || toIndex !in updated.indices) return updated
+        val item = updated.removeAt(fromIndex)
+        updated.add(toIndex, item)
+        save(prefs, updated)
+        return updated
+    }
+
     fun clear(prefs: SharedPreferences): List<String> {
         save(prefs, emptyList())
         return emptyList()
