@@ -327,30 +327,47 @@ private fun NexusApp() {
                 }
 
                 if (playerType.isBlank() && !showSettings) {
-                    NavigationBar(
-                        containerColor = MaterialTheme.colorScheme.surface,
-                        contentColor = MaterialTheme.colorScheme.onSurface
+                    val tabs = listOf(
+                        Triple("Home", "⌂", "HOME"),
+                        Triple("Social", "▤", "SOCIAL"),
+                        Triple("Inbox", "▣", "INBOX"),
+                        Triple("Library", "⌑", "LIBRARY")
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth()
+                            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.94f))
+                            .border(1.dp, MaterialTheme.colorScheme.outline)
+                            .padding(horizontal = 8.dp, vertical = 5.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val tabs = listOf(
-                            Triple("Home", "⌂", "HOME"),
-                            Triple("Social", "◉", "SOCIAL"),
-                            Triple("Inbox", "▤", "INBOX"),
-                            Triple("Library", "▣", "LIBRARY")
-                        )
                         tabs.forEach { tab ->
-                            NavigationBarItem(
-                                selected = page == tab.first,
-                                onClick = { page = tab.first },
-                                icon = { Text(tab.second, fontSize = 19.sp, fontWeight = FontWeight.Medium) },
-                                label = { Text(tab.third, fontSize = 9.sp, letterSpacing = 0.5.sp) },
-                                colors = NavigationBarItemDefaults.colors(
-                                    selectedIconColor = MaterialTheme.colorScheme.primary,
-                                    selectedTextColor = MaterialTheme.colorScheme.primary,
-                                    indicatorColor = MaterialTheme.colorScheme.surfaceVariant,
-                                    unselectedIconColor = MaterialTheme.colorScheme.onSurfaceVariant,
-                                    unselectedTextColor = MaterialTheme.colorScheme.onSurfaceVariant
+                            val selected = page == tab.first
+                            Column(
+                                modifier = Modifier.weight(1f).heightIn(min = 48.dp)
+                                    .clickable { page = tab.first }
+                                    .padding(vertical = 3.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                                verticalArrangement = Arrangement.spacedBy(2.dp)
+                            ) {
+                                Text(
+                                    tab.second,
+                                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Bold
                                 )
-                            )
+                                Text(
+                                    tab.third,
+                                    color = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                                    fontSize = 9.sp,
+                                    letterSpacing = 0.6.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = if (selected) FontWeight.Bold else FontWeight.Normal
+                                )
+                                Box(
+                                    Modifier.fillMaxWidth(0.34f).height(2.dp)
+                                        .background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent)
+                                )
+                            }
                         }
                     }
                 }
@@ -847,7 +864,7 @@ private fun InboxScreen(refreshKey: Int, onRefresh: () -> Unit) {
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 listOf("All", "Unread", "WhatsApp", "Telegram", "Instagram", "Messenger").forEach { choice ->
-                    FilterChip(selected = filter == choice, onClick = { filter = choice }, label = { Text(choice, fontSize = 10.sp) })
+                    FilterChip(shape = RectangleShape, selected = filter == choice, onClick = { filter = choice }, label = { Text(choice, fontSize = 10.sp) })
                 }
             }
         }
