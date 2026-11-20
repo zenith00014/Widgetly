@@ -399,8 +399,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   }
  }
  val working=workInfos.mapNotNull{work->work.tags.firstOrNull{tag->tag.startsWith("${OfflineDownloads.WORK_TAG}:")}?.substringAfter(":")?.let{id->id to work}}.toMap()
- val storageBytes=downloads.filter{it.complete}.sumOf{it.file.length()}
- LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+  LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
   item {
    Text("Offline downloads",color=ink,fontSize=20.sp,fontWeight=FontWeight.Bold)
    Text("${downloads.size} items · ${android.text.format.Formatter.formatShortFileSize(context,storageBytes)} used",color=muted,fontSize=11.sp,modifier=Modifier.padding(top=4.dp))
