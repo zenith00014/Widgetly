@@ -71,7 +71,7 @@ internal object NexusFtpRepository {
         val ftp = FTPClient()
         ftp.connectTimeout = 10_000
         ftp.defaultTimeout = 10_000
-        ftp.dataTimeout = 30_000
+        ftp.setDataTimeout(30_000)
         try {
             ftp.connect(NEXUS_FTP_HOST, NEXUS_FTP_PORT)
             if (!ftp.login("anonymous", "nexus@android.local")) throw IOException("Anonymous FTP login was rejected (${ftp.replyCode}).")
@@ -113,7 +113,7 @@ internal class NexusFtpDataSource : BaseDataSource(true) {
         try {
             ftp.connectTimeout = 10_000
             ftp.defaultTimeout = 10_000
-            ftp.dataTimeout = 30_000
+            ftp.setDataTimeout(30_000)
             ftp.connect(host, port)
             if (!ftp.login("anonymous", "nexus@android.local")) throw IOException("Anonymous FTP login failed.")
             ftp.enterLocalPassiveMode()
