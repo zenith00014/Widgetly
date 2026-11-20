@@ -149,6 +149,54 @@ private fun open(p:Pick,cb:(Pick)->Unit){cb(p)}
   item{Text("That's the briefing.",color=ink,fontSize=16.sp,fontWeight=FontWeight.Bold,modifier=Modifier.padding(12.dp))}
  }
 }
+@Composable private fun DownloadsScreen(ink:Color,muted:Color,surface:Color,play:(OfflineMedia)->Unit){
+ val context=androidx.compose.ui.platform.LocalContext.current
+ var downloads by remember { mutableStateOf<List<OfflineMedia>>(emptyList()) }
+ var workInfos by remember { mutableStateOf<List<androidx.work.WorkInfo>>(emptyList()) }
+ LaunchedEffect(context) {
+  while (true) {
+   downloads=withContext(Dispatchers.IO){OfflineDownloads.list(context)}
+   workInfos=withContext(Dispatchers.IO){runCatching{OfflineDownloads.workInfos(context)}.getOrDefault(emptyList())}
+   kotlinx.coroutines.delay(1200)
+  }
+ }
+ val working=workInfos.associateBy{it.inputData.getString(OfflineDownloadWorker.KEY_ID).orEmpty()}
+ val storageBytes=downloads.filter{it.complete}.sumOf{it.file.length()}
+ LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
+  item {
+   Text("Offline downloads",color=ink,fontSize=20.sp,fontWeight=FontWeight.Bold)
+   Text("${downloads.size} items · ${android.text.format.Formatter.formatShortFileSize(context,storageBytes)} used",color=muted,fontSize=11.sp,modifier=Modifier.padding(top=4.dp))
+   Text("Files stay in Rush's private app storage. Download only content you are permitted to keep offline.",color=muted,fontSize=10.sp,modifier=Modifier.padding(top=7.dp))
+  }
+  if(downloads.isEmpty()) item {
+   Text("Your offline library is empty. Open a video or music player and choose Download offline.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(18.dp))
+  }
+  items(downloads,key={it.id}) { media ->
+   val work=working[media.id]
+   val progress=work?.progress?.getInt("progress",0)?:0
+   val active=work?.state==androidx.work.WorkInfo.State.RUNNING || work?.state==androidx.work.WorkInfo.State.ENQUEUED || work?.state==androidx.work.WorkInfo.State.BLOCKED
+   Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+    Text(media.title,color=ink,fontSize=14.sp,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis)
+    Text(media.creator+" · "+(if(media.isAudio)"Audio" else "Video")+" · "+media.quality+" · ."+media.extension,color=muted,fontSize=10.sp,maxLines=2)
+    Text(when {
+     media.complete -> "Ready offline · ${android.text.format.Formatter.formatShortFileSize(context,media.file.length())}"
+     work?.state==androidx.work.WorkInfo.State.RUNNING -> "Downloading · $progress%"
+     work?.state==androidx.work.WorkInfo.State.ENQUEUED || work?.state==androidx.work.WorkInfo.State.BLOCKED -> "Queued"
+     work?.state==androidx.work.WorkInfo.State.FAILED || work?.state==androidx.work.WorkInfo.State.CANCELLED -> "Interrupted · resume to continue"
+     else -> "Preparing download"
+    },color=if(media.complete)mint else muted,fontSize=11.sp)
+    if(active) LinearProgressIndicator(progress={progress/100f},modifier=Modifier.fillMaxWidth())
+    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+     if(media.complete) Button(onClick={play(media)},colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Play offline")}
+     else if(active) OutlinedButton(onClick={OfflineDownloads.cancel(context,media.id)}){Text("Cancel")}
+     else Button(onClick={OfflineDownloads.resume(context,media)},colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Resume")}
+     TextButton(onClick={OfflineDownloads.delete(context,media)}){Text("Delete",color=muted)}
+    }
+   }
+  }
+ }
+}
+
 @Composable private fun Library(saved:Set<String>,history:List<String>,ink:Color,muted:Color,surface:Color,play:(String)->Unit,remove:(String)->Unit){
  val kept=picks.filter{it.id in saved};val recent=history.distinct().mapNotNull{id->picks.find{it.id==id}}
  LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
