@@ -493,8 +493,21 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    else scope.launch{
     status="Resolving stream…"
     try{
-     val stream=if(item.localPath!=null)java.io.File(item.localPath).toURI().toString() else withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null).url}
-     activePlayer.setMediaItem(androidx.media3.common.MediaItem.fromUri(stream));activePlayer.prepare();activePlayer.play();status=if(item.localPath!=null)"Playing offline" else "Stream ready"
+     val mediaItem=if(item.localPath!=null){
+      androidx.media3.common.MediaItem.fromUri(java.io.File(item.localPath).toURI().toString())
+     }else{
+      val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null)}
+      val captions=if(audio)emptyList() else withContext(Dispatchers.IO){LibreTubePlayback.resolveSubtitles(url)}
+      val subtitleConfigs=captions.map{subtitle->
+       androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
+        .setMimeType(subtitle.mimeType)
+        .setLanguage(subtitle.languageTag)
+        .setLabel(subtitle.label)
+        .build()
+      }
+      androidx.media3.common.MediaItem.Builder().setUri(resolved.url).setSubtitleConfigurations(subtitleConfigs).build()
+     }
+     activePlayer.setMediaItem(mediaItem);activePlayer.prepare();activePlayer.play();status=if(item.localPath!=null)"Playing offline" else "Stream ready"
     }catch(e:Exception){status=e.localizedMessage?:"Unable to load this stream."}
    }
   },enabled=controller!=null,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text(if(item.localPath!=null)"Play offline" else "Load and play",color=Color.White)}
