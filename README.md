@@ -20,7 +20,7 @@ Nexus is a private, single-owner Android app for one person's daily use. It is n
 - **Movies:** public catalog discovery and in-app playback when an item is legally available and embeddable.
 - **Inbox:** a personal hybrid inbox. Collect supported app notifications, show previews, use Android notification quick-reply actions when present, and otherwise hand off to the original app. This is not full private-chat synchronization.
 - **Contacts:** personal contacts and shortcuts, not a public user directory. Add only the contact workflow the owner actually needs.
-- **Library:** personal saved items, notes, and existing home-screen widgets.
+- **Library:** personal saved items and notes stored on-device. Nexus does not include home-screen widgets.
 
 ## Build and test
 
