@@ -83,11 +83,11 @@ private val NexusDarkColors = darkColorScheme(
 )
 
 private val NexusShapes = Shapes(
-    extraSmall = RectangleShape,
-    small = RectangleShape,
-    medium = RectangleShape,
-    large = RectangleShape,
-    extraLarge = RectangleShape
+    extraSmall = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
+    small = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
+    medium = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
+    large = androidx.compose.foundation.shape.RoundedCornerShape(0.dp),
+    extraLarge = androidx.compose.foundation.shape.RoundedCornerShape(0.dp)
 )
 
 private val NexusLightColors = lightColorScheme(
