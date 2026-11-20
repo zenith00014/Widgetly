@@ -9,6 +9,8 @@ import org.json.JSONObject
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 
+data class YouTubeSearchPage(val items: List<YouTubeSearchResult>, val continuation: String?)
+
 data class YouTubeSearchResult(
     val videoId: String,
     val title: String,
@@ -28,29 +30,53 @@ object LiveYouTubeSearch {
     private val jsonType = "application/json; charset=utf-8".toMediaType()
 
     @Throws(IOException::class)
-    fun search(query: String, music: Boolean = false, channels: Boolean = false, playlists: Boolean = false): List<YouTubeSearchResult> {
+    fun search(query: String, music: Boolean = false, channels: Boolean = false, playlists: Boolean = false): List<YouTubeSearchResult> =
+        searchPage(query, music, channels, playlists).items
+
+    @Throws(IOException::class)
+    fun searchPage(query: String, music: Boolean = false, channels: Boolean = false, playlists: Boolean = false): YouTubeSearchPage {
         require(query.isNotBlank()) { "Enter something to search for." }
-        val body = JSONObject()
-            .put("context", JSONObject().put("client", JSONObject()
-                .put("clientName", if (music) "WEB_REMIX" else "WEB")
-                .put("clientVersion", if (music) "1.20261119.01.00" else "2.20261119.01.00")))
+        val body = searchContext(music)
             .put("query", query)
             .apply {
                 if (!music) {
-                    put(
-                        "params",
-                        when {
-                            channels -> "EgIQAg=="
-                            playlists -> "EgIQAw=="
-                            else -> "EgIQAQ=="
-                        }
-                    )
+                    put("params", when {
+                        channels -> "EgIQAg=="
+                        playlists -> "EgIQAw=="
+                        else -> "EgIQAQ=="
+                    })
                 }
             }
-            .toString()
+        return executeSearch(body, music, channels, playlists)
+    }
+
+    @Throws(IOException::class)
+    fun continueSearch(
+        continuation: String,
+        music: Boolean = false,
+        channels: Boolean = false,
+        playlists: Boolean = false
+    ): YouTubeSearchPage {
+        require(continuation.isNotBlank()) { "No more search results are available." }
+        val body = searchContext(music).put("continuation", continuation)
+        return executeSearch(body, music, channels, playlists)
+    }
+
+    private fun searchContext(music: Boolean): JSONObject =
+        JSONObject().put("context", JSONObject().put("client", JSONObject()
+            .put("clientName", if (music) "WEB_REMIX" else "WEB")
+            .put("clientVersion", if (music) "1.20261119.01.00" else "2.20261119.01.00")))
+
+    @Throws(IOException::class)
+    private fun executeSearch(
+        body: JSONObject,
+        music: Boolean,
+        channels: Boolean,
+        playlists: Boolean
+    ): YouTubeSearchPage {
         val request = Request.Builder()
             .url(if (music) "https://music.youtube.com/youtubei/v1/search" else "https://www.youtube.com/youtubei/v1/search")
-            .post(body.toRequestBody(jsonType))
+            .post(body.toString().toRequestBody(jsonType))
             .header("User-Agent", USER_AGENT)
             .header("Origin", if (music) "https://music.youtube.com" else "https://www.youtube.com")
             .header("Referer", if (music) "https://music.youtube.com/" else "https://www.youtube.com/")
@@ -60,10 +86,9 @@ object LiveYouTubeSearch {
             val root = JSONObject(response.body?.string().orEmpty())
             val found = LinkedHashMap<String, YouTubeSearchResult>()
             collect(root, found, music, channels, playlists)
-            return found.values.take(40)
+            return YouTubeSearchPage(found.values.take(40), findContinuation(root))
         }
     }
-
     private fun collect(value: Any?, out: MutableMap<String, YouTubeSearchResult>, music: Boolean, channels: Boolean, playlists: Boolean) {
         when (value) {
             is JSONObject -> {
