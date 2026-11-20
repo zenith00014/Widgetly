@@ -750,7 +750,7 @@ private fun LibraryScreen(
     var category by rememberSaveable { mutableStateOf("All") }
     var showAdd by rememberSaveable { mutableStateOf(false) }
     val categories = listOf("All", "Article", "Video", "Movie", "Music", "Podcast", "Learning")
-    val records = remember(refresh, search, shelf) {
+    val records = remember(refresh, search, shelf, category) {
         when (shelf) {
             "Liked" -> database.listItems(search = search, likedOnly = true)
             "Watch later" -> database.listItems(search = search).filter { !it.completed }
@@ -915,7 +915,7 @@ private fun NexusSettingsScreen(
                                     onClick = {
                                         val next = topics.toMutableSet()
                                         if (topic in next) next.remove(topic) else next.add(topic)
-                                        onTopicsChange(next)
+                                        if (next.isNotEmpty()) onTopicsChange(next)
                                     },
                                     label = { Text(topic, fontSize = 9.sp) }
                                 )
