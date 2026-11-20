@@ -37,6 +37,6 @@ dependencies {
     implementation("com.squareup.okhttp3:okhttp:4.12.0")
     implementation("androidx.work:work-runtime-ktx:2.10.0")
     implementation("dev.ffmpegkit-maintained:ffmpeg-kit-audio:8.1.7")
-    implementation("com.github.libre-tube:NewPipeExtractor:894ae97")
+    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.27.1")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
