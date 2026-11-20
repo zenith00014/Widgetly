@@ -1,29 +1,46 @@
-# Widgetly
+# Rush
 
-Widgetly is an Android-only video and music streaming client built with Kotlin, Jetpack Compose and AndroidX Media3.
+Rush is an Android-only video and music streaming client built with Kotlin, Jetpack Compose and AndroidX Media3.
 
-## Current project scope
+## Product scope
 
-- YouTube video search and playback
+- Live YouTube video search and playback
 - YouTube Music search and audio playback
-- Channel subscriptions
-- Music and video playlists
+- Channel subscriptions and latest uploads
+- Video and music playlists
 - Watch and listening history
-- Background playback
+- Background video/audio playback
+- Playback quality, speed and captions
+- Offline downloads and offline playback for video and music, with format/quality selection, progress, cancellation, resume and storage management
 
-Out of scope for this development phase: Movies, TV series, Shorts, Trending and custom recommendation algorithms. The interface will remain functional and minimal until the streaming system is reliable; visual redesign comes later.
+Offline availability depends on the source and applicable permissions. Keep downloaded media in app-private storage; do not bypass access controls or treat private storage as a grant of download rights.
+
+Out of scope for this phase: Movies, TV series, Shorts, Trending and custom recommendation algorithms. The interface remains functional and minimal until the streaming system is reliable; visual redesign comes later.
 
 ## Technology
 
 - Kotlin, Android Gradle Plugin and Jetpack Compose
 - AndroidX Media3 for playback
-- NewPipeExtractor for YouTube extraction
-- Room/local persistence (to be implemented)
-- MediaSessionService for background playback (to be implemented)
+- NewPipeExtractor for supported YouTube stream resolution
+- Local persistence, download workers and MediaSessionService are planned implementation components
 
-## Current implementation status
+## Implementation status
 
-The repository currently contains a prototype UI and URL-based YouTube stream resolution. The bundled sample catalogue is placeholder data; live search, subscriptions, playlists and persistent playback services are not yet implemented. Do not treat the prototype as a completed streaming client.
+Implemented:
+- Android application shell and app label Rush
+- URL/video-ID stream resolution through the NewPipeExtractor adapter
+- Live YouTube search in Discover
+- Search result selection and player URL prefill
+
+Not implemented yet:
+- Dedicated YouTube Music search integration and full song/artist/album metadata
+- Persistent subscriptions, playlists and history
+- Latest uploads feed
+- MediaSessionService background playback and notification controls
+- Download queue, quality selection, pause/resume, cancellation, storage management and offline library
+- Playback quality/speed/captions controls
+
+The project is under active development. Do not treat the current branch as a complete streaming client.
 
 ## Build
 
