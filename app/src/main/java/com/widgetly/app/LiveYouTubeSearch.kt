@@ -30,16 +30,16 @@ object LiveYouTubeSearch {
         require(query.isNotBlank()) { "Enter something to search for." }
         val body = JSONObject()
             .put("context", JSONObject().put("client", JSONObject()
-                .put("clientName", "WEB")
-                .put("clientVersion", "2.20261119.01.00")))
+                .put("clientName", if (music) "WEB_REMIX" else "WEB")
+                .put("clientVersion", if (music) "1.20261119.01.00" else "2.20261119.01.00")))
             .put("query", query)
             .toString()
         val request = Request.Builder()
-            .url("https://www.youtube.com/youtubei/v1/search")
+            .url(if (music) "https://music.youtube.com/youtubei/v1/search" else "https://www.youtube.com/youtubei/v1/search")
             .post(body.toRequestBody(jsonType))
             .header("User-Agent", USER_AGENT)
-            .header("Origin", "https://www.youtube.com")
-            .header("Referer", "https://www.youtube.com/")
+            .header("Origin", if (music) "https://music.youtube.com" else "https://www.youtube.com")
+            .header("Referer", if (music) "https://music.youtube.com/" else "https://www.youtube.com/")
             .build()
         client.newCall(request).execute().use { response ->
             if (!response.isSuccessful) throw IOException("YouTube search failed (HTTP ${response.code}).")
@@ -54,7 +54,7 @@ object LiveYouTubeSearch {
         when (value) {
             is JSONObject -> {
                 val video = value.optJSONObject("videoRenderer")
-                if (video != null && !music) addVideo(video, out, false)
+                if (video != null && !music && !channels) addVideo(video, out, false)
                 val musicItem = value.optJSONObject("musicResponsiveListItemRenderer")
                 if (musicItem != null && music) addMusic(musicItem, out)
                 val channel = value.optJSONObject("channelRenderer")
@@ -109,12 +109,30 @@ object LiveYouTubeSearch {
     }
 
     private fun addMusic(item: JSONObject, out: MutableMap<String, YouTubeSearchResult>) {
+        val flex = columnTexts(item.optJSONArray("flexColumns"))
+        val fixed = columnTexts(item.optJSONArray("fixedColumns"))
+        val firstRun = item.optJSONArray("flexColumns")
+            ?.optJSONObject(0)
+            ?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+            ?.optJSONObject("text")
+            ?.optJSONArray("runs")
+            ?.optJSONObject(0)
         val id = item.optJSONObject("playlistItemData")?.optString("videoId").orEmpty()
+            .ifBlank { firstRun?.optJSONObject("navigationEndpoint")?.optJSONObject("watchEndpoint")?.optString("videoId").orEmpty() }
             .ifBlank { item.optString("videoId") }
-        val title = runs(item.optJSONArray("flexColumns")).ifBlank { text(item.optJSONObject("title")) }
+        val title = flex.firstOrNull().orEmpty().ifBlank { text(item.optJSONObject("title")) }
         if (id.isBlank() || title.isBlank()) return
-        val creator = runs(item.optJSONArray("fixedColumns")).ifBlank { "YouTube Music" }
-        out.putIfAbsent(id, YouTubeSearchResult(id, title, creator, "", true))
+        val creator = flex.getOrNull(1).orEmpty().ifBlank { "YouTube Music" }
+        val duration = fixed.firstOrNull().orEmpty()
+        out.putIfAbsent(id, YouTubeSearchResult(id, title, creator, duration, true))
+    }
+
+    private fun columnTexts(array: JSONArray?): List<String> {
+        if (array == null) return emptyList()
+        return (0 until array.length()).mapNotNull { index ->
+            val renderer = array.optJSONObject(index)?.optJSONObject("musicResponsiveListItemFlexColumnRenderer")
+            text(renderer?.optJSONObject("text")).takeIf { it.isNotBlank() }
+        }
     }
 
     private fun runs(array: JSONArray?): String {
