@@ -8,8 +8,6 @@
         <package android:name="org.telegram.messenger" />
         <package android:name="com.instagram.android" />
         <package android:name="com.facebook.orca" />
-        <package android:name="com.beeper.android" />
-        <package android:name="com.github.libretube" />
     </queries>
     <application
         android:allowBackup="true"
