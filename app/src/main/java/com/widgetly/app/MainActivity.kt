@@ -98,7 +98,7 @@ private fun NexusApp() {
 private fun HomePage(onDiscover:()->Unit,onInbox:()->Unit,onLibrary:()->Unit,onOpen:(NexusItem)->Unit) {
     var videos by remember { mutableStateOf<List<NexusItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
-    LaunchedEffect(Unit) { videos=runCatching { NexusContentRepository.videos().take(3) }.getOrDefault(emptyList()); loading=false }
+    LaunchedEffect(Unit) { videos=runCatching { NexusContentRepository.videos(context).take(3) }.getOrDefault(emptyList()); loading=false }
     LazyColumn(Modifier.fillMaxSize().padding(horizontal=16.dp),verticalArrangement=Arrangement.spacedBy(12.dp),contentPadding=PaddingValues(top=8.dp,bottom=20.dp)) {
         item { Slab {
             Text("TODAY'S SIGNAL",color=Lime,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=2.sp)
@@ -161,8 +161,8 @@ private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
     LaunchedEffect(kind,refresh) {
         loading=true; error=null
         val result=runCatching { when(kind) {
-            ContentKind.VIDEO -> NexusContentRepository.videos()
-            ContentKind.NEWS -> NexusContentRepository.news()
+            ContentKind.VIDEO -> NexusContentRepository.videos(context)
+            ContentKind.NEWS -> NexusContentRepository.news(context)
             ContentKind.MOVIE -> NexusContentRepository.movies()
         } }
         data=result.getOrDefault(emptyList()); error=result.exceptionOrNull()?.localizedMessage; loading=false
