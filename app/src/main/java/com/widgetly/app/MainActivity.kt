@@ -701,6 +701,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
 }
 @Composable private fun RushPlayer(item:Pick,light:Boolean,back:()->Unit,queue:List<Pick>,onTrackChanged:(String)->Unit){
  val context=androidx.compose.ui.platform.LocalContext.current;val scope=rememberCoroutineScope()
+ val playerPrefs=remember(context){context.getSharedPreferences("rush_prefs",Context.MODE_PRIVATE)}
  val localFileAvailable=item.localPath?.let{java.io.File(it).isFile}==true
  val requestNotificationPermission=androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()){ }
  var controller by remember { mutableStateOf<androidx.media3.session.MediaController?>(null) }
@@ -713,11 +714,11 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   onDispose { androidx.media3.session.MediaController.releaseFuture(controllerFuture) }
  }
  var url by remember(item.id){mutableStateOf((item.sourceId?.takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}?:item.id.takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}).orEmpty())};var audio by remember(item.id){mutableStateOf(item.music)}
- var quality by remember(item.id){mutableIntStateOf(0)}
- var mp3Format by remember(item.id){mutableStateOf(false)}
- var mp4Format by remember(item.id){mutableStateOf(false)}
- var speed by remember(item.id){mutableFloatStateOf(1f)}
- var captionsEnabled by remember(item.id){mutableStateOf(true)}
+ var quality by remember(item.id){mutableIntStateOf(playerPrefs.getInt(if(item.music)"audio_quality" else "video_quality",0))}
+ var mp3Format by remember(item.id){mutableStateOf(playerPrefs.getBoolean("download_mp3",false))}
+ var mp4Format by remember(item.id){mutableStateOf(playerPrefs.getBoolean("download_mp4",false))}
+ var speed by remember(item.id){mutableFloatStateOf(playerPrefs.getFloat("playback_speed",1f))}
+ var captionsEnabled by remember(item.id){mutableStateOf(playerPrefs.getBoolean("captions_enabled",true))}
  var status by remember(item.id){mutableStateOf(if(localFileAvailable)"Downloaded file ready." else "Paste a YouTube link or video ID to play.")}
  var playingTitle by remember(item.id){mutableStateOf(item.title)}
  var playingCreator by remember(item.id){mutableStateOf(item.creator)}
@@ -786,8 +787,8 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   controller?.addListener(listener)
   onDispose{controller?.removeListener(listener)}
  }
- var shuffleEnabled by remember(item.id){mutableStateOf(false)}
- var repeatMode by remember(item.id){mutableIntStateOf(androidx.media3.common.Player.REPEAT_MODE_OFF)}
+ var shuffleEnabled by remember(item.id){mutableStateOf(playerPrefs.getBoolean("shuffle_enabled",false))}
+ var repeatMode by remember(item.id){mutableIntStateOf(playerPrefs.getInt("repeat_mode",androidx.media3.common.Player.REPEAT_MODE_OFF))}
  LaunchedEffect(controller,shuffleEnabled,repeatMode,speed,captionsEnabled){
   controller?.let{player->
    player.setShuffleModeEnabled(shuffleEnabled)
@@ -828,26 +829,28 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   if(audio)Disc(item,Modifier.size(240.dp))else Cover(item,Modifier.fillMaxWidth().height(190.dp))
   Text(playingTitle,color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold);Text(playingCreator,color=muted)
   if(!localFileAvailable) {
-   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=audio,onClick={audio=true;quality=0},label={Text("Audio only")});FilterChip(selected=!audio,onClick={audio=false;quality=0},label={Text("Video")})}
-   if(!audio) Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",2160 to "2160p",1440 to "1440p",1080 to "1080p",720 to "720p",480 to "480p",360 to "360p").forEach{(height,label)->FilterChip(selected=quality==height,onClick={quality=height},label={Text(label)})}} else Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",320 to "320 kbps",256 to "256 kbps",192 to "192 kbps",160 to "160 kbps",96 to "96 kbps").forEach{(bitrate,label)->FilterChip(selected=quality==bitrate,onClick={quality=bitrate},label={Text(label)})}}
-   if(!audio)Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){FilterChip(selected=mp4Format,onClick={mp4Format=true},label={Text("MP4")});FilterChip(selected=!mp4Format,onClick={mp4Format=false},label={Text("Original format")})}
-   if(audio)Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){FilterChip(selected=!mp3Format,onClick={mp3Format=false},label={Text("Original format")});FilterChip(selected=mp3Format,onClick={mp3Format=true},label={Text("MP3 · 192 kbps")})}
+   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=audio,onClick={audio=true;quality=playerPrefs.getInt("audio_quality",0)},label={Text("Audio only")});FilterChip(selected=!audio,onClick={audio=false;quality=playerPrefs.getInt("video_quality",0)},label={Text("Video")})}
+   if(!audio) Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",2160 to "2160p",1440 to "1440p",1080 to "1080p",720 to "720p",480 to "480p",360 to "360p").forEach{(height,label)->FilterChip(selected=quality==height,onClick={quality=height;playerPrefs.edit().putInt(if(audio)"audio_quality" else "video_quality",height).apply()},label={Text(label)})}} else Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",320 to "320 kbps",256 to "256 kbps",192 to "192 kbps",160 to "160 kbps",96 to "96 kbps").forEach{(bitrate,label)->FilterChip(selected=quality==bitrate,onClick={quality=bitrate},label={Text(label)})}}
+   if(!audio)Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){FilterChip(selected=mp4Format,onClick={mp4Format=true;playerPrefs.edit().putBoolean("download_mp4",true).apply()},label={Text("MP4")});FilterChip(selected=!mp4Format,onClick={mp4Format=false;playerPrefs.edit().putBoolean("download_mp4",false).apply()},label={Text("Original format")})}
+   if(audio)Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){FilterChip(selected=!mp3Format,onClick={mp3Format=false;playerPrefs.edit().putBoolean("download_mp3",false).apply()},label={Text("Original format")});FilterChip(selected=mp3Format,onClick={mp3Format=true;playerPrefs.edit().putBoolean("download_mp3",true).apply()},label={Text("MP3 · 192 kbps")})}
    BasicTextField(url,{url=it},modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(surface).padding(15.dp),textStyle=TextStyle(color=ink),singleLine=true,decorationBox={inner->if(url.isEmpty())Text("YouTube URL or video ID",color=muted);inner()})
   }
   Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically){
    Text("Speed",color=muted,fontSize=10.sp)
    listOf(0.75f,1f,1.25f,1.5f,2f).forEach{value->
-    FilterChip(selected=speed==value,onClick={speed=value;controller?.setPlaybackParameters(androidx.media3.common.PlaybackParameters(value))},label={Text("${value}x",fontSize=10.sp)})
+    FilterChip(selected=speed==value,onClick={speed=value;playerPrefs.edit().putFloat("playback_speed",value).apply();controller?.setPlaybackParameters(androidx.media3.common.PlaybackParameters(value))},label={Text("${value}x",fontSize=10.sp)})
    }
   }
   FilterChip(selected=captionsEnabled,onClick={
    captionsEnabled=!captionsEnabled
+   playerPrefs.edit().putBoolean("captions_enabled",captionsEnabled).apply()
    controller?.let{it.trackSelectionParameters=it.trackSelectionParameters.buildUpon().setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT,!captionsEnabled).build()}
   },label={Text(if(captionsEnabled)"Captions enabled when available" else "Captions off")})
   Row(horizontalArrangement=Arrangement.spacedBy(7.dp),verticalAlignment=Alignment.CenterVertically){
-   FilterChip(selected=shuffleEnabled,onClick={shuffleEnabled=!shuffleEnabled;controller?.setShuffleModeEnabled(shuffleEnabled)},label={Text("Shuffle")})
+   FilterChip(selected=shuffleEnabled,onClick={shuffleEnabled=!shuffleEnabled;playerPrefs.edit().putBoolean("shuffle_enabled",shuffleEnabled).apply();controller?.setShuffleModeEnabled(shuffleEnabled)},label={Text("Shuffle")})
    FilterChip(selected=repeatMode!=androidx.media3.common.Player.REPEAT_MODE_OFF,onClick={
     repeatMode=when(repeatMode){androidx.media3.common.Player.REPEAT_MODE_OFF->androidx.media3.common.Player.REPEAT_MODE_ALL;androidx.media3.common.Player.REPEAT_MODE_ALL->androidx.media3.common.Player.REPEAT_MODE_ONE;else->androidx.media3.common.Player.REPEAT_MODE_OFF}
+    playerPrefs.edit().putInt("repeat_mode",repeatMode).apply()
     controller?.setRepeatMode(repeatMode)
    },label={Text(when(repeatMode){androidx.media3.common.Player.REPEAT_MODE_ALL->"Repeat all";androidx.media3.common.Player.REPEAT_MODE_ONE->"Repeat one";else->"Repeat off"})})
   }
