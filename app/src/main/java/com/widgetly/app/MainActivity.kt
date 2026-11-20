@@ -134,17 +134,37 @@ private fun EmbeddedBrowser(url:String, modifier:Modifier=Modifier) {
 @Composable
 private fun InboxPage() {
     val context= LocalContext.current
+    var refresh by remember { mutableIntStateOf(0) }
+    val prefs=context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    val messages= remember(refresh) {
+        try {
+            val arr=org.json.JSONArray(prefs.getString("social_notifications","[]"))
+            (0 until arr.length()).map { i -> arr.getJSONObject(i) }
+        } catch (_:Exception) { emptyList() }
+    }
     Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement=Arrangement.spacedBy(12.dp)) {
-        Text("UNIFIED NOTIFICATION INBOX", color=Lime, fontSize=11.sp, fontWeight=FontWeight.Bold, letterSpacing=1.5.sp)
-        Text("Android does not allow third-party apps unrestricted access to private WhatsApp, Instagram or Messenger inboxes. Widgetly can collect message notifications after you grant notification access.", color=Color.White, fontSize=14.sp)
-        Card(colors=CardDefaults.cardColors(containerColor=Panel), shape=RoundedCornerShape(18.dp)) {
-            Column(Modifier.padding(16.dp), verticalArrangement=Arrangement.spacedBy(10.dp)) {
-                Text("CONNECT NOTIFICATIONS", color=Lime, fontWeight=FontWeight.Bold)
-                Text("Enable Widgetly in Android Settings → Notification access. This lets it read notifications from selected apps; it does not provide full chat history or guaranteed message replies.", color=Muted, fontSize=12.sp)
-                Button(onClick={context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))}, colors=ButtonDefaults.buttonColors(containerColor=Lime, contentColor=Ink)) { Text("Open notification access settings") }
+        Text("SOCIAL NOTIFICATION INBOX", color=Lime, fontSize=11.sp, fontWeight=FontWeight.Bold, letterSpacing=1.5.sp)
+        Text("Recent message notifications from WhatsApp, Telegram, Instagram and Messenger. This is a notification inbox, not full private-chat API access.", color=Muted, fontSize=12.sp)
+        Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+            Button(onClick={context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))}, colors=ButtonDefaults.buttonColors(containerColor=Lime, contentColor=Ink)) { Text("Connect apps") }
+            OutlinedButton(onClick={refresh++}) { Text("Refresh") }
+        }
+        if(messages.isEmpty()) {
+            Card(colors=CardDefaults.cardColors(containerColor=Panel), shape=RoundedCornerShape(18.dp)) {
+                Text("No message notifications captured yet. Enable Widgetly under Android Settings → Notification access, then receive a new message.", color=Muted, modifier=Modifier.padding(16.dp), fontSize=13.sp)
+            }
+        } else {
+            LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+                items(messages) { item ->
+                    Card(colors=CardDefaults.cardColors(containerColor=Panel), shape=RoundedCornerShape(14.dp), modifier=Modifier.fillMaxWidth()) {
+                        Column(Modifier.padding(14.dp), verticalArrangement=Arrangement.spacedBy(4.dp)) {
+                            Text(item.optString("source")+"  /  "+item.optString("title"), color=Lime, fontWeight=FontWeight.Bold, fontSize=12.sp)
+                            Text(item.optString("message"), color=Color.White, fontSize=14.sp)
+                        }
+                    }
+                }
             }
         }
-        Text("Connected services and live message aggregation will appear here after the notification listener is implemented and enabled in a future build.", color=Muted, fontSize=12.sp)
     }
 }
 
