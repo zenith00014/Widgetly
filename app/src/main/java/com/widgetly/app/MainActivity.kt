@@ -356,6 +356,18 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
  return queued
 }
 
+private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>):Int{
+ var queued=0
+ for(track in tracks){
+  try{
+   val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.id,true)}
+   withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,track.id,track.title,track.creator,true,media,transcodeToMp3=true)}
+   queued++
+  }catch(_:Exception){}
+ }
+ return queued
+}
+
 @Composable private fun CollectionDetails(
  collection:YouTubeSearchResult,
  ink:Color,
@@ -628,7 +640,7 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
      }){Text("MP3 audio",color=magenta,fontSize=10.sp)}
      if(tracks.any{!it.music})TextButton(onClick={scope.launch{
       playlistMessage="Extracting MP3 audio from video tracks…"
-      val queuedMp3=queueMusicDownloads(context,tracks.filter{!it.music},true)
+      val queuedMp3=queueLocalPickMp3Downloads(context,tracks.filter{!it.music})
       playlistMessage="Queued $queuedMp3 MP3 audio extractions."
      }}){Text("Extract MP3",color=magenta,fontSize=10.sp)}
      if(tracks.isNotEmpty())TextButton(onClick={playQueue(tracks)}){Text("Play all",color=magenta,fontSize=10.sp)}
