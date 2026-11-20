@@ -162,11 +162,19 @@ private fun open(p:Pick,cb:(Pick)->Unit){cb(p)}
 }
 @Composable private fun RushPlayer(item:Pick,light:Boolean,back:()->Unit){
  val context=androidx.compose.ui.platform.LocalContext.current;val scope=rememberCoroutineScope()
- val player=remember(item.id){androidx.media3.exoplayer.ExoPlayer.Builder(context).build()}
+ var controller by remember { mutableStateOf<androidx.media3.session.MediaController?>(null) }
+ val controllerFuture = remember(context) {
+  val token = androidx.media3.session.SessionToken(context, android.content.ComponentName(context, RushPlaybackService::class.java))
+  androidx.media3.session.MediaController.Builder(context, token).buildAsync()
+ }
+ DisposableEffect(controllerFuture) {
+  controllerFuture.addListener({ controller = runCatching { controllerFuture.get() }.getOrNull() }, context.mainExecutor)
+  onDispose { androidx.media3.session.MediaController.releaseFuture(controllerFuture) }
+ }
  var url by remember(item.id){mutableStateOf(item.id.takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}.orEmpty())};var audio by remember(item.id){mutableStateOf(item.music)}
  var status by remember(item.id){mutableStateOf("Paste a YouTube link or video ID to play.")}
  val ink=if(light)Color(0xFF241B32)else paper;val muted=if(light)Color(0xFF70677D)else mutedDark;val surface=if(light)Color.White else panelDark
- DisposableEffect(player){onDispose{player.release()}}
+
  Column(Modifier.fillMaxSize().padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween){Text("← Back",color=muted,modifier=Modifier.clickable{back()}.padding(8.dp));Text(if(audio)"Music player"else"Video player",color=mint)}
   Spacer(Modifier.weight(.2f))
@@ -174,8 +182,8 @@ private fun open(p:Pick,cb:(Pick)->Unit){cb(p)}
   Text(item.title,color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold);Text(item.creator,color=muted)
   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=audio,onClick={audio=true},label={Text("Audio only")});FilterChip(selected=!audio,onClick={audio=false},label={Text("Video")})}
   BasicTextField(url,{url=it},modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(surface).padding(15.dp),textStyle=TextStyle(color=ink),singleLine=true,decorationBox={inner->if(url.isEmpty())Text("YouTube URL or video ID",color=muted);inner()})
-  Button(onClick={scope.launch{status="Resolving stream…";try{val stream=withContext(Dispatchers.IO){LibreTubePlayback.resolve(url,audio)};player.setMediaItem(androidx.media3.common.MediaItem.fromUri(stream));player.prepare();player.play();status="Stream ready"}catch(e:Exception){status=e.localizedMessage?:"Unable to load this stream."}}},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Load and play",color=Color.White)}
-  androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).apply{this.player=player;useController=true}},update={it.player=player},modifier=Modifier.fillMaxWidth().height(if(audio)70.dp else 180.dp))
+  Button(onClick={val activePlayer=controller;if(activePlayer==null){status="Connecting to playback service…"}else scope.launch{status="Resolving stream…";try{val stream=withContext(Dispatchers.IO){LibreTubePlayback.resolve(url,audio)};activePlayer.setMediaItem(androidx.media3.common.MediaItem.fromUri(stream));activePlayer.prepare();activePlayer.play();status="Stream ready"}catch(e:Exception){status=e.localizedMessage?:"Unable to load this stream."}}},enabled=controller!=null,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Load and play",color=Color.White)}
+  androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).apply{this.player=player;useController=true}},update={it.player=controller},modifier=Modifier.fillMaxWidth().height(if(audio)70.dp else 180.dp))
   Text(status,color=muted,fontSize=11.sp);Text("Stream availability depends on YouTube and extractor compatibility.",color=muted,fontSize=10.sp)
   Spacer(Modifier.weight(.5f))
  }
