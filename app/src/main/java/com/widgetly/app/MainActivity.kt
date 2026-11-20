@@ -626,6 +626,11 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
        playlistMessage="Queued $queuedMp3 MP3 conversion downloads."
       }
      }){Text("MP3 audio",color=magenta,fontSize=10.sp)}
+     if(tracks.any{!it.music})TextButton(onClick={scope.launch{
+      playlistMessage="Extracting MP3 audio from video tracks…"
+      val queuedMp3=queueMusicDownloads(context,tracks.filter{!it.music},true)
+      playlistMessage="Queued $queuedMp3 MP3 audio extractions."
+     }}){Text("Extract MP3",color=magenta,fontSize=10.sp)}
      if(tracks.isNotEmpty())TextButton(onClick={playQueue(tracks)}){Text("Play all",color=magenta,fontSize=10.sp)}
      TextButton(onClick={playlists=PlaylistStore.delete(prefs,playlist.id)}){Text("Delete",color=muted,fontSize=10.sp)}
     }
