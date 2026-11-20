@@ -76,6 +76,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
       "Downloads"->DownloadsScreen(ink,muted,surface,{media->
        val pick=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath)
        active=pick;playbackQueue=emptyList()
+       persistPickMetadata(prefs,pick);metadata=metadata+(media.id to pick)
        history=listOf(media.id)+history.filterNot{x->x==media.id};persistHistory(prefs,history)
       })
       "Subscriptions"->SubscriptionsScreen(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Latest upload");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};persistHistory(prefs,history)})
