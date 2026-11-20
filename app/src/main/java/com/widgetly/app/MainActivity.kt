@@ -321,6 +321,18 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   }
  }
 }
+private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearchResult>,mp3:Boolean):Int{
+ var queued=0
+ for(track in tracks){
+  try{
+   val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.videoId,true)}
+   withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,track.videoId,track.title,track.creator,true,media,transcodeToMp3=mp3)}
+   queued++
+  }catch(_:Exception){}
+ }
+ return queued
+}
+
 @Composable private fun MusicCollectionDetails(
  collection:YouTubeSearchResult,
  ink:Color,
@@ -329,9 +341,13 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  back:()->Unit,
  play:(YouTubeSearchResult)->Unit
 ){
+ val context=androidx.compose.ui.platform.LocalContext.current
+ val scope=rememberCoroutineScope()
  var tracks by remember(collection.collectionId){mutableStateOf<List<YouTubeSearchResult>>(emptyList())}
  var status by remember(collection.collectionId){mutableStateOf("Loading songs…")}
  var loading by remember(collection.collectionId){mutableStateOf(false)}
+ var downloadMessage by remember(collection.collectionId){mutableStateOf("")}
+ var downloading by remember(collection.collectionId){mutableStateOf(false)}
  LaunchedEffect(collection.collectionId){
   loading=true
   try{
@@ -345,6 +361,23 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   Text(collection.title,color=ink,fontSize=21.sp,fontWeight=FontWeight.Bold)
   Text(collection.creator,color=muted,fontSize=11.sp)
   Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(vertical=10.dp))
+  if(tracks.isNotEmpty()){
+   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){
+    Button(enabled=!downloading,onClick={scope.launch{
+     downloading=true;downloadMessage="Queueing original audio downloads…"
+     val count=queueMusicDownloads(context,tracks,false)
+     downloadMessage="Queued $count of ${tracks.size} tracks."
+     downloading=false
+    }},colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Download album")}
+    OutlinedButton(enabled=!downloading,onClick={scope.launch{
+     downloading=true;downloadMessage="Queueing MP3 conversions…"
+     val count=queueMusicDownloads(context,tracks,true)
+     downloadMessage="Queued $count of ${tracks.size} MP3 downloads."
+     downloading=false
+    }}){Text("MP3")}
+   }
+   if(downloadMessage.isNotBlank())Text(downloadMessage,color=muted,fontSize=10.sp)
+  }
   LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){
    items(tracks,key={it.videoId}){track->
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(surface).clickable{play(track)}.padding(11.dp),verticalAlignment=Alignment.CenterVertically){
