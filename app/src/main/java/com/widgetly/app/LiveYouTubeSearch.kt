@@ -56,6 +56,8 @@ object LiveYouTubeSearch {
         when (value) {
             is JSONObject -> {
                 val video = value.optJSONObject("videoRenderer")
+                    ?: value.optJSONObject("gridVideoRenderer")
+                    ?: value.optJSONObject("compactVideoRenderer")
                 if (video != null && !music && !channels && !playlists) addVideo(video, out, false)
                 val musicItem = value.optJSONObject("musicResponsiveListItemRenderer")
                 if (musicItem != null && music) addMusic(musicItem, out)
@@ -77,7 +79,7 @@ object LiveYouTubeSearch {
         val id = item.optString("videoId")
         val title = text(item.optJSONObject("title"))
         if (id.isBlank() || title.isBlank()) return
-        val owner = text(item.optJSONObject("ownerText")).ifBlank { "YouTube creator" }
+        val owner = text(item.optJSONObject("ownerText")).ifBlank { text(item.optJSONObject("shortBylineText")) }.ifBlank { "YouTube creator" }
         val duration = text(item.optJSONObject("lengthText"))
         out.putIfAbsent(id, YouTubeSearchResult(id, title, owner, duration, music))
     }
