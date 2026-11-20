@@ -414,6 +414,8 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  }
  var url by remember(item.id){mutableStateOf(item.id.takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}.orEmpty())};var audio by remember(item.id){mutableStateOf(item.music)}
  var quality by remember(item.id){mutableIntStateOf(0)}
+ var speed by remember(item.id){mutableFloatStateOf(1f)}
+ var captionsEnabled by remember(item.id){mutableStateOf(true)}
  var status by remember(item.id){mutableStateOf(if(item.localPath!=null)"Downloaded file ready." else "Paste a YouTube link or video ID to play.")}
  val ink=if(light)Color(0xFF241B32)else paper;val muted=if(light)Color(0xFF70677D)else mutedDark;val surface=if(light)Color.White else panelDark
 
