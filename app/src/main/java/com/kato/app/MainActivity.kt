@@ -479,7 +479,7 @@ private fun HomeScreen(
                 )
             }
         } else {
-            items(selectedNews, key = { it.url }) { story ->
+            items(selectedNews.take(5), key = { it.url }) { story ->
                 NewsCard(story, compact = true, onClick = { onOpenWeb(story.url, story.title) })
             }
         }
@@ -498,7 +498,7 @@ private fun HomeScreen(
         } else {
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(videos.take(8), key = { it.videoId }) { video ->
+                    items(videos.take(3), key = { it.videoId }) { video ->
                         VideoTile(video, Modifier.width(230.dp), onClick = { onOpenVideo(video) })
                     }
                 }
@@ -547,7 +547,7 @@ private fun HomeScreen(
         } else {
             item {
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    items(movies.take(8), key = { it.identifier }) { movie ->
+                    items(movies.take(3), key = { it.identifier }) { movie ->
                         MovieTile(movie, Modifier.width(160.dp), onClick = { onOpenMovie(movie) })
                     }
                 }
@@ -756,10 +756,22 @@ private fun SocialPostCard(
 private fun InboxScreen(refreshKey: Int, onRefresh: () -> Unit) {
     val context = LocalContext.current
     var localRefresh by remember { mutableIntStateOf(0) }
+    var search by rememberSaveable { mutableStateOf("") }
+    var filter by rememberSaveable { mutableStateOf("All") }
     val enabled = remember(refreshKey, localRefresh) {
         NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
     }
     val entries = remember(refreshKey, localRefresh) { readInbox(context).sortedByDescending { it.time } }
+    val visibleEntries = entries.filter { entry ->
+        val matchesSearch = search.isBlank() ||
+            entry.title.contains(search, true) || entry.message.contains(search, true) || entry.source.contains(search, true)
+        val matchesFilter = when (filter) {
+            "Unread" -> entry.unread
+            "WhatsApp", "Telegram", "Instagram", "Messenger" -> entry.source == filter
+            else -> true
+        }
+        matchesSearch && matchesFilter
+    }
     val unread = entries.count { it.unread }
 
     LazyColumn(
@@ -793,6 +805,26 @@ private fun InboxScreen(refreshKey: Int, onRefresh: () -> Unit) {
                 }
             }
         }
+        item {
+            OutlinedTextField(
+                value = search,
+                onValueChange = { search = it },
+                modifier = Modifier.fillMaxWidth(),
+                singleLine = true,
+                label = { Text("Search message previews") },
+                placeholder = { Text("Name, message or app") }
+            )
+        }
+        item {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                listOf("All", "Unread", "WhatsApp", "Telegram", "Instagram", "Messenger").forEach { choice ->
+                    FilterChip(selected = filter == choice, onClick = { filter = choice }, label = { Text(choice, fontSize = 10.sp) })
+                }
+            }
+        }
         if (entries.isEmpty()) {
             item {
                 QuietCard(
@@ -801,8 +833,10 @@ private fun InboxScreen(refreshKey: Int, onRefresh: () -> Unit) {
                     else "Enable notification access, then receive a message from a supported messaging app."
                 )
             }
+        } else if (visibleEntries.isEmpty()) {
+            item { QuietCard("No matching previews", "Change the search or filter to see other conversations.") }
         } else {
-            items(entries, key = { it.id }) { entry ->
+            items(visibleEntries, key = { it.id }) { entry ->
                 InboxConversationCard(
                     entry = entry,
                     onRead = {
@@ -826,10 +860,12 @@ private fun InboxConversationCard(
     Card(
         shape = RectangleShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        modifier = Modifier.fillMaxWidth().clickable {
-            onRead()
-            onOpen()
-        }
+        modifier = Modifier.fillMaxWidth().shadow(4.dp, RectangleShape)
+            .border(2.dp, MaterialTheme.colorScheme.outline)
+            .clickable {
+                onRead()
+                onOpen()
+            }
     ) {
         Row(modifier = Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
             NexusAvatar(entry, Modifier.size(48.dp))
@@ -837,13 +873,14 @@ private fun InboxConversationCard(
             Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(entry.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
-                    if (entry.unread) {
-                        Spacer(Modifier.width(7.dp))
-                        Box(Modifier.size(8.dp).clip(RectangleShape).background(MaterialTheme.colorScheme.primary))
-                    }
+                    Text(if (entry.unread) "[*]" else "[ ]", color = MaterialTheme.colorScheme.primary, fontFamily = FontFamily.Monospace, fontSize = 10.sp)
                 }
                 Text(entry.message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 15.sp)
-                Text("${entry.source}  ·  ${timeLabel(entry.time)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text("${entry.source} · ${timeLabel(entry.time)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, fontFamily = FontFamily.Monospace)
+                    Spacer(Modifier.weight(1f))
+                    Text("PREVIEW", color = MaterialTheme.colorScheme.tertiary, fontSize = 9.sp, fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Bold)
+                }
             }
         }
     }
