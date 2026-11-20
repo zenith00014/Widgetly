@@ -84,10 +84,13 @@ object OfflineDownloads {
         val destination = File(directory, "$safeId.${media.extension}")
         val metadata = File(directory, "$safeId.json")
         val existingMetadata = runCatching { JSONObject(metadata.readText()) }.getOrNull()
+        val existingFile = existingMetadata?.optString("file")
+            ?.takeIf { it.isNotBlank() }
+            ?.let { File(directory, it) }
         if (
-            destination.isFile &&
-            destination.length() > 0L &&
-            existingMetadata?.optBoolean("complete", false) == true
+            existingMetadata?.optBoolean("complete", false) == true &&
+            existingFile?.isFile == true &&
+            existingFile.length() > 0L
         ) {
             return UUID.nameUUIDFromBytes("complete:$safeId".toByteArray())
         }
