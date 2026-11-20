@@ -47,7 +47,7 @@ object NexusContentRepository {
         val title: String,
         val summary: String,
         val url: String,
-        val date: String,
+        val date: Long,
         val image: String
     )
 
@@ -195,7 +195,6 @@ object NexusContentRepository {
     }
 
     private fun parseEntry(parser: XmlPullParser): RawEntry? {
-        val container = parser.name
         var depth = 1
         var title = ""
         var summary = ""
@@ -214,7 +213,7 @@ object NexusContentRepository {
                             if (!href.isNullOrBlank()) link = href else if (link.isBlank()) link = parser.nextText().trim().also { depth-- }
                         }
                         "pubdate", "published", "updated", "date" -> { if (date.isBlank()) date = parser.nextText().trim(); depth-- }
-                        "thumbnail", "content" -> {
+                        "thumbnail" -> {
                             val candidate = parser.getAttributeValue(null, "url")
                             if (!candidate.isNullOrBlank() && image.isBlank()) image = candidate
                         }
