@@ -230,7 +230,7 @@ private fun PlayerScreen(item:ShelfItem,playing:Boolean,onToggle:()->Unit,onBack
                 scope.launch {
                     status="Resolving YouTube stream…"
                     try {
-                        val streamUrl = withContext(kotlinx.coroutines.Dispatchers.IO) {
+                        val streamUrl = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
                             LibreTubePlayback.resolve(source,audioOnly)
                         }
                         player.setMediaItem(androidx.media3.common.MediaItem.fromUri(streamUrl))
