@@ -251,22 +251,29 @@ class OfflineDownloadWorker(
         try {
             call.execute().use { response ->
                 if (!response.isSuccessful) {
-                    return@withContext if (response.code >= 500 || response.code == 429 || response.code == 403) Result.retry()
+                    return@withContext if (response.code >= 500 || response.code == 429) Result.retry()
                     else Result.failure()
                 }
-                val rangeStart = response.header("Content-Range")
+                val contentRange = response.header("Content-Range")
+                val rangeStart = contentRange
                     ?.substringAfter("bytes ", "")
                     ?.substringBefore("-")
                     ?.toLongOrNull()
-                val append = existingBytes > 0 && response.code == 206 && rangeStart == existingBytes
-                if (existingBytes > 0 && response.code == 206 && !append) {
-                    partial.delete()
-                    return@withContext Result.retry()
+                val rangeTotal = contentRange
+                    ?.substringAfterLast("/")
+                    ?.toLongOrNull()
+                if (response.code == 206 && rangeStart != existingBytes) {
+                    if (existingBytes > 0) {
+                        partial.delete()
+                        return@withContext Result.retry()
+                    }
+                    return@withContext Result.failure()
                 }
+                val append = existingBytes > 0 && response.code == 206
                 if (existingBytes > 0 && !append) partial.delete()
                 val initialBytes = if (append) existingBytes else 0L
                 val body = response.body ?: return@withContext Result.retry()
-                val expectedBytes = body.contentLength().let { if (it > 0) it + initialBytes else -1L }
+                val expectedBytes = rangeTotal ?: body.contentLength().let { if (it > 0) it + initialBytes else -1L }
                 body.byteStream().buffered().use { input ->
                     FileOutputStream(partial, append).buffered().use { output ->
                         val buffer = ByteArray(DEFAULT_BUFFER_SIZE * 4)
