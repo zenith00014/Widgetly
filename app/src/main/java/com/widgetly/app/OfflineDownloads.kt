@@ -30,7 +30,9 @@ data class OfflineMedia(
     val quality: String,
     val file: File,
     val sourceUrl: String,
-    val complete: Boolean
+    val complete: Boolean,
+    val maxHeight: Int? = null,
+    val maxAudioBitrate: Int? = null
 )
 
 object OfflineDownloads {
@@ -43,7 +45,9 @@ object OfflineDownloads {
         title: String,
         creator: String,
         isAudio: Boolean,
-        media: ResolvedMedia
+        media: ResolvedMedia,
+        maxHeight: Int? = null,
+        maxAudioBitrate: Int? = null
     ): UUID {
         val safeId = safeId(id, media.url)
         val directory = File(context.filesDir, DIRECTORY).apply { mkdirs() }
@@ -58,6 +62,8 @@ object OfflineDownloads {
             .put("quality", media.qualityLabel)
             .put("file", destination.name)
             .put("sourceUrl", media.url)
+            .put("maxHeight", maxHeight ?: 0)
+            .put("maxAudioBitrate", maxAudioBitrate ?: 0)
             .put("complete", destination.exists() && destination.length() > 0)
         metadata.writeText(details.toString())
 
@@ -80,10 +86,26 @@ object OfflineDownloads {
         return request.id
     }
 
-    fun resume(context: Context, media: OfflineMedia): UUID? {
+    suspend fun resume(context: Context, media: OfflineMedia): UUID? {
         if (media.complete) return null
-        val restored = ResolvedMedia(media.sourceUrl, media.extension, "*/*", media.quality)
-        return enqueue(context, media.id, media.title, media.creator, media.isAudio, restored)
+        val resolved = withContext(Dispatchers.IO) {
+            LibreTubePlayback.resolveMedia(
+                media.id,
+                media.isAudio,
+                media.maxHeight,
+                media.maxAudioBitrate
+            )
+        }
+        return enqueue(
+            context,
+            media.id,
+            media.title,
+            media.creator,
+            media.isAudio,
+            resolved,
+            media.maxHeight,
+            media.maxAudioBitrate
+        )
     }
 
     fun list(context: Context): List<OfflineMedia> {
@@ -103,7 +125,9 @@ object OfflineDownloads {
                         quality = json.optString("quality", ""),
                         file = file,
                         sourceUrl = json.optString("sourceUrl", ""),
-                        complete = json.optBoolean("complete") && file.exists() && file.length() > 0
+                        complete = json.optBoolean("complete") && file.exists() && file.length() > 0,
+                        maxHeight = json.optInt("maxHeight", 0).takeIf { it > 0 },
+                        maxAudioBitrate = json.optInt("maxAudioBitrate", 0).takeIf { it > 0 }
                     )
                 }.getOrNull()
             }
