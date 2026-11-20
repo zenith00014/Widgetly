@@ -3,10 +3,18 @@ package com.widgetly.app
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
 
 class RushPlaybackService : MediaSessionService() {
     private val STREAM_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0"
     private var mediaSession: MediaSession? = null
+    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     override fun onCreate() {
         super.onCreate()
@@ -25,12 +33,34 @@ class RushPlaybackService : MediaSessionService() {
             .setMediaSourceFactory(mediaSourceFactory)
             .build()
         mediaSession = MediaSession.Builder(this, player).build()
+        serviceScope.launch {
+            while (isActive) {
+                val activePlayer = mediaSession?.player
+                val mediaId = activePlayer?.currentMediaItem?.mediaId.orEmpty()
+                if (activePlayer != null && mediaId.isNotBlank()) {
+                    PlaybackProgress.save(
+                        this@RushPlaybackService,
+                        mediaId,
+                        activePlayer.currentPosition,
+                        activePlayer.duration
+                    )
+                }
+                delay(5_000)
+            }
+        }
     }
 
     override fun onGetSession(controllerInfo: MediaSession.ControllerInfo): MediaSession? =
         mediaSession
 
     override fun onDestroy() {
+        mediaSession?.player?.let { player ->
+            val mediaId = player.currentMediaItem?.mediaId.orEmpty()
+            if (mediaId.isNotBlank()) {
+                PlaybackProgress.save(this, mediaId, player.currentPosition, player.duration)
+            }
+        }
+        serviceScope.cancel()
         mediaSession?.let { session ->
             session.player.release()
             session.release()
