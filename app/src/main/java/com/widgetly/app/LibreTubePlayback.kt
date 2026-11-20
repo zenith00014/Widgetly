@@ -67,8 +67,7 @@ object LibreTubePlayback {
         val stream = if (audioOnly) {
             info.audioStreams.maxByOrNull { it.averageBitrate }
         } else {
-            info.videoStreams.filter { !it.isVideoOnly }.maxByOrNull { it.height }
-                ?: info.videoStreams.maxByOrNull { it.height }
+            info.videoStreams.maxByOrNull { it.height }
         }
         return stream?.content?.takeIf { it.isNotBlank() }
             ?: throw IOException(if (audioOnly) "No playable audio stream was found." else "No playable video stream was found.")
