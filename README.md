@@ -11,7 +11,8 @@ Rush is an Android-only video and music streaming client built with Kotlin, Jetp
 - Local video/music playlists and queue playback
 - Watch and listening history
 - Background audio/video playback through a Media3 media session
-- Playback quality, speed and available captions
+- Adaptive DASH video playback where available, source quality/format selection, speed and available captions
+- Picture-in-Picture video playback on supported Android versions
 - App-private offline downloads, offline playback, progress, cancel, resume and storage management
 - MP3 audio export using on-device FFmpeg/LAME conversion, alongside the source-native audio format
 
@@ -19,9 +20,9 @@ Out of scope for this phase: Movies, TV series, Shorts, Trending and custom reco
 
 ## Current implementation
 
-The development branch includes live YouTube and YouTube Music search adapters, channel subscriptions and latest-upload feeds, public video playlist and music album browsing, local playlists and reorderable queue, ordered playback history with resume positions, Media3 background playback with wake-lock support, playback controls, caption-track extraction, and a WorkManager-based private download library.
+The development branch includes live YouTube and YouTube Music search adapters, channel subscriptions and latest-upload feeds, public video playlist and music album browsing, local playlists and reorderable queue, ordered playback history with resume positions, Media3 background playback with wake-lock/audio-focus support, Android Picture-in-Picture video, adaptive DASH playback where the source exposes a manifest, playback controls, caption-track extraction, and a WorkManager-based private download library.
 
-Downloads use the source's available stream format and extension (for example, M4A or WebM where supplied). Audio downloads can optionally be converted on-device to MP3 using the LGPL FFmpegKit-maintained audio package with LAME. Video formats and selectable qualities depend on what the source exposes. Interrupted transfers resume from partial files where the server supports HTTP range requests; a manual resume re-resolves the source stream because signed URLs may expire.
+Offline downloads use direct source streams and the source's available format and extension (for example, M4A or WebM where supplied); adaptive DASH manifests are used for streaming, not saved as if they were complete media files. Audio downloads can optionally be converted on-device to MP3 using the LGPL FFmpegKit-maintained audio package with LAME. Video formats and selectable qualities depend on what the source exposes. Interrupted transfers resume from partial files where the server supports HTTP range requests; a manual resume re-resolves the source stream because signed URLs may expire.
 
 Data is currently stored locally using SharedPreferences and app-private files. It is not synced to a YouTube account. Search/extraction relies on unofficial YouTube web endpoints and NewPipeExtractor, so service changes can break compatibility. A successful CI build proves compilation/package creation only; real-device playback, background operation, download reliability and source compatibility still need device testing.
 
