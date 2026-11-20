@@ -1,47 +1,28 @@
-# Widgetly
+# Nexus
 
-A lightweight native Android widget app. The current build is an early feature-complete prototype target, not yet a final release.
+A lightweight, ad-free Android companion for intentional discovery and communication.
 
-## Included
-- Jetpack Compose dashboard with a quick-note editor.
-- Real Android home-screen widgets built with Jetpack Glance: Quick Note and Retro Clock.
-- Quick Note refreshes when saved; Retro Clock refreshes on a low-frequency system schedule.
-- GitHub Actions workflow that builds and uploads a debug APK.
-- Material 3 interface; Android 8.0+.
+## Included in this iteration
+- Native Jetpack Compose interface: Home, Discover, Inbox and Saved.
+- Curated public RSS sources for educational YouTube channels, learning/productivity news and movie editorial content.
+- Lazy-loaded image thumbnails with Coil.
+- Category filters, refresh, saved links and external source playback/reading.
+- Unified notification previews from supported messaging apps.
+- Notification quick replies when the originating app exposes an Android RemoteInput action.
+- Phone contacts with SMS, WhatsApp and call hand-off.
+- Existing Quick Note and Retro Clock home-screen widgets retained.
 
-## Build locally
-Requirements: JDK 17, Android SDK 35, and Gradle 8.9 (or Android Studio).
+## Messaging boundaries
+Nexus does not bypass third-party app privacy or APIs. It cannot read full private-chat histories. The inbox stores notification previews only. Quick reply is available only when a message notification exposes a reply action. SMS, WhatsApp and calls are handed off to their respective apps.
 
-```bash
+## Feed boundaries
+Feeds are fetched from public RSS endpoints. Feed availability and thumbnail metadata depend on publishers. YouTube links open the official destination; Nexus does not scrape or re-host videos. Movie discovery currently uses editorial/movie-news feeds and trailers, not a licensed streaming catalog.
+
+## Build
+Requires JDK 17, Android SDK 35 and Gradle 8.9.
+
+\`\`\`bash
 gradle :app:assembleDebug
-```
+\`\`\`
 
-APK output: `app/build/outputs/apk/debug/app-debug.apk`.
-
-## Build on GitHub
-1. Push to `main` (or open a pull request).
-2. Open the repository's **Actions** tab.
-3. Select **Build Android APK** and run it, or wait for the push workflow.
-4. Download the `widgetly-debug-apk` artifact from the workflow run.
-
-## Add the widget
-1. Install the APK on an Android device.
-2. Long-press the home screen and open **Widgets**.
-3. Find **Widgetly → Quick Note** and drag it onto the home screen.
-4. Open Widgetly, edit the note, and tap **Save and update widget**.
-
-## Structure
-```text
-app/src/main/
-  java/com/widgetly/app/
-    MainActivity.kt
-    QuickNoteWidget.kt
-  res/
-    layout/
-    values/
-    xml/
-.github/workflows/android.yml
-```
-
-## Release builds
-The workflow currently produces an unsigned debug APK for easy testing. Configure a signing keystore and GitHub Actions secrets before distributing a release APK.
+GitHub Actions builds a debug APK on push or manual workflow dispatch.
