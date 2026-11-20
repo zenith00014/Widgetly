@@ -36,6 +36,8 @@ class RushPlaybackService : MediaSessionService() {
             .setMediaSourceFactory(mediaSourceFactory)
             .setWakeMode(androidx.media3.common.C.WAKE_MODE_LOCAL)
             .build()
+        player.setAudioAttributes(androidx.media3.common.AudioAttributes.DEFAULT, true)
+        player.setHandleAudioBecomingNoisy(true)
         mediaSession = MediaSession.Builder(this, player).build()
         serviceScope.launch {
             while (isActive) {
