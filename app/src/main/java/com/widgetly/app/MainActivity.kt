@@ -544,6 +544,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
 }
 @Composable private fun RushPlayer(item:Pick,light:Boolean,back:()->Unit,queue:List<Pick>){
  val context=androidx.compose.ui.platform.LocalContext.current;val scope=rememberCoroutineScope()
+ val requestNotificationPermission=androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()){ }
  var controller by remember { mutableStateOf<androidx.media3.session.MediaController?>(null) }
  val controllerFuture = remember(context) {
   val token = androidx.media3.session.SessionToken(context, android.content.ComponentName(context, RushPlaybackService::class.java))
@@ -653,7 +654,11 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
     }catch(e:Exception){status=e.localizedMessage?:"Unable to load this stream."}
    }
   },enabled=controller!=null,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text(if(item.localPath!=null)"Play offline" else "Load and play",color=Color.White)}
-  if(item.localPath==null) Button(onClick={scope.launch{
+  if(item.localPath==null) Button(onClick={
+   if(android.os.Build.VERSION.SDK_INT>=33&&androidx.core.content.ContextCompat.checkSelfPermission(context,android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED){
+    requestNotificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+   }
+   scope.launch{
    status="Preparing offline download…"
    try{
     val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null)}
