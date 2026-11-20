@@ -121,38 +121,81 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  var query by remember { mutableStateOf("") }
  var filter by remember { mutableStateOf("Videos") }
  var results by remember { mutableStateOf<List<YouTubeSearchResult>>(emptyList()) }
- var status by remember { mutableStateOf("Search YouTube videos and music.") }
+ var status by remember { mutableStateOf("Search videos, music or channels on YouTube.") }
  var loading by remember { mutableStateOf(false) }
+ var selectedChannel by remember { mutableStateOf<YouTubeSearchResult?>(null) }
  val scope= rememberCoroutineScope()
- Column(Modifier.fillMaxSize().padding(16.dp)) {
-  Text("Search YouTube",color=ink,fontSize=20.sp,fontWeight=FontWeight.Bold)
-  Spacer(Modifier.height(10.dp))
-  Row(verticalAlignment=Alignment.CenterVertically) {
-   BasicTextField(query,{query=it},Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(surface).padding(15.dp),textStyle=TextStyle(color=ink,fontSize=15.sp),singleLine=true,decorationBox={inner->if(query.isEmpty())Text("Videos, songs, artists or channels",color=muted);inner()})
-   Spacer(Modifier.width(8.dp))
-   Button(enabled=query.isNotBlank()&&!loading,onClick={
-    scope.launch {
-     loading=true;status="Searching…"
-     try { results=withContext(Dispatchers.IO){LiveYouTubeSearch.search(query,filter=="Music")};status="${results.size} results" }
-     catch(e:Exception){results=emptyList();status=e.localizedMessage?: "Search failed."}
-     finally {loading=false}
-    }
-   }) { Text(if(loading)"…" else "Search") }
-  }
-  Spacer(Modifier.height(8.dp))
-  Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-   listOf("Videos","Music").forEach { FilterChip(selected=filter==it,onClick={filter=it;results=emptyList()},label={Text(it)}) }
-  }
-  Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(vertical=8.dp))
-  LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-   items(results,key={it.videoId}) { result ->
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(surface).clickable{play(result)}.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
-     Box(Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).background(raised),contentAlignment=Alignment.Center){Text(if(result.isMusic)"♫" else "▶",color=mint,fontSize=20.sp)}
-     Column(Modifier.weight(1f).padding(horizontal=10.dp)) {
-      Text(result.title,color=ink,fontSize=14.sp,fontWeight=FontWeight.SemiBold,maxLines=2,overflow=TextOverflow.Ellipsis)
-      Text(result.creator + if(result.duration.isNotBlank()) " · ${result.duration}" else "",color=muted,fontSize=11.sp,maxLines=1)
+ if(selectedChannel!=null) {
+  ChannelDetails(selectedChannel!!,ink,muted,surface,{selectedChannel=null},play)
+ } else {
+  Column(Modifier.fillMaxSize().padding(16.dp)) {
+   Text("Search YouTube",color=ink,fontSize=20.sp,fontWeight=FontWeight.Bold)
+   Spacer(Modifier.height(10.dp))
+   Row(verticalAlignment=Alignment.CenterVertically) {
+    BasicTextField(query,{query=it},Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(surface).padding(15.dp),textStyle=TextStyle(color=ink,fontSize=15.sp),singleLine=true,decorationBox={inner->if(query.isEmpty())Text("Videos, songs, artists or channels",color=muted);inner()})
+    Spacer(Modifier.width(8.dp))
+    Button(enabled=query.isNotBlank()&&!loading,onClick={
+     scope.launch {
+      loading=true;status="Searching…"
+      try { results=withContext(Dispatchers.IO){LiveYouTubeSearch.search(query,filter=="Music",filter=="Channels")};status="${results.size} results" }
+      catch(e:Exception){results=emptyList();status=e.localizedMessage?: "Search failed."}
+      finally {loading=false}
      }
-     Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result.videoId)}.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
+    }) { Text(if(loading)"…" else "Search") }
+   }
+   Spacer(Modifier.height(8.dp))
+   Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
+    listOf("Videos","Music","Channels").forEach { FilterChip(selected=filter==it,onClick={filter=it;results=emptyList()},label={Text(it)}) }
+   }
+   Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(vertical=8.dp))
+   LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+    items(results,key={if(it.isChannel)it.channelId else it.videoId}) { result ->
+     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(surface).clickable{if(result.isChannel)selectedChannel=result else play(result)}.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
+      Box(Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).background(raised),contentAlignment=Alignment.Center){Text(if(result.isChannel)"◉" else if(result.isMusic)"♫" else "▶",color=mint,fontSize=20.sp)}
+      Column(Modifier.weight(1f).padding(horizontal=10.dp)) {
+       Text(result.title,color=ink,fontSize=14.sp,fontWeight=FontWeight.SemiBold,maxLines=2,overflow=TextOverflow.Ellipsis)
+       Text(if(result.isChannel)result.creator.ifBlank{"YouTube channel"} else result.creator + if(result.duration.isNotBlank()) " · ${result.duration}" else "",color=muted,fontSize=11.sp,maxLines=1)
+      }
+      if(result.isChannel) Text("Open",color=magenta,fontSize=12.sp)
+      else Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result.videoId)}.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
+     }
+    }
+   }
+  }
+ }
+}
+
+@Composable private fun ChannelDetails(channel:YouTubeSearchResult,ink:Color,muted:Color,surface:Color,back:()->Unit,play:(YouTubeSearchResult)->Unit){
+ val context=androidx.compose.ui.platform.LocalContext.current
+ val prefs=remember(context){context.getSharedPreferences("rush_prefs",Context.MODE_PRIVATE)}
+ var subscriptions by remember{mutableStateOf(prefs.getStringSet("subscriptions",emptySet())?.toSet()?:emptySet())}
+ var uploads by remember(channel.channelId){mutableStateOf<List<YouTubeSearchResult>>(emptyList())}
+ var status by remember(channel.channelId){mutableStateOf("Loading latest uploads…")}
+ var loading by remember(channel.channelId){mutableStateOf(false)}
+ val subscribed=channel.channelId in subscriptions
+ LaunchedEffect(channel.channelId) {
+  loading=true
+  try { uploads=withContext(Dispatchers.IO){LiveYouTubeSearch.latestUploads(channel.channelId)};status=if(uploads.isEmpty())"No public uploads were found." else "${uploads.size} latest uploads" }
+  catch(e:Exception){status=e.localizedMessage?:"Could not load channel uploads."}
+  finally {loading=false}
+ }
+ Column(Modifier.fillMaxSize().padding(16.dp)) {
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
+   Text("← Back",color=muted,modifier=Modifier.clickable{back()}.padding(8.dp))
+   Button(onClick={
+    subscriptions=if(subscribed)subscriptions-channel.channelId else subscriptions+channel.channelId
+    prefs.edit().putStringSet("subscriptions",subscriptions).apply()
+   }){Text(if(subscribed)"Subscribed" else "Subscribe")}
+  }
+  Text(channel.title,color=ink,fontSize=21.sp,fontWeight=FontWeight.Bold)
+  if(channel.creator.isNotBlank())Text(channel.creator,color=muted,fontSize=11.sp)
+  Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(vertical=10.dp))
+  LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)) {
+   items(uploads,key={it.videoId}) { video ->
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(surface).clickable{play(video)}.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
+     Box(Modifier.size(46.dp).clip(RoundedCornerShape(9.dp)).background(raised),contentAlignment=Alignment.Center){Text("▶",color=mint)}
+     Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text(video.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2);Text(video.creator+" · "+video.duration,color=muted,fontSize=10.sp)}
+     Text("Play",color=magenta,fontSize=11.sp)
     }
    }
   }
