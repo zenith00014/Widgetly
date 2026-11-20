@@ -94,6 +94,12 @@ object QueueStore {
         return updated
     }
 
+    fun replace(prefs: SharedPreferences, ids: List<String>): List<String> {
+        val updated = ids.filter(String::isNotBlank).takeLast(500)
+        save(prefs, updated)
+        return updated
+    }
+
     fun removeAt(prefs: SharedPreferences, index: Int): List<String> {
         val updated = load(prefs).toMutableList()
         if (index in updated.indices) updated.removeAt(index)
