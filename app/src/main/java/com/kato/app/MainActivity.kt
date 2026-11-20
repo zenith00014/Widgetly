@@ -399,7 +399,7 @@ private fun HomeScreen(
                 ) {
                     Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
                         Text("A LITTLE LESS NOISE.", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                        Text("Stay connected.\\nStay curious.", color = MaterialTheme.colorScheme.onSurface, fontSize = 25.sp, fontWeight = FontWeight.Bold, lineHeight = 29.sp)
+                        Text("Stay connected.\nStay curious.", color = MaterialTheme.colorScheme.onSurface, fontSize = 25.sp, fontWeight = FontWeight.Bold, lineHeight = 29.sp)
                         Text("No ads. No subscriptions. Your topics.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                     }
                     Box(
@@ -422,7 +422,7 @@ private fun HomeScreen(
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text(if (unread.isEmpty()) "All caught up" else "\${unread.size} unread conversations", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                            Text(if (unread.isEmpty()) "All caught up" else "${unread.size} unread conversations", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
                             Text("WhatsApp · Telegram · Instagram · Messenger", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
                         }
                         Text("OPEN →", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 9.sp)
@@ -551,10 +551,10 @@ private fun SocialScreen(
     val context = LocalContext.current
     val entries = buildList {
         news.forEach { item ->
-            add(SocialEntry("news:\${item.url}", "News", item.title, item.summary, item.source, item.url, item.imageUrl, item.publishedAt))
+            add(SocialEntry("news:${item.url}", "News", item.title, item.summary, item.source, item.url, item.imageUrl, item.publishedAt, score = item.score))
         }
         videos.forEach { item ->
-            add(SocialEntry("video:\${item.videoId}", "Video", item.title, item.channel, item.channel, item.url, item.thumbnail, item.publishedAt, item.videoId))
+            add(SocialEntry("video:${item.videoId}", "Video", item.title, item.channel, item.channel, item.url, item.thumbnail, item.publishedAt, item.videoId, 8))
         }
     }.sortedWith(compareByDescending<SocialEntry> { it.score }.thenByDescending { it.publishedAt }).take(25)
 
@@ -731,7 +731,7 @@ private fun InboxConversationCard(
                     }
                 }
                 Text(entry.message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 15.sp)
-                Text("\${entry.source}  ·  \${timeLabel(entry.time)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
+                Text("${entry.source}  ·  ${timeLabel(entry.time)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
             }
         }
     }
