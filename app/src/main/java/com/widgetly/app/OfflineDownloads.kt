@@ -215,6 +215,10 @@ class OfflineDownloadWorker(
         val existingBytes = partial.length()
         val request = Request.Builder()
             .url(url)
+            .header("User-Agent", STREAM_USER_AGENT)
+            .header("Referer", "https://www.youtube.com/")
+            .header("Origin", "https://www.youtube.com/")
+            .header("Accept-Language", "en-US,en;q=0.9")
             .apply { if (existingBytes > 0) header("Range", "bytes=$existingBytes-") }
             .build()
 
@@ -349,6 +353,7 @@ class OfflineDownloadWorker(
         }
 
         private const val DOWNLOAD_CHANNEL = "rush_offline_downloads"
+        private const val STREAM_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0"
         private suspend fun runFfmpeg(command: String): Boolean =
             suspendCancellableCoroutine { continuation ->
                 val session = FFmpegKit.executeAsync(command) { result ->
