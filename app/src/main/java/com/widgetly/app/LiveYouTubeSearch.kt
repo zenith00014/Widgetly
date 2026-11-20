@@ -128,6 +128,7 @@ object LiveYouTubeSearch {
         val found = LinkedHashMap<String, YouTubeSearchResult>()
         var continuation: String? = null
         for (page in 0 until 10) {
+            var nextContinuation: String? = null
             val body = JSONObject()
                 .put("context", JSONObject().put("client", JSONObject()
                     .put("clientName", "WEB")
@@ -145,9 +146,10 @@ object LiveYouTubeSearch {
                 if (!response.isSuccessful) throw IOException("Could not load YouTube playlist (HTTP ${response.code}).")
                 val root = JSONObject(response.body?.string().orEmpty())
                 collect(root, found, false, false, false)
-                continuation = findContinuation(root)
+                nextContinuation = findContinuation(root)
             }
-            if (continuation.isNullOrBlank() || found.size >= 1000) break
+            if (nextContinuation.isNullOrBlank() || nextContinuation == continuation || found.size >= 1000) break
+            continuation = nextContinuation
         }
         return found.values.filter { it.videoId.isNotBlank() }.take(1000)
     }
