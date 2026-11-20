@@ -5,8 +5,8 @@ A mobile-first entertainment app inside the Widgetly Android project. Rush is de
 ## Experience
 - Four destinations: Home, Discover, News, and Library.
 - Curated music, movie, and video shelves with search and type filters.
-- Full-screen player interfaces and a persistent mini-player.
-- Expandable editorial stories with a clear end to the news shelf.
+- YouTube audio and video playback: paste a YouTube URL or 11-character video ID in the player, choose AUDIO or VIDEO, and load the stream.
+- Playback streams are resolved with NewPipeExtractor using the extraction approach adapted from LibreTube, then played with AndroidX Media3.
 - Save-for-later and recently played collections, persisted locally.
 - Aubergine dark theme with magenta/amber accents and phosphor-mint details; optional lilac light theme.
 - Original gradient artwork generated in Compose; no remote image assets required.
@@ -23,7 +23,9 @@ APK output: `app/build/outputs/apk/debug/app-debug.apk`.
 ## Build on GitHub
 Push to `main` or open the **Actions** tab and run **Build Android APK**. Download the `widgetly-debug-apk` artifact from the completed workflow.
 
-## Notes
-The current catalog and news are sample content. The player screens are interactive UI previews; streaming providers and licensed playback sources have not been connected yet.
+## Licensing and playback notes
+This playback integration incorporates/adapts GPL-3.0-or-later material from [LibreTube](https://github.com/Libre-tube/LibreTube). See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and [the included GPL license](LICENSES/LibreTube-GPL-3.0-or-later.txt). Redistributed builds must comply with the GPL, including providing corresponding source.
 
-The project retains its Android Quick Note and Retro Clock home-screen widget implementation.
+LibreTube's extraction path targets YouTube. This player does not provide Spotify or general multi-platform music streaming. Stream availability depends on YouTube and extractor compatibility; YouTube may change its delivery protocol.
+
+The home-screen Quick Note and Retro Clock widgets from Widgetly remain in the project.
