@@ -27,6 +27,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.viewinterop.AndroidView
 import coil.compose.AsyncImage
+import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
@@ -49,6 +50,9 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 private fun NexusApp() {
+    val context = LocalContext.current
+    val musicPlayer = remember { ExoPlayer.Builder(context).build() }
+    DisposableEffect(musicPlayer) { onDispose { musicPlayer.release() } }
     var tab by remember { mutableStateOf("HOME") }
     var opened by remember { mutableStateOf<NexusItem?>(null) }
     Surface(Modifier.fillMaxSize(), color=Ink) {
@@ -59,6 +63,7 @@ private fun NexusApp() {
                     "DISCOVER" -> "A finite discovery session"
                     "INBOX" -> "Your message center"
                     "LIBRARY" -> "Your saved collection"
+                    "MUSIC" -> "Your local music shelf"
                     else -> "Less scrolling. More signal."
                 }, color=Paper, fontSize=20.sp, fontWeight=FontWeight.Bold)
             }
@@ -67,13 +72,14 @@ private fun NexusApp() {
                     "DISCOVER" -> DiscoverPage { opened=it }
                     "INBOX" -> InboxPage()
                     "LIBRARY" -> LibraryPage { opened=it }
+                    "MUSIC" -> NexusMusicPage(musicPlayer)
                     else -> HomePage({tab="DISCOVER"}, {tab="INBOX"}, {tab="LIBRARY"}, {opened=it})
                 }
             }
             if (opened == null) NavigationBar(containerColor=Panel) {
-                listOf("HOME","DISCOVER","INBOX","LIBRARY").forEach { item ->
+                listOf("HOME","DISCOVER","INBOX","LIBRARY","MUSIC").forEach { item ->
                     NavigationBarItem(selected=tab==item,onClick={tab=item},
-                        icon={Text(when(item){"HOME"->"⌂";"DISCOVER"->"▣";"INBOX"->"▤";else->"▦"},fontSize=19.sp)},
+                        icon={Text(when(item){"HOME"->"⌂";"DISCOVER"->"▣";"INBOX"->"▤";"LIBRARY"->"▦";else->"♫"},fontSize=19.sp)},
                         label={Text(item,fontSize=9.sp,letterSpacing=1.sp)},
                         colors=NavigationBarItemDefaults.colors(selectedIconColor=Lime,selectedTextColor=Lime,indicatorColor=Color(0xFF30352A),unselectedIconColor=Muted,unselectedTextColor=Muted))
                 }
@@ -98,6 +104,7 @@ private fun HomePage(onDiscover:()->Unit,onInbox:()->Unit,onLibrary:()->Unit,onO
             QuickTile("INBOX","Messages & replies",Modifier.weight(1f),onInbox)
             QuickTile("LIBRARY","Saved for later",Modifier.weight(1f),onLibrary)
         } }
+        item { Text("MUSIC  /  YOUR LOCAL AUDIO",color=Muted,fontSize=9.sp,modifier=Modifier.clickable { onLibrary() }) }
         item { SectionLabel("A FEW GOOD VIDEOS","MAX 3") }
         if(loading) item { Text("Loading selected channels…",color=Muted,fontSize=12.sp) }
         if(!loading && videos.isEmpty()) item { Text("Video shelf unavailable. Open Discover to retry.",color=Muted,fontSize=12.sp) }
