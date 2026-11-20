@@ -4,43 +4,24 @@ Rush is an Android-only video and music streaming client built with Kotlin, Jetp
 
 ## Product scope
 
-- Live YouTube video search and playback
+- YouTube video search and playback
 - YouTube Music search and audio playback
-- Channel subscriptions and latest uploads
-- Video and music playlists
+- Channel search, subscriptions and latest uploads
+- Local video/music playlists and queue playback
 - Watch and listening history
-- Background video/audio playback
-- Playback quality, speed and captions
-- Offline downloads and offline playback for video and music, with format/quality selection, progress, cancellation, resume and storage management
-
-Offline availability depends on the source and applicable permissions. Keep downloaded media in app-private storage; do not bypass access controls or treat private storage as a grant of download rights.
+- Background audio/video playback through a Media3 media session
+- Playback quality, speed and available captions
+- App-private offline downloads, offline playback, progress, cancel, resume and storage management
 
 Out of scope for this phase: Movies, TV series, Shorts, Trending and custom recommendation algorithms. The interface remains functional and minimal until the streaming system is reliable; visual redesign comes later.
 
-## Technology
+## Current implementation
 
-- Kotlin, Android Gradle Plugin and Jetpack Compose
-- AndroidX Media3 for playback
-- NewPipeExtractor for supported YouTube stream resolution
-- Local persistence, download workers and MediaSessionService are planned implementation components
+The development branch includes live YouTube and YouTube Music search adapters, channel subscriptions and latest-upload feeds, local playlists, ordered playback history, Media3 background playback, playback controls, caption-track extraction, and a WorkManager-based private download library.
 
-## Implementation status
+Downloads use the source's available stream format and extension (for example, M4A or WebM where supplied). Rush does not currently transcode downloaded audio into MP3. Video/audio formats and selectable qualities depend on what the source exposes. Interrupted transfers resume from partial files where the server supports HTTP range requests; a manual resume re-resolves the source stream because signed URLs may expire.
 
-Implemented:
-- Android application shell and app label Rush
-- URL/video-ID stream resolution through the NewPipeExtractor adapter
-- Live YouTube search in Discover
-- Search result selection and player URL prefill
-
-Not implemented yet:
-- Dedicated YouTube Music search integration and full song/artist/album metadata
-- Persistent subscriptions, playlists and history
-- Latest uploads feed
-- MediaSessionService background playback and notification controls
-- Download queue, quality selection, pause/resume, cancellation, storage management and offline library
-- Playback quality/speed/captions controls
-
-The project is under active development. Do not treat the current branch as a complete streaming client.
+Data is currently stored locally using SharedPreferences and app-private files. It is not synced to a YouTube account. Search/extraction relies on unofficial YouTube web endpoints and NewPipeExtractor, so service changes can break compatibility. A successful CI build proves compilation/package creation only; real-device playback, background operation, download reliability and source compatibility still need device testing.
 
 ## Build
 
@@ -56,4 +37,4 @@ APK output: `app/build/outputs/apk/debug/app-debug.apk`.
 
 The playback adapter is derived from LibreTube/NewPipeExtractor work. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the included GPL-3.0-or-later license. Check license obligations before distributing builds.
 
-YouTube extraction is unofficial, can break when YouTube changes its service, and must be reviewed against applicable terms and distribution requirements.
+Offline downloads should only be used for content and methods you are permitted to keep offline. Private app storage prevents ordinary sharing by the app; it does not grant download rights or bypass platform terms.
