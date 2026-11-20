@@ -292,8 +292,8 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
        scope.launch{
         status="Preparing download…"
         try{
-         val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(result.videoId,result.isMusic,preferMp4=!result.isMusic)}
-         withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,result.videoId,result.title,result.creator,result.isMusic,resolved,preferMp4=!result.isMusic)}
+         val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(result.videoId,result.isMusic)}
+         withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,result.videoId,result.title,result.creator,result.isMusic,resolved)}
          status="Download queued: "+result.title
         }catch(e:Exception){status=e.localizedMessage?:"Could not queue this download."}
        }
