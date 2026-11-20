@@ -1,6 +1,7 @@
 package com.widgetly.app
 
 import android.content.Context
+import android.content.ContextWrapper
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -30,6 +31,8 @@ private val mint=Color(0xFF7CF5D0)
 private val paper=Color(0xFFF6F1FB)
 private val lilac=Color(0xFFE9E7F1)
 private val mutedDark=Color(0xFFBDB3CA)
+
+private fun Context.activityOrNull():android.app.Activity?=when(this){is android.app.Activity->this;is ContextWrapper->baseContext.activityOrNull();else->null}
 
 private data class Pick(val id:String,val title:String,val creator:String,val music:Boolean,val colors:List<Color>,val reason:String,val localPath:String?=null,val sourceId:String?=null)
 private data class SubscribedChannel(val id:String,val title:String,val subscriberCount:String)
@@ -867,7 +870,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
    Text("← Back",color=muted,modifier=Modifier.clickable{back()}.padding(8.dp))
    Text(if(audio)"Music player"else"Video player",color=mint)
-   if(!audio&&isPlaying&&android.os.Build.VERSION.SDK_INT>=26)TextButton(onClick={(context as? MainActivity)?.enterPlayerPip()}){Text("PiP",color=magenta)}
+   if(!audio&&isPlaying&&android.os.Build.VERSION.SDK_INT>=26)TextButton(onClick={(context.activityOrNull() as? MainActivity)?.enterPlayerPip()}){Text("PiP",color=magenta)}
   }
   Spacer(Modifier.weight(.2f))
   if(audio)Disc(item,Modifier.size(240.dp))else Cover(item,Modifier.fillMaxWidth().height(190.dp))
