@@ -52,9 +52,9 @@ object LiveYouTubeSearch {
         when (value) {
             is JSONObject -> {
                 val video = value.optJSONObject("videoRenderer")
-                if (video != null) addVideo(video, out, false)
+                if (video != null && !music) addVideo(video, out, false)
                 val musicItem = value.optJSONObject("musicResponsiveListItemRenderer")
-                if (musicItem != null) addMusic(musicItem, out)
+                if (musicItem != null && music) addMusic(musicItem, out)
                 val keys = value.keys()
                 while (keys.hasNext()) collect(value.opt(keys.next()), out, music)
             }
