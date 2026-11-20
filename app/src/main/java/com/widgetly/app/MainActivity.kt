@@ -41,6 +41,24 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  var saved by remember{mutableStateOf(prefs.getStringSet("saved",emptySet())?.toSet()?:emptySet())}
  var history by remember{mutableStateOf(loadHistory(prefs))}
  var metadata by remember{mutableStateOf(loadPickMetadata(prefs))}
+ val storeResult:(YouTubeSearchResult)->Unit={result->
+  val pick=result.toPick()
+  persistPickMetadata(prefs,pick)
+  metadata=metadata+(pick.id to pick)
+ }
+ val saveResult:(YouTubeSearchResult)->Unit={result->
+  storeResult(result)
+  saved=toggle(saved,result.videoId)
+  prefs.edit().putStringSet("saved",saved).apply()
+ }
+ val playResult:(YouTubeSearchResult)->Unit={result->
+  val pick=result.toPick()
+  storeResult(result)
+  active=pick
+  playbackQueue=emptyList()
+  history=listOf(pick.id)+history.filterNot{x->x==pick.id}
+  persistHistory(prefs,history)
+ }
  val bg=if(light)lilac else bgDark;val surface=if(light)Color.White else panelDark
  val ink=if(light)Color(0xFF241B32) else paper;val muted=if(light)Color(0xFF70677D) else mutedDark
  MaterialTheme(colorScheme=if(light)lightColorScheme(primary=magenta,background=bg,surface=surface,onSurface=ink)else darkColorScheme(primary=magenta,background=bg,surface=surface,onSurface=ink)){
@@ -53,7 +71,7 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
     }
     Box(Modifier.weight(1f)){
      when(tab){
-      "Discover"->LiveDiscover(ink,muted,surface,saved,{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()},{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)), "Live YouTube result");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};persistHistory(prefs,history)})
+      "Discover"->LiveDiscover(ink,muted,surface,saved,storeResult,saveResult,playResult)
       "Downloads"->DownloadsScreen(ink,muted,surface,{media->active=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath)})
       "Subscriptions"->SubscriptionsScreen(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Latest upload");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};persistHistory(prefs,history)})
       "Library"->Library(saved,history,metadata,prefs,ink,muted,surface,{id->metadata[id]?.let{playbackQueue=emptyList();active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()},{queue->playbackQueue=queue;active=queue.firstOrNull()})
@@ -67,6 +85,14 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
  }
 }
 private fun toggle(s:Set<String>,id:String)=if(id in s)s-id else s+id
+private fun YouTubeSearchResult.toPick()=Pick(
+ videoId,
+ title,
+ creator,
+ isMusic,
+ listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),
+ if(isMusic)"YouTube Music result" else "YouTube result"
+)
 private fun loadHistory(prefs:android.content.SharedPreferences):List<String>{
  val ordered=runCatching{org.json.JSONArray(prefs.getString("history_order","[]")?:"[]")}.getOrDefault(org.json.JSONArray())
  if(ordered.length()>0)return (0 until ordered.length()).mapNotNull{ordered.optString(it).takeIf(String::isNotBlank)}
@@ -155,7 +181,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   items(recent,key={it.id}){pick->CardRow(pick,ink,muted,surface,saved,{play(pick)},{save(it)})}
  }
 }
-@Composable private fun LiveDiscover(ink:Color,muted:Color,surface:Color,saved:Set<String>,save:(String)->Unit,play:(YouTubeSearchResult)->Unit){
+@Composable private fun LiveDiscover(ink:Color,muted:Color,surface:Color,saved:Set<String>,store:(YouTubeSearchResult)->Unit,save:(YouTubeSearchResult)->Unit,play:(YouTubeSearchResult)->Unit){
  var query by remember { mutableStateOf("") }
  var filter by remember { mutableStateOf("Videos") }
  var results by remember { mutableStateOf<List<YouTubeSearchResult>>(emptyList()) }
@@ -203,7 +229,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
        Text(when{result.isChannel->result.creator.ifBlank{"YouTube channel"};result.isCollection->result.creator.ifBlank{"Artist / album"};else->result.creator + if(result.duration.isNotBlank()) " · ${result.duration}" else ""},color=muted,fontSize=11.sp,maxLines=1)
       }
       if(result.isChannel||result.isCollection) Text("Open",color=magenta,fontSize=12.sp)
-      else Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result.videoId)}.padding(4.dp));Text("＋",color=magenta,modifier=Modifier.clickable{playlistTarget=result}.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
+      else Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result)}.padding(4.dp));Text("＋",color=magenta,modifier=Modifier.clickable{playlistTarget=result}.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
      }
     }
    }
@@ -217,12 +243,13 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
     Column(verticalArrangement=Arrangement.spacedBy(6.dp)){
      OutlinedTextField(value=newPlaylistName,onValueChange={newPlaylistName=it},label={Text("New playlist name")},singleLine=true)
      if(playlists.isEmpty())Text("Create your first playlist above.",color=muted,fontSize=11.sp)
-     playlists.forEach{playlist->TextButton(onClick={playlists=PlaylistStore.add(prefs,playlist.id,playlistTarget!!.videoId);playlistTarget=null}){Text("Add to ${playlist.name}",color=ink)}}
+     playlists.forEach{playlist->TextButton(onClick={store(playlistTarget!!);playlists=PlaylistStore.add(prefs,playlist.id,playlistTarget!!.videoId);playlistTarget=null}){Text("Add to ${playlist.name}",color=ink)}}
     }
    },
    confirmButton={TextButton(onClick={
     val target=playlistTarget
     if(target!=null&&newPlaylistName.isNotBlank()){
+     store(target)
      playlists=PlaylistStore.create(prefs,newPlaylistName,target.videoId)
      newPlaylistName="";playlistTarget=null
     }
