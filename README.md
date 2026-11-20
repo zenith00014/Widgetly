@@ -4,8 +4,8 @@ A native Android starter app for creating and managing useful home-screen widget
 
 ## Included
 - Jetpack Compose dashboard with a quick-note editor.
-- Real Android home-screen widget built with Jetpack Glance.
-- Widget refresh when the note is saved.
+- Real Android home-screen widgets built with Jetpack Glance: Quick Note and Retro Clock.
+- Quick Note refreshes when saved; Retro Clock refreshes on a low-frequency system schedule.
 - GitHub Actions workflow that builds and uploads a debug APK.
 - Material 3 interface; Android 8.0+.
 
