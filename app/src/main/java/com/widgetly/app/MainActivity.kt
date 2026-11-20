@@ -135,7 +135,7 @@ private fun WidgetlyHome(context: Context) {
                     if (saved) Text("Widget updated.", color = Lime, fontSize = 12.sp)
                 }
             }
-            Text("Add Quick Note from your home screen's Widgets menu.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 12.dp))
+            Text("Add Quick Note (2 × 2) or Retro Clock (2 × 1) from your home screen's Widgets menu.", color = Muted, fontSize = 12.sp, modifier = Modifier.padding(bottom = 12.dp))
         }
     }
 }
