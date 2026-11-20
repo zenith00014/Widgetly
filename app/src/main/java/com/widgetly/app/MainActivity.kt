@@ -805,7 +805,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
  }
  var shuffleEnabled by remember(item.id){mutableStateOf(playerPrefs.getBoolean("shuffle_enabled",false))}
  var repeatMode by remember(item.id){mutableIntStateOf(playerPrefs.getInt("repeat_mode",androidx.media3.common.Player.REPEAT_MODE_OFF))}
- LaunchedEffect(controller,shuffleEnabled,repeatMode,speed,captionsEnabled){
+ LaunchedEffect(controller,shuffleEnabled,repeatMode,speed,captionsEnabled,quality,audio){
   controller?.let{player->
    player.setShuffleModeEnabled(shuffleEnabled)
    player.setRepeatMode(repeatMode)
