@@ -35,6 +35,18 @@ object LiveYouTubeSearch {
                 .put("clientName", if (music) "WEB_REMIX" else "WEB")
                 .put("clientVersion", if (music) "1.20261119.01.00" else "2.20261119.01.00")))
             .put("query", query)
+            .apply {
+                if (!music) {
+                    put(
+                        "params",
+                        when {
+                            channels -> "EgIQAg=="
+                            playlists -> "EgIQAw=="
+                            else -> "EgIQAQ=="
+                        }
+                    )
+                }
+            }
             .toString()
         val request = Request.Builder()
             .url(if (music) "https://music.youtube.com/youtubei/v1/search" else "https://www.youtube.com/youtubei/v1/search")
