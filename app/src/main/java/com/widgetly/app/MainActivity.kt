@@ -31,6 +31,8 @@ import androidx.media3.exoplayer.ExoPlayer
 import kotlinx.coroutines.launch
 import org.json.JSONArray
 import org.json.JSONObject
+import java.text.DateFormat
+import java.util.Date
 
 internal const val PREFS_NAME = "widgetly_prefs"
 internal const val NOTE_KEY = "nexus_personal_note"
@@ -219,38 +221,61 @@ private fun InboxPage() {
     var refresh by remember { mutableIntStateOf(0) }
     var target by remember { mutableStateOf<JSONObject?>(null) }
     var reply by remember { mutableStateOf("") }
+    var search by remember { mutableStateOf("") }
+    var sourceFilter by remember { mutableStateOf("ALL") }
     val prefs=context.getSharedPreferences(PREFS_NAME,Context.MODE_PRIVATE)
     val messages=remember(refresh) {
         try { val arr=JSONArray(prefs.getString("social_notifications","[]")); (0 until arr.length()).map { arr.getJSONObject(it) } }
         catch (_:Exception) { emptyList() }
     }
+    val visibleMessages = messages.filter { msg ->
+        val matchesSource = sourceFilter == "ALL" || msg.optString("source").equals(sourceFilter, true)
+        val query = search.trim()
+        matchesSource && (query.isBlank() || listOf("source", "title", "message").any { msg.optString(it).contains(query, true) })
+    }
     Column(Modifier.fillMaxSize().padding(horizontal=16.dp,vertical=8.dp)) {
         Slab {
             Text("HYBRID MESSAGE INBOX",color=Lime,fontSize=10.sp,fontWeight=FontWeight.Bold)
             Text("PREVIEW = notification history. LIVE = only with an authorized integration. Nexus does not silently read private chats.",color=Muted,fontSize=11.sp)
+            OutlinedTextField(value=search,onValueChange={search=it},modifier=Modifier.fillMaxWidth(),singleLine=true,label={Text("Search previews")})
+            Row(horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+                listOf("ALL","WHATSAPP","TELEGRAM","INSTAGRAM","MESSENGER").forEach { value ->
+                    FilterChip(selected=sourceFilter==value,onClick={sourceFilter=value},label={Text(value,fontSize=8.sp)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Lime,selectedLabelColor=Ink,labelColor=Paper))
+                }
+            }
             Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                 Button(onClick={context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))},colors=ButtonDefaults.buttonColors(containerColor=Lime,contentColor=Ink),shape=RectangleShape) { Text("ENABLE INBOX",fontSize=10.sp) }
                 OutlinedButton(onClick={refresh++},shape=RectangleShape) { Text("REFRESH",fontSize=10.sp) }
+                TextButton(onClick={prefs.edit().remove("social_notifications").apply();refresh++}) { Text("CLEAR HISTORY",color=Muted,fontSize=9.sp) }
             }
         }
         Spacer(Modifier.height(10.dp))
         if(messages.isEmpty()) Slab {
             Text("NO MESSAGE PREVIEWS YET",color=Paper,fontWeight=FontWeight.Bold)
             Text("Enable Nexus under Android Notification Access, then receive a message in a supported app.",color=Muted,fontSize=12.sp)
-        } else LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=18.dp)) {
-            items(messages,key={it.optString("key")+it.optLong("time")}) { msg ->
+        } else if (visibleMessages.isEmpty()) Slab { Text("NO MATCHING PREVIEWS",color=Paper,fontWeight=FontWeight.Bold); Text("Try another search or source filter.",color=Muted,fontSize=12.sp) }
+        else LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=18.dp)) {
+            items(visibleMessages,key={it.optString("key")+it.optLong("time")}) { msg ->
                 val key=msg.optString("key")
                 val canReply=msg.optBoolean("canReply") && NexusNotificationBridge.canReply(key)
                 Slab {
                     Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
                         Text(msg.optString("source").uppercase(),color=Lime,fontSize=10.sp,fontWeight=FontWeight.Bold)
-                        Text("PREVIEW",color=Muted,fontSize=9.sp)
+                        Text(DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(msg.optLong("time"))),color=Muted,fontSize=9.sp)
                     }
                     Text(msg.optString("title"),color=Paper,fontWeight=FontWeight.SemiBold,fontSize=14.sp)
                     Text(msg.optString("message"),color=Muted,fontSize=12.sp)
                     Row(horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                         if(canReply) OutlinedButton(onClick={target=msg;reply=""},shape=RectangleShape) { Text("QUICK REPLY",fontSize=9.sp) }
                         TextButton(onClick={NexusNotificationBridge.openOriginal(context,msg.optString("package"))}) { Text("OPEN APP ↗",color=Lime,fontSize=9.sp) }
+                        TextButton(onClick={
+                            val remaining=JSONArray()
+                            for (i in 0 until JSONArray(prefs.getString("social_notifications","[]")).length()) {
+                                val entry=JSONArray(prefs.getString("social_notifications","[]")).getJSONObject(i)
+                                if (!(entry.optString("key")==key && entry.optLong("time")==msg.optLong("time"))) remaining.put(entry)
+                            }
+                            prefs.edit().putString("social_notifications",remaining.toString()).apply();refresh++
+                        }) { Text("REMOVE",color=Muted,fontSize=9.sp) }
                     }
                 }
             }
