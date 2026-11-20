@@ -65,7 +65,7 @@ object LiveYouTubeSearch {
                     ?: value.optJSONObject("compactPlaylistRenderer")
                 if (playlist != null && playlists) addPlaylist(playlist, out)
                 val playlistVideo = value.optJSONObject("playlistVideoRenderer")
-                if (playlistVideo != null && !music) addPlaylistVideo(playlistVideo, out)
+                if (playlistVideo != null && !music && !channels && !playlists) addPlaylistVideo(playlistVideo, out)
                 val keys = value.keys()
                 while (keys.hasNext()) collect(value.opt(keys.next()), out, music, channels, playlists)
             }
