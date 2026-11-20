@@ -964,6 +964,12 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     }catch(e:Exception){status=e.localizedMessage?:"Unable to load this stream."}
    }
   },enabled=controller!=null,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text(if(localFileAvailable)"Play offline" else "Load and play",color=Color.White)}
+  Button(
+   onClick={if(controller?.isPlaying==true)controller?.pause() else controller?.play()},
+   enabled=controller?.currentMediaItem!=null,
+   modifier=Modifier.fillMaxWidth(),
+   colors=ButtonDefaults.buttonColors(containerColor=raised)
+  ){Text(if(isPlaying)"Pause playback" else "Play playback",color=ink)}
   if(!localFileAvailable) Button(onClick={
    if(android.os.Build.VERSION.SDK_INT>=33&&androidx.core.content.ContextCompat.checkSelfPermission(context,android.Manifest.permission.POST_NOTIFICATIONS)!=android.content.pm.PackageManager.PERMISSION_GRANTED){
     requestNotificationPermission.launch(android.Manifest.permission.POST_NOTIFICATIONS)
@@ -976,7 +982,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     status="Download queued · ${media.qualityLabel} · .${media.extension}"
    }catch(e:Exception){status=e.localizedMessage?:"Could not start download."}
   }},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=raised)){Text(when{audio&&mp3Format->"Download MP3";!audio&&mp4Format->"Download MP4";else->"Download offline"},color=ink)}
-  androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).apply{this.player=controller;useController=true}},update={it.player=controller},modifier=Modifier.fillMaxWidth().height(if(audio)70.dp else 180.dp))
+  androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).apply{this.player=controller;useController=true}},update={it.player=controller},modifier=Modifier.fillMaxWidth().height(if(audio)96.dp else 180.dp))
   Text(status,color=muted,fontSize=11.sp);Text("Use offline downloads only where permitted. Formats and quality depend on the source.",color=muted,fontSize=10.sp)
   Spacer(Modifier.weight(.5f))
  }
