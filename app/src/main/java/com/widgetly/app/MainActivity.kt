@@ -162,6 +162,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  var status by remember { mutableStateOf("Search videos, music or channels on YouTube.") }
  var loading by remember { mutableStateOf(false) }
  var selectedChannel by remember { mutableStateOf<YouTubeSearchResult?>(null) }
+ var selectedMusicCollection by remember { mutableStateOf<YouTubeSearchResult?>(null) }
  val scope= rememberCoroutineScope()
  val context=androidx.compose.ui.platform.LocalContext.current
  val prefs=remember(context){context.getSharedPreferences("rush_prefs",Context.MODE_PRIVATE)}
@@ -170,6 +171,8 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  var newPlaylistName by remember{mutableStateOf("")}
  if(selectedChannel!=null) {
   ChannelDetails(selectedChannel!!,ink,muted,surface,{selectedChannel=null},play)
+ } else if(selectedMusicCollection!=null) {
+  MusicCollectionDetails(selectedMusicCollection!!,ink,muted,surface,{selectedMusicCollection=null},play)
  } else {
   Column(Modifier.fillMaxSize().padding(16.dp)) {
    Text("Search YouTube",color=ink,fontSize=20.sp,fontWeight=FontWeight.Bold)
@@ -192,14 +195,14 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    }
    Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(vertical=8.dp))
    LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)) {
-    items(results,key={if(it.isChannel)it.channelId else it.videoId}) { result ->
-     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(surface).clickable{if(result.isChannel)selectedChannel=result else play(result)}.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
-      Box(Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).background(raised),contentAlignment=Alignment.Center){Text(if(result.isChannel)"◉" else if(result.isMusic)"♫" else "▶",color=mint,fontSize=20.sp)}
+    items(results,key={when{it.isChannel->"channel:"+it.channelId;it.isCollection->"collection:"+it.collectionId;else->it.videoId}}) { result ->
+     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(surface).clickable{when{result.isChannel->selectedChannel=result;result.isCollection->selectedMusicCollection=result;else->play(result)}}.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
+      Box(Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).background(raised),contentAlignment=Alignment.Center){Text(if(result.isChannel)"◉" else if(result.isCollection)"▤" else if(result.isMusic)"♫" else "▶",color=mint,fontSize=20.sp)}
       Column(Modifier.weight(1f).padding(horizontal=10.dp)) {
        Text(result.title,color=ink,fontSize=14.sp,fontWeight=FontWeight.SemiBold,maxLines=2,overflow=TextOverflow.Ellipsis)
-       Text(if(result.isChannel)result.creator.ifBlank{"YouTube channel"} else result.creator + if(result.duration.isNotBlank()) " · ${result.duration}" else "",color=muted,fontSize=11.sp,maxLines=1)
+       Text(when{result.isChannel->result.creator.ifBlank{"YouTube channel"};result.isCollection->result.creator.ifBlank{"Artist / album"};else->result.creator + if(result.duration.isNotBlank()) " · ${result.duration}" else ""},color=muted,fontSize=11.sp,maxLines=1)
       }
-      if(result.isChannel) Text("Open",color=magenta,fontSize=12.sp)
+      if(result.isChannel||result.isCollection) Text("Open",color=magenta,fontSize=12.sp)
       else Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result.videoId)}.padding(4.dp));Text("＋",color=magenta,modifier=Modifier.clickable{playlistTarget=result}.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
      }
     }
@@ -266,6 +269,42 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   }
  }
 }
+@Composable private fun MusicCollectionDetails(
+ collection:YouTubeSearchResult,
+ ink:Color,
+ muted:Color,
+ surface:Color,
+ back:()->Unit,
+ play:(YouTubeSearchResult)->Unit
+){
+ var tracks by remember(collection.collectionId){mutableStateOf<List<YouTubeSearchResult>>(emptyList())}
+ var status by remember(collection.collectionId){mutableStateOf("Loading songs…")}
+ var loading by remember(collection.collectionId){mutableStateOf(false)}
+ LaunchedEffect(collection.collectionId){
+  loading=true
+  try{
+   tracks=withContext(Dispatchers.IO){LiveYouTubeSearch.browseMusicCollection(collection.collectionId)}
+   status=if(tracks.isEmpty())"No playable tracks were found in this collection." else "${tracks.size} tracks"
+  }catch(e:Exception){status=e.localizedMessage?:"Could not load this music collection."}
+  finally{loading=false}
+ }
+ Column(Modifier.fillMaxSize().padding(16.dp)){
+  Text("← Back",color=muted,modifier=Modifier.clickable{back()}.padding(8.dp))
+  Text(collection.title,color=ink,fontSize=21.sp,fontWeight=FontWeight.Bold)
+  Text(collection.creator,color=muted,fontSize=11.sp)
+  Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(vertical=10.dp))
+  LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){
+   items(tracks,key={it.videoId}){track->
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(surface).clickable{play(track)}.padding(11.dp),verticalAlignment=Alignment.CenterVertically){
+     Box(Modifier.size(42.dp).clip(RoundedCornerShape(9.dp)).background(raised),contentAlignment=Alignment.Center){Text("♫",color=mint)}
+     Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text(track.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2);Text(track.creator+" · "+track.duration,color=muted,fontSize=10.sp,maxLines=1)}
+     Text("Play",color=magenta,fontSize=11.sp)
+    }
+   }
+  }
+ }
+}
+
 @Composable private fun SubscriptionsScreen(ink:Color,muted:Color,surface:Color,play:(YouTubeSearchResult)->Unit){
  val context=androidx.compose.ui.platform.LocalContext.current
  val prefs=remember(context){context.getSharedPreferences("rush_prefs",Context.MODE_PRIVATE)}
