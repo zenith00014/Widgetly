@@ -4,10 +4,10 @@ Nexus is a private, single-owner Android app for one person's daily use. It is n
 
 ## Product architecture
 
-- **DM:** Beeper is the chosen messaging client. Nexus should hand off to the installed Beeper app or an explicitly supported Beeper integration. Do not describe Android notification previews as full synchronized chats. Matrix/mautrix bridges are server-side integrations, not an embeddable Android SDK.
-- **YouTube:** LibreTube is the chosen YouTube client/engine. Its Android application is not a drop-in SDK; integration must be through a maintained fork/module or a clearly labelled app handoff. Do not silently fall back to a YouTube WebView and call it LibreTube.
-- **Music:** LibreTube is also the selected music source for online playback. Local audio playback can remain available as a fallback.
-- **Movies:** Provider FTP server at `192.168.100.100:21`, anonymous login, passive mode, root-level individual video files. Catalogue metadata is cached locally; manual refresh is available. Playback uses Media3 with an FTP DataSource supporting byte-range restart where the server permits it. This feature is available only on the provider network.
+- **DM:** The current Inbox opens the installed Beeper app. Android notification previews and quick-reply actions remain a separate optional feature, not a replacement for Beeper conversations.
+- **YouTube:** The current Nexus integration hands video URLs to the installed LibreTube Android app. This is an external app handoff, not embedded LibreTube playback.
+- **Music:** The current Music section launches LibreTube and can hand a search query to it. It is an external app handoff, not an embedded player.
+- **Movies:** Provider FTP server at `192.168.100.100:21`, anonymous login, passive mode, root-level individual video files. The current screen caches the catalogue locally, supports search and manual refresh, and uses Media3 with a custom FTP DataSource for playback. Seeking depends on server REST support. This feature is available only on the provider network; artwork, favorites and resume history are not yet implemented.
 - **Home / Discover / Library / Settings:** retain the personal, finite-session and local-first principles below.
 
 ## Personal app principles
@@ -43,4 +43,4 @@ APK output: app/build/outputs/apk/debug/app-debug.apk. GitHub Actions builds a d
 
 Android notification access can expose notification content and sometimes a reply action. It does not grant unrestricted access to private chats, message history, or sending APIs. Nexus must clearly distinguish a notification preview from a full conversation.
 
-LibreTube is an Android application, not a general-purpose playback SDK. A genuine embedded integration requires a maintained fork/module or app handoff and must comply with its license and upstream changes. Beeper integrations likewise depend on supported app/bridge interfaces. The FTP server's support for REST byte ranges and seek operations must be tested on the owner's Wi-Fi network.
+LibreTube is an Android application, not a general-purpose playback SDK. A genuine embedded LibreTube integration requires a maintained fork/module and must comply with its GPL-3.0-or-later license. Beeper is currently integrated by app handoff; no private-chat synchronization API is assumed. The FTP server's support for REST byte ranges and seek operations must be tested on the owner's Wi-Fi network.
