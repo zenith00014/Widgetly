@@ -224,9 +224,9 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  if(selectedChannel!=null) {
   ChannelDetails(selectedChannel!!,ink,muted,surface,{selectedChannel=null},play)
  } else if(selectedMusicCollection!=null) {
-  MusicCollectionDetails(selectedMusicCollection!!,ink,muted,surface,{selectedMusicCollection=null},play)
+  CollectionDetails(selectedMusicCollection!!,ink,muted,surface,{selectedMusicCollection=null},play,enqueue)
  } else if(selectedVideoPlaylist!=null) {
-  VideoPlaylistDetails(selectedVideoPlaylist!!,ink,muted,surface,{selectedVideoPlaylist=null},play)
+  CollectionDetails(selectedVideoPlaylist!!,ink,muted,surface,{selectedVideoPlaylist=null},play,enqueue)
  } else {
   Column(Modifier.fillMaxSize().padding(16.dp)) {
    Text("Search YouTube",color=ink,fontSize=20.sp,fontWeight=FontWeight.Bold)
@@ -360,13 +360,14 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
  return queued
 }
 
-@Composable private fun MusicCollectionDetails(
+@Composable private fun CollectionDetails(
  collection:YouTubeSearchResult,
  ink:Color,
  muted:Color,
  surface:Color,
  back:()->Unit,
- play:(YouTubeSearchResult)->Unit
+ play:(YouTubeSearchResult)->Unit,
+ enqueue:(YouTubeSearchResult)->Unit
 ){
  val context=androidx.compose.ui.platform.LocalContext.current
  val scope=rememberCoroutineScope()
@@ -406,14 +407,18 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
      downloading=false
     }}){Text("MP3")}
    }
+   TextButton(onClick={tracks.forEach(enqueue);downloadMessage="Added ${tracks.size} tracks to the queue."}){Text("Queue all",color=magenta)}
    if(downloadMessage.isNotBlank())Text(downloadMessage,color=muted,fontSize=10.sp)
   } else if(tracks.isNotEmpty()){
-   Button(enabled=!downloading,onClick={scope.launch{
+   Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
+    Button(enabled=!downloading,onClick={scope.launch{
     downloading=true;downloadMessage="Queueing MP4 video downloads…"
     val count=queueVideoDownloads(context,tracks)
     downloadMessage="Queued $count of ${tracks.size} video downloads."
     downloading=false
    }},colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Download videos (MP4)")}
+    TextButton(onClick={tracks.forEach(enqueue);downloadMessage="Added ${tracks.size} videos to the queue."}){Text("Queue all",color=magenta)}
+   }
    if(downloadMessage.isNotBlank())Text(downloadMessage,color=muted,fontSize=10.sp)
   }
   LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){
@@ -421,52 +426,6 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(surface).clickable{play(track)}.padding(11.dp),verticalAlignment=Alignment.CenterVertically){
      Box(Modifier.size(42.dp).clip(RoundedCornerShape(9.dp)).background(raised),contentAlignment=Alignment.Center){Text(if(collection.isMusic)"♫" else "▶",color=mint)}
      Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text(track.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2);Text(track.creator+" · "+track.duration,color=muted,fontSize=10.sp,maxLines=1)}
-     Text("Play",color=magenta,fontSize=11.sp)
-    }
-   }
-  }
- }
-}
-
-@Composable private fun VideoPlaylistDetails(
- playlist:YouTubeSearchResult,
- ink:Color,
- muted:Color,
- surface:Color,
- back:()->Unit,
- play:(YouTubeSearchResult)->Unit
-){
- val context=androidx.compose.ui.platform.LocalContext.current
- val scope=rememberCoroutineScope()
- var tracks by remember(playlist.collectionId){mutableStateOf<List<YouTubeSearchResult>>(emptyList())}
- var status by remember(playlist.collectionId){mutableStateOf("Loading playlist…")}
- var downloading by remember(playlist.collectionId){mutableStateOf(false)}
- var downloadMessage by remember(playlist.collectionId){mutableStateOf("")}
- LaunchedEffect(playlist.collectionId){
-  try{
-   tracks=withContext(Dispatchers.IO){LiveYouTubeSearch.browseVideoPlaylist(playlist.collectionId)}
-   status=if(tracks.isEmpty())"No playable videos were found." else "${tracks.size} videos"
-  }catch(e:Exception){status=e.localizedMessage?:"Could not load this playlist."}
- }
- Column(Modifier.fillMaxSize().padding(16.dp)){
-  Text("← Back",color=muted,modifier=Modifier.clickable{back()}.padding(8.dp))
-  Text(playlist.title,color=ink,fontSize=21.sp,fontWeight=FontWeight.Bold)
-  Text(playlist.creator,color=muted,fontSize=11.sp)
-  Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(vertical=10.dp))
-  if(tracks.isNotEmpty()){
-   Button(enabled=!downloading,onClick={scope.launch{
-    downloading=true;downloadMessage="Queueing MP4 downloads…"
-    val count=queueVideoDownloads(context,tracks)
-    downloadMessage="Queued $count of ${tracks.size} videos."
-    downloading=false
-   }},colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text("Download playlist")}
-   if(downloadMessage.isNotBlank())Text(downloadMessage,color=muted,fontSize=10.sp)
-  }
-  LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){
-   items(tracks,key={it.videoId}){video->
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(surface).clickable{play(video)}.padding(11.dp),verticalAlignment=Alignment.CenterVertically){
-     Box(Modifier.size(42.dp).clip(RoundedCornerShape(9.dp)).background(raised),contentAlignment=Alignment.Center){Text("▶",color=mint)}
-     Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text(video.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2);Text(video.creator+" · "+video.duration,color=muted,fontSize=10.sp,maxLines=1)}
      Text("Play",color=magenta,fontSize=11.sp)
     }
    }
