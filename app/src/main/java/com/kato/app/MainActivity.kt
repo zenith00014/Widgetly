@@ -18,6 +18,7 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -25,8 +26,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.RectangleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -34,11 +34,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -49,18 +51,21 @@ import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.net.URL
 import java.io.ByteArrayInputStream
+import java.io.File
+import java.security.MessageDigest
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val NexusInk = Color(0xFF151914)
-private val NexusPanel = Color(0xFF222922)
-private val NexusRaised = Color(0xFF2C352D)
-private val NexusLime = Color(0xFFD2E49A)
-private val NexusAmber = Color(0xFFE4BD73)
-private val NexusPaper = Color(0xFFF2F0E7)
-private val NexusMuted = Color(0xFF9BA397)
+private val NexusInk = Color(0xFF0E0F0C)
+private val NexusPanel = Color(0xFF1A1B17)
+private val NexusRaised = Color(0xFF24251F)
+private val NexusLine = Color(0xFF3A3C34)
+private val NexusLime = Color(0xFFC8F23A)
+private val NexusAmber = Color(0xFFFFB020)
+private val NexusPaper = Color(0xFFECE9DF)
+private val NexusMuted = Color(0xFF8B8D82)
 
 private val NexusDarkColors = darkColorScheme(
     primary = NexusLime,
@@ -72,7 +77,9 @@ private val NexusDarkColors = darkColorScheme(
     surface = NexusPanel,
     onSurface = NexusPaper,
     surfaceVariant = NexusRaised,
-    onSurfaceVariant = NexusMuted
+    onSurfaceVariant = NexusMuted,
+    outline = NexusLine,
+    tertiary = NexusAmber
 )
 
 private val NexusLightColors = lightColorScheme(
@@ -80,12 +87,14 @@ private val NexusLightColors = lightColorScheme(
     onPrimary = Color.White,
     secondary = Color(0xFF87602C),
     onSecondary = Color.White,
-    background = Color(0xFFF1F0E8),
-    onBackground = Color(0xFF20251F),
-    surface = Color.White,
-    onSurface = Color(0xFF20251F),
-    surfaceVariant = Color(0xFFE6E8DE),
-    onSurfaceVariant = Color(0xFF626B5E)
+    background = Color(0xFFECE9DF),
+    onBackground = Color(0xFF11120F),
+    surface = Color(0xFFF8F6EE),
+    onSurface = Color(0xFF11120F),
+    surfaceVariant = Color(0xFFE2DFD4),
+    onSurfaceVariant = Color(0xFF5C5E54),
+    outline = Color(0xFF11120F),
+    tertiary = Color(0xFF8A5A00)
 )
 
 private val topicOptions = listOf(
@@ -113,7 +122,9 @@ private data class SocialEntry(
     val image: String,
     val publishedAt: Long,
     val videoId: String = "",
-    val score: Int = 0
+    val score: Float = 0f,
+    val topic: String = "General",
+    val why: String = ""
 )
 
 class MainActivity : ComponentActivity() {
@@ -392,7 +403,7 @@ private fun HomeScreen(
     ) {
         item {
             Card(
-                shape = RoundedCornerShape(23.dp),
+                shape = RectangleShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Row(
@@ -405,7 +416,7 @@ private fun HomeScreen(
                         Text("No ads. No subscriptions. Your topics.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                     }
                     Box(
-                        modifier = Modifier.size(68.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface),
+                        modifier = Modifier.size(68.dp).clip(RectangleShape).background(MaterialTheme.colorScheme.surface),
                         contentAlignment = Alignment.Center
                     ) {
                         Text("N", color = MaterialTheme.colorScheme.primary, fontSize = 31.sp, fontWeight = FontWeight.Black)
@@ -418,7 +429,7 @@ private fun HomeScreen(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenInbox),
-                shape = RoundedCornerShape(18.dp),
+                shape = RectangleShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -485,12 +496,12 @@ private fun HomeScreen(
         item {
             Card(
                 modifier = Modifier.fillMaxWidth().clickable(enabled = spotifyUrl.isNotBlank(), onClick = onOpenSpotify),
-                shape = RoundedCornerShape(18.dp),
+                shape = RectangleShape,
                 colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
             ) {
                 Row(modifier = Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(
-                        modifier = Modifier.size(49.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF1D3A2A)),
+                        modifier = Modifier.size(49.dp).clip(RectangleShape).background(Color(0xFF1D3A2A)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text("♫", color = Color(0xFFB9F28B), fontSize = 25.sp, fontWeight = FontWeight.Bold)
@@ -666,7 +677,7 @@ private fun InboxScreen(refreshKey: Int, onRefresh: () -> Unit) {
             }
         }
         item {
-            Card(shape = RoundedCornerShape(17.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+            Card(shape = RectangleShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
@@ -715,7 +726,7 @@ private fun InboxConversationCard(
     onOpen: () -> Unit
 ) {
     Card(
-        shape = RoundedCornerShape(17.dp),
+        shape = RectangleShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
         modifier = Modifier.fillMaxWidth().clickable {
             onRead()
@@ -730,7 +741,7 @@ private fun InboxConversationCard(
                     Text(entry.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     if (entry.unread) {
                         Spacer(Modifier.width(7.dp))
-                        Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+                        Box(Modifier.size(8.dp).clip(RectangleShape).background(MaterialTheme.colorScheme.primary))
                     }
                 }
                 Text(entry.message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 15.sp)
@@ -850,7 +861,7 @@ private fun SavedItemCard(
     onLike: () -> Unit,
     onDelete: () -> Unit
 ) {
-    Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(shape = RectangleShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(item.type.uppercase(Locale.getDefault()), color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold, fontSize = 9.sp, letterSpacing = 1.sp)
@@ -1021,7 +1032,7 @@ private fun NexusSettingsScreen(
 
 @Composable
 private fun VideoTile(video: NexusVideo, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Card(modifier = modifier.clickable(onClick = onClick), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(modifier = modifier.clickable(onClick = onClick), shape = RectangleShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column {
             NexusRemoteImage(video.thumbnail, Modifier.fillMaxWidth().height(126.dp))
             Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1035,7 +1046,7 @@ private fun VideoTile(video: NexusVideo, modifier: Modifier = Modifier, onClick:
 
 @Composable
 private fun MovieTile(movie: NexusMovie, modifier: Modifier = Modifier, onClick: () -> Unit) {
-    Card(modifier = modifier.clickable(onClick = onClick), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(modifier = modifier.clickable(onClick = onClick), shape = RectangleShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column {
             NexusRemoteImage(movie.thumbnail, Modifier.fillMaxWidth().height(190.dp))
             Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -1051,14 +1062,14 @@ private fun MovieTile(movie: NexusMovie, modifier: Modifier = Modifier, onClick:
 private fun NewsCard(story: NexusNews, compact: Boolean, onClick: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(17.dp),
+        shape = RectangleShape,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
             if (story.imageUrl.isNotBlank()) {
-                NexusRemoteImage(story.imageUrl, Modifier.size(if (compact) 78.dp else 96.dp).clip(RoundedCornerShape(11.dp)))
+                NexusRemoteImage(story.imageUrl, Modifier.size(if (compact) 78.dp else 96.dp).clip(RectangleShape))
             } else {
-                Box(Modifier.size(78.dp).clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+                Box(Modifier.size(78.dp).clip(RectangleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
                     Text("NEWS", color = MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 }
             }
@@ -1082,9 +1093,9 @@ private fun NexusAvatar(entry: InboxEntry, modifier: Modifier = Modifier) {
         } catch (_: Exception) { null }
     }
     if (bitmap != null) {
-        Image(bitmap.asImageBitmap(), contentDescription = entry.title, modifier = modifier.clip(CircleShape), contentScale = ContentScale.Crop)
+        Image(bitmap.asImageBitmap(), contentDescription = entry.title, modifier = modifier.clip(RectangleShape), contentScale = ContentScale.Crop)
     } else {
-        Box(modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+        Box(modifier.clip(RectangleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
             Text(entry.title.take(1).uppercase(Locale.getDefault()), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 17.sp)
         }
     }
@@ -1138,7 +1149,7 @@ private fun MediaPlayerScreen(
             type = type,
             target = target,
             videoId = videoId,
-            modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(15.dp))
+            modifier = Modifier.fillMaxWidth().weight(1f).clip(RectangleShape)
         )
     }
 }
@@ -1218,7 +1229,7 @@ private object NexusAdBlocker {
 
 @Composable
 private fun SettingsCard(title: String, detail: String, content: @Composable ColumnScope.() -> Unit) {
-    Card(shape = RoundedCornerShape(17.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(shape = RectangleShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(title, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 10.sp, letterSpacing = 1.2.sp)
             Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, lineHeight = 14.sp)
@@ -1229,7 +1240,7 @@ private fun SettingsCard(title: String, detail: String, content: @Composable Col
 
 @Composable
 private fun QuietCard(title: String, detail: String) {
-    Card(shape = RoundedCornerShape(17.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+    Card(shape = RectangleShape, colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
         Column(modifier = Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
             Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
             Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, lineHeight = 16.sp)
