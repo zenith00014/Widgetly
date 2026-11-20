@@ -401,7 +401,7 @@ private fun PlayerScreen(item: MediaItem, playing: Boolean, onToggle: () -> Unit
             Text(item.creator, color = muted, fontSize = 12.sp)
         } else {
             androidx.compose.ui.viewinterop.AndroidView(
-                factory = { ctx -> androidx.media3.ui.PlayerView(ctx).apply { this.player = player; useController = true; showBuffering = androidx.media3.ui.PlayerView.SHOW_BUFFERING_WHEN_PLAYING } },
+                factory = { ctx -> androidx.media3.ui.PlayerView(ctx).apply { this.player = player; useController = true; setShowBuffering(androidx.media3.ui.PlayerView.SHOW_BUFFERING_WHEN_PLAYING) } },
                 update = { it.player = player },
                 modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(16.dp))
             )
