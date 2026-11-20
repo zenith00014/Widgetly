@@ -111,7 +111,8 @@ private data class SocialEntry(
     val url: String,
     val image: String,
     val publishedAt: Long,
-    val videoId: String = ""
+    val videoId: String = "",
+    val score: Int = 0
 )
 
 class MainActivity : ComponentActivity() {
@@ -246,6 +247,7 @@ private fun NexusApp() {
                             onRefresh = { refreshKey++ }
                         )
                         page == "Home" -> HomeScreen(
+                            refreshKey = refreshKey,
                             news = news,
                             videos = videos,
                             movies = movies,
@@ -363,6 +365,7 @@ private fun TopBar(
 
 @Composable
 private fun HomeScreen(
+    refreshKey: Int,
     news: List<NexusNews>,
     videos: List<NexusVideo>,
     movies: List<NexusMovie>,
@@ -376,7 +379,7 @@ private fun HomeScreen(
     onOpenLibrary: () -> Unit
 ) {
     val context = LocalContext.current
-    val inbox = remember { readInbox(context) }
+    val inbox = remember(refreshKey) { readInbox(context) }
     val unread = inbox.filter { it.unread }
     val selectedNews = news.sortedByDescending { it.publishedAt }.take(3)
 
@@ -451,7 +454,7 @@ private fun HomeScreen(
             }
         } else {
             items(selectedNews, key = { it.url }) { story ->
-                NewsCard(story, compact = true, onClick = onOpenNews)
+                NewsCard(story, compact = true, onClick = { openExternal(context, story.url) })
             }
         }
         item {
@@ -545,6 +548,7 @@ private fun SocialScreen(
     onSave: (String, String, String) -> Unit,
     onLike: (String, String, String) -> Unit
 ) {
+    val context = LocalContext.current
     val entries = buildList {
         news.forEach { item ->
             add(SocialEntry("news:\${item.url}", "News", item.title, item.summary, item.source, item.url, item.imageUrl, item.publishedAt))
@@ -552,7 +556,7 @@ private fun SocialScreen(
         videos.forEach { item ->
             add(SocialEntry("video:\${item.videoId}", "Video", item.title, item.channel, item.channel, item.url, item.thumbnail, item.publishedAt, item.videoId))
         }
-    }.sortedWith(compareByDescending<SocialEntry> { it.publishedAt }.thenBy { it.type }).take(25)
+    }.sortedWith(compareByDescending<SocialEntry> { it.score }.thenByDescending { it.publishedAt }).take(25)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -581,7 +585,7 @@ private fun SocialScreen(
                         if (entry.videoId.isNotBlank()) {
                             onOpenVideo(NexusVideo(entry.title, entry.url, entry.videoId, entry.source, entry.publishedAt, entry.image))
                         } else {
-                            openWebPage(entry.url)
+                            openExternal(context, entry.url)
                         }
                     },
                     onSave = { onSave(entry.title, entry.url, if (entry.type == "Video") "Video" else "Article") },
@@ -743,14 +747,15 @@ private fun LibraryScreen(
     var refresh by remember { mutableIntStateOf(0) }
     var search by rememberSaveable { mutableStateOf("") }
     var shelf by rememberSaveable { mutableStateOf("Saved") }
+    var category by rememberSaveable { mutableStateOf("All") }
     var showAdd by rememberSaveable { mutableStateOf(false) }
     val categories = listOf("All", "Article", "Video", "Movie", "Music", "Podcast", "Learning")
     val records = remember(refresh, search, shelf) {
         when (shelf) {
             "Liked" -> database.listItems(search = search, likedOnly = true)
             "Watch later" -> database.listItems(search = search).filter { !it.completed }
-            else -> database.listItems(search = search)
-        }
+            else -> database.listItems(search = search, type = category)
+        }.let { values -> if (shelf == "Watch later") values.filter { !it.completed } else values }
     }
 
     Column(modifier = Modifier.fillMaxSize().padding(horizontal = 17.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
@@ -781,8 +786,7 @@ private fun LibraryScreen(
                 horizontalArrangement = Arrangement.spacedBy(6.dp)
             ) {
                 categories.forEach { choice ->
-                    var selected by remember(choice) { mutableStateOf(choice == "All") }
-                    FilterChip(selected = selected, onClick = { selected = !selected }, label = { Text(choice, fontSize = 9.sp) })
+                    FilterChip(selected = category == choice, onClick = { category = choice }, label = { Text(choice, fontSize = 9.sp) })
                 }
             }
         }
@@ -1294,9 +1298,12 @@ private fun spotifyEmbedUrl(raw: String): String {
     return "https://open.spotify.com/embed/$type/$id?utm_source=generator&theme=0"
 }
 
-private fun openWebPage(url: String) {
-    // The Compose feed's open action is intentionally handled by the Android browser for publisher articles.
-    // Nexus does not strip publisher ads, paywalls or login requirements.
+private fun openExternal(context: Context, rawUrl: String) {
+    val url = normalizeUrl(rawUrl)
+    if (!url.startsWith("https://")) return
+    try {
+        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+    } catch (_: Exception) { }
 }
 
 private fun dateLabel(time: Long): String {
