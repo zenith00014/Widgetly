@@ -77,7 +77,10 @@ class MainActivity:ComponentActivity(){
  val ink=if(light)Color(0xFF241B32) else paper;val muted=if(light)Color(0xFF70677D) else mutedDark
  MaterialTheme(colorScheme=if(light)lightColorScheme(primary=magenta,background=bg,surface=surface,onSurface=ink)else darkColorScheme(primary=magenta,background=bg,surface=surface,onSurface=ink)){
   Surface(Modifier.fillMaxSize(),color=bg){Column(Modifier.fillMaxSize()){
-   if(active!=null)RushPlayer(active!!,light,{active=null;playbackQueue=emptyList()},playbackQueue)
+   if(active!=null)RushPlayer(active!!,light,{active=null;playbackQueue=emptyList()},playbackQueue,{id->
+    history=listOf(id)+history.filterNot{it==id}
+    persistHistory(prefs,history)
+   })
    else{
     Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=14.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
      Column{Text("RUSH",color=if(light)magenta else mint,fontSize=12.sp,fontWeight=FontWeight.Bold,letterSpacing=3.sp);Text(when(tab){"Discover"->"Find your next favourite";"Downloads"->"Offline library";"Subscriptions"->"Latest uploads";"Library"->"Your collection";else->"Your daily signal"},color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold)}
@@ -638,7 +641,7 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
   dismissButton={TextButton(onClick={showCreate=false;playlistName=""}){Text("Cancel")}}
  )
 }
-@Composable private fun RushPlayer(item:Pick,light:Boolean,back:()->Unit,queue:List<Pick>){
+@Composable private fun RushPlayer(item:Pick,light:Boolean,back:()->Unit,queue:List<Pick>,onTrackChanged:(String)->Unit){
  val context=androidx.compose.ui.platform.LocalContext.current;val scope=rememberCoroutineScope()
  val requestNotificationPermission=androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.RequestPermission()){ }
  var controller by remember { mutableStateOf<androidx.media3.session.MediaController?>(null) }
@@ -659,11 +662,13 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
  var status by remember(item.id){mutableStateOf(if(item.localPath!=null)"Downloaded file ready." else "Paste a YouTube link or video ID to play.")}
  var playingTitle by remember(item.id){mutableStateOf(item.title)}
  var playingCreator by remember(item.id){mutableStateOf(item.creator)}
+ val latestOnTrackChanged by rememberUpdatedState(onTrackChanged)
  DisposableEffect(controller){
   val listener=object:androidx.media3.common.Player.Listener{
    override fun onMediaItemTransition(mediaItem:androidx.media3.common.MediaItem?,reason:Int){
     playingTitle=mediaItem?.mediaMetadata?.title?.toString()?.ifBlank{item.title}?:item.title
     playingCreator=mediaItem?.mediaMetadata?.artist?.toString()?.ifBlank{item.creator}?:item.creator
+    mediaItem?.mediaId?.takeIf{it.isNotBlank()}?.let(latestOnTrackChanged)
    }
   }
   controller?.addListener(listener)
