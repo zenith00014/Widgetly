@@ -22,6 +22,7 @@ fun NexusSettingsPanel() {
     val prefs = context.getSharedPreferences(PREFS_NAME, android.content.Context.MODE_PRIVATE)
     var dailyItems by remember { mutableIntStateOf(prefs.getInt("daily_item_budget", 20)) }
     var sessionItems by remember { mutableIntStateOf(prefs.getInt("session_limit", 12)) }
+    var dailyMinutes by remember { mutableIntStateOf(prefs.getInt("daily_time_budget_minutes", 30)) }
     var saved by remember { mutableStateOf(false) }
     var backupStatus by remember { mutableStateOf<String?>(null) }
     val exportLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/json")) { uri: Uri? ->
@@ -50,11 +51,13 @@ fun NexusSettingsPanel() {
             Text("DISCOVER LIMITS", color = Color(0xFFC8F23A), fontSize = 11.sp, fontWeight = FontWeight.Bold)
             Text("Daily item budget · $dailyItems opened items", color = Color(0xFFECE9DF), fontSize = 13.sp)
             Slider(value=dailyItems.toFloat(),onValueChange={dailyItems=it.toInt().coerceIn(5,60)},valueRange=5f..60f,steps=10)
+            Text("Daily time budget · $dailyMinutes minutes", color = Color(0xFFECE9DF), fontSize = 13.sp)
+            Slider(value=dailyMinutes.toFloat(),onValueChange={dailyMinutes=it.toInt().coerceIn(10,180)},valueRange=10f..180f,steps=16)
             Text("Session size · $sessionItems items", color = Color(0xFFECE9DF), fontSize = 13.sp)
             Slider(value=sessionItems.toFloat(),onValueChange={sessionItems=it.toInt().coerceIn(5,30)},valueRange=5f..30f,steps=4)
-            Text("The daily limit stops opening new Discover items after you reach it. No streaks or rewards.", color = Color(0xFF8B8D82), fontSize = 11.sp)
+            Text("Daily item and active Discover time limits stop new discovery when reached. No streaks or rewards.", color = Color(0xFF8B8D82), fontSize = 11.sp)
             Button(onClick={
-                prefs.edit().putInt("daily_item_budget",dailyItems).putInt("session_limit",sessionItems).apply()
+                prefs.edit().putInt("daily_item_budget",dailyItems).putInt("daily_time_budget_minutes",dailyMinutes).putInt("session_limit",sessionItems).apply()
                 saved=true
             },colors=ButtonDefaults.buttonColors(containerColor=Color(0xFFC8F23A),contentColor=Color(0xFF0E0F0C))) { Text("SAVE LIMITS") }
             if(saved) Text("Preferences saved on this device.",color=Color(0xFFC8F23A),fontSize=10.sp)
