@@ -83,6 +83,14 @@ object OfflineDownloads {
         val directory = File(context.filesDir, DIRECTORY).apply { mkdirs() }
         val destination = File(directory, "$safeId.${media.extension}")
         val metadata = File(directory, "$safeId.json")
+        val existingMetadata = runCatching { JSONObject(metadata.readText()) }.getOrNull()
+        if (
+            destination.isFile &&
+            destination.length() > 0L &&
+            existingMetadata?.optBoolean("complete", false) == true
+        ) {
+            return UUID.nameUUIDFromBytes("complete:$safeId".toByteArray())
+        }
         val details = JSONObject()
             .put("id", safeId)
             .put("sourceId", id)
@@ -117,7 +125,7 @@ object OfflineDownloads {
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(
             workName(safeId),
-            ExistingWorkPolicy.REPLACE,
+            ExistingWorkPolicy.KEEP,
             request
         )
         return request.id
