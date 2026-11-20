@@ -351,6 +351,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  val context=androidx.compose.ui.platform.LocalContext.current
  var downloads by remember { mutableStateOf<List<OfflineMedia>>(emptyList()) }
  var workInfos by remember { mutableStateOf<List<androidx.work.WorkInfo>>(emptyList()) }
+ var storageBytes by remember{mutableLongStateOf(0L)}
  var resumeMessage by remember{mutableStateOf("")}
  val scope=rememberCoroutineScope()
  LaunchedEffect(context) {
