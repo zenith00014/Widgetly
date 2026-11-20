@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import org.json.JSONObject
 import java.io.BufferedReader
+import java.io.File
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -109,7 +110,7 @@ fun NexusSettingsPanel() {
             text={Text("This removes all Nexus data stored on this device. This cannot be undone unless you exported a backup.")},
             confirmButton={TextButton(onClick={
                 prefs.edit().clear().apply()
-                context.getDir("offline_articles",android.content.Context.MODE_PRIVATE).deleteRecursively()
+                File(context.filesDir,"offline_articles").deleteRecursively()
                 backupStatus="Personal data cleared. Reopen Nexus to start fresh."
                 showClearConfirmation=false
             }) { Text("CLEAR DATA",color=Color(0xFFFF9A80)) }},
