@@ -100,7 +100,7 @@ internal class NexusFtpDataSource : BaseDataSource(true) {
     private var client: FTPClient? = null
     private var stream: InputStream? = null
     private var openedUri: Uri? = null
-    private var remaining = C.LENGTH_UNSET
+    private var remaining: Long = C.LENGTH_UNSET.toLong()
     private var opened = false
 
     override fun open(dataSpec: DataSpec): Long {
@@ -124,9 +124,9 @@ internal class NexusFtpDataSource : BaseDataSource(true) {
             client = ftp
             stream = input
             openedUri = dataSpec.uri
-            remaining = if (dataSpec.length != C.LENGTH_UNSET) dataSpec.length
+            remaining = if (dataSpec.length != C.LENGTH_UNSET.toLong()) dataSpec.length
                 else if (metadata != null && metadata.size >= dataSpec.position) metadata.size - dataSpec.position
-                else C.LENGTH_UNSET
+                else C.LENGTH_UNSET.toLong()
             opened = true
             transferStarted(dataSpec)
             return remaining
@@ -140,10 +140,10 @@ internal class NexusFtpDataSource : BaseDataSource(true) {
     override fun read(buffer: ByteArray, offset: Int, length: Int): Int {
         if (length == 0) return 0
         if (remaining == 0L) return C.RESULT_END_OF_INPUT
-        val allowed = if (remaining == C.LENGTH_UNSET) length else minOf(length.toLong(), remaining).toInt()
+        val allowed = if (remaining == C.LENGTH_UNSET.toLong()) length else minOf(length.toLong(), remaining).toInt()
         val count = stream?.read(buffer, offset, allowed) ?: throw IOException("FTP stream is not open.")
         if (count == -1) return C.RESULT_END_OF_INPUT
-        if (remaining != C.LENGTH_UNSET) remaining -= count.toLong()
+        if (remaining != C.LENGTH_UNSET.toLong()) remaining -= count.toLong()
         bytesTransferred(count)
         return count
     }
