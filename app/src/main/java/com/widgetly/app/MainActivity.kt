@@ -347,28 +347,34 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  val context=androidx.compose.ui.platform.LocalContext.current
  val prefs=remember(context){context.getSharedPreferences("rush_prefs",Context.MODE_PRIVATE)}
  var subscriptions by remember{mutableStateOf(prefs.getStringSet("subscriptions",emptySet())?.toSet()?:emptySet())}
+ var details by remember(channel.channelId){mutableStateOf(channel)}
  var uploads by remember(channel.channelId){mutableStateOf<List<YouTubeSearchResult>>(emptyList())}
- var status by remember(channel.channelId){mutableStateOf("Loading latest uploads…")}
+ var status by remember(channel.channelId){mutableStateOf("Loading channel details and latest uploads…")}
  var loading by remember(channel.channelId){mutableStateOf(false)}
- val subscribed=channel.channelId in subscriptions
+ val subscribed=details.channelId in subscriptions || channel.channelId in subscriptions
  LaunchedEffect(channel.channelId) {
   loading=true
-  try { uploads=withContext(Dispatchers.IO){LiveYouTubeSearch.latestUploads(channel.channelId)};status=if(uploads.isEmpty())"No public uploads were found." else "${uploads.size} latest uploads" }
-  catch(e:Exception){status=e.localizedMessage?:"Could not load channel uploads."}
+  try {
+   val loaded=withContext(Dispatchers.IO){LiveYouTubeSearch.channelDetails(channel)}
+   details=loaded
+   uploads=withContext(Dispatchers.IO){LiveYouTubeSearch.latestUploads(loaded.channelId)}
+   status=if(uploads.isEmpty())"No public uploads were found." else "${uploads.size} latest uploads"
+  }
+  catch(e:Exception){status=e.localizedMessage?:"Could not load channel details or uploads."}
   finally {loading=false}
  }
  Column(Modifier.fillMaxSize().padding(16.dp)) {
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
    Text("← Back",color=muted,modifier=Modifier.clickable{back()}.padding(8.dp))
    Button(onClick={
-    subscriptions=if(subscribed)subscriptions-channel.channelId else subscriptions+channel.channelId
-    if(!subscribed)persistChannelMetadata(prefs,channel)
+    subscriptions=if(subscribed)subscriptions-details.channelId-channel.channelId else subscriptions+details.channelId
+    if(!subscribed)persistChannelMetadata(prefs,details)
     prefs.edit().putStringSet("subscriptions",subscriptions).apply()
    }){Text(if(subscribed)"Subscribed" else "Subscribe")}
   }
-  Text(channel.title,color=ink,fontSize=21.sp,fontWeight=FontWeight.Bold)
-  if(channel.creator.isNotBlank()||channel.videoCount.isNotBlank())Text(listOf(channel.creator,channel.videoCount.takeIf{it.isNotBlank()}).filterNotNull().filter{it.isNotBlank()}.joinToString(" · "),color=muted,fontSize=11.sp)
-  if(channel.description.isNotBlank())Text(channel.description,color=ink.copy(alpha=.82f),fontSize=12.sp,lineHeight=17.sp)
+  Text(details.title,color=ink,fontSize=21.sp,fontWeight=FontWeight.Bold)
+  if(details.creator.isNotBlank()||details.videoCount.isNotBlank())Text(listOf(details.creator,details.videoCount.takeIf{it.isNotBlank()}).filterNotNull().filter{it.isNotBlank()}.joinToString(" · "),color=muted,fontSize=11.sp)
+  if(details.description.isNotBlank())Text(details.description,color=ink.copy(alpha=.82f),fontSize=12.sp,lineHeight=17.sp)
   Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(vertical=10.dp))
   LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)) {
    items(uploads,key={it.videoId}) { video ->
