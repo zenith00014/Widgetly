@@ -224,9 +224,9 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  if(selectedChannel!=null) {
   ChannelDetails(selectedChannel!!,ink,muted,surface,{selectedChannel=null},play)
  } else if(selectedMusicCollection!=null) {
-  CollectionDetails(selectedMusicCollection!!,ink,muted,surface,{selectedMusicCollection=null},play,enqueue)
+  CollectionDetails(selectedMusicCollection!!,ink,muted,surface,{selectedMusicCollection=null},play,enqueue,store)
  } else if(selectedVideoPlaylist!=null) {
-  CollectionDetails(selectedVideoPlaylist!!,ink,muted,surface,{selectedVideoPlaylist=null},play,enqueue)
+  CollectionDetails(selectedVideoPlaylist!!,ink,muted,surface,{selectedVideoPlaylist=null},play,enqueue,store)
  } else {
   Column(Modifier.fillMaxSize().padding(16.dp)) {
    Text("Search YouTube",color=ink,fontSize=20.sp,fontWeight=FontWeight.Bold)
@@ -355,7 +355,8 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
  surface:Color,
  back:()->Unit,
  play:(YouTubeSearchResult)->Unit,
- enqueue:(YouTubeSearchResult)->Unit
+ enqueue:(YouTubeSearchResult)->Unit,
+ store:(YouTubeSearchResult)->Unit
 ){
  val context=androidx.compose.ui.platform.LocalContext.current
  val scope=rememberCoroutineScope()
@@ -413,7 +414,7 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
   if(tracks.isNotEmpty()){
    TextButton(enabled=libraryMessage.isBlank(),onClick={
     val prefs=context.getSharedPreferences("rush_prefs",Context.MODE_PRIVATE)
-    tracks.forEach{track->persistPickMetadata(prefs,track.toPick())}
+    tracks.forEach(store)
     val created=PlaylistStore.create(prefs,collection.title,tracks.first().videoId)
     val playlistId=created.last().id
     tracks.drop(1).forEach{PlaylistStore.add(prefs,playlistId,it.videoId)}
