@@ -45,3 +45,15 @@ Rush uses the community-maintained Android FFmpegKit-compatible audio package to
 - The complete LGPL-3.0 license text is included at `LICENSES/FFmpegKit-Maintained-LGPL-3.0.txt`.
 
 The package is an independent community-maintained continuation, not affiliated with the original FFmpegKit author. See the upstream project for its build, component and licensing details.
+
+
+## LibreTube SABR playback source
+
+Rush includes a port of the LibreTube SABR / UMP adaptive media source and its protobuf schemas from the pinned LibreTube commit:
+
+- Upstream: https://github.com/Libre-tube/LibreTube/tree/b9a486e27670da6ddce310523f00701516b7d1d8
+- Copied player source: `app/src/main/java/com/github/libretube/player/`
+- Protocol definitions: `app/src/main/proto/`
+- License: GPL-3.0-or-later; the complete GPL license is included in `LICENSES/LibreTube-GPL-3.0-or-later.txt`.
+
+The app-specific code adapts NewPipeExtractor metadata to the SABR manifest and routes those media items through Media3. Keep these notices and corresponding source available when redistributing.

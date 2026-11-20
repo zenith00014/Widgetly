@@ -63,3 +63,10 @@ class PoTokenGenerator(private val appContext: Context) : PoTokenProvider {
 
     companion object { private const val TAG = "RushPoToken" }
 }
+
+/** Shared by NewPipeExtractor and SABR streaming requests. */
+object RushPoTokenProvider {
+    val instance: PoTokenGenerator by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+        PoTokenGenerator(com.widgetly.app.RushApplication.instance.applicationContext)
+    }
+}

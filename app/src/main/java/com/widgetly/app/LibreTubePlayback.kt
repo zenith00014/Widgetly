@@ -63,7 +63,7 @@ object LibreTubePlayback {
                     }
                 })
                 org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeStreamExtractor.setPoTokenProvider(
-                    com.widgetly.app.potoken.PoTokenGenerator(RushApplication.instance)
+                    com.widgetly.app.potoken.RushPoTokenProvider.instance
                 )
                 initialized = true
             }
@@ -93,6 +93,11 @@ object LibreTubePlayback {
         }
         val hasProgressiveVideo = info.videoStreams.any { it.isUrl && it.content.isNotBlank() }
         if (!preferMp4 && (preferDash || (allowDashFallback && !hasProgressiveVideo))) {
+            val sabrManifest = com.github.libretube.player.manifest.SabrManifestFactory.from(videoId, info)
+            if (sabrManifest != null) {
+                com.github.libretube.player.manifest.SabrManifestStore.put(videoId, sabrManifest)
+                return ResolvedMedia("rush-sabr://youtube/$videoId", "sabr", "application/x-rush-sabr", "Adaptive SABR")
+            }
             if (
                 info.dashMpdUrl.isNotBlank() &&
                 info.videoOnlyStreams.any { it.isUrl && it.content.isNotBlank() } &&

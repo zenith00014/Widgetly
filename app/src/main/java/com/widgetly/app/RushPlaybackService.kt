@@ -1,5 +1,7 @@
 package com.widgetly.app
 
+import com.github.libretube.player.RushMediaSourceFactory
+
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
@@ -31,7 +33,7 @@ class RushPlaybackService : MediaSessionService() {
                 )
             )
         val dataSourceFactory = androidx.media3.datasource.DefaultDataSource.Factory(this, httpFactory)
-        val mediaSourceFactory = androidx.media3.exoplayer.source.DefaultMediaSourceFactory(dataSourceFactory)
+        val mediaSourceFactory = RushMediaSourceFactory(dataSourceFactory)
         val player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(mediaSourceFactory)
             .setWakeMode(androidx.media3.common.C.WAKE_MODE_LOCAL)
