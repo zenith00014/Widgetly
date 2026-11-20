@@ -173,7 +173,7 @@ internal fun NexusMediaPage() {
             Column(Modifier.fillMaxWidth().background(PipedPanel, RoundedCornerShape(12.dp)).padding(10.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 Text(if (audioOnly) "NOW PLAYING · AUDIO" else "NOW PLAYING · VIDEO", color = PipedLime, fontSize = 9.sp, fontWeight = FontWeight.Bold)
                 Text(selected!!.title, color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 2)
-                if (!audioOnly) AndroidView(Modifier.fillMaxWidth().aspectRatio(16f / 9f), factory = { ctx -> PlayerView(ctx).apply { player = this@NexusMediaPagePlayerPlaceholder } })
+                if (!audioOnly) AndroidView(Modifier.fillMaxWidth().aspectRatio(16f / 9f), factory = { ctx -> PlayerView(ctx).apply { this.player = player; useController = true } }, update = { it.player = player })
                 Slider(value = if (duration > 0) position.coerceIn(0, duration).toFloat() else 0f,
                     onValueChange = { position = it.toLong() },
                     onValueChangeFinished = { if (duration > 0) player.seekTo(position.coerceIn(0, duration)) },
