@@ -434,13 +434,14 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   items(downloads,key={it.id}) { media ->
    val work=working[media.id]
    val progress=work?.progress?.getInt("progress",0)?:0
+   val downloadedBytes=work?.progress?.getLong("bytes",0L)?:0L
    val active=work?.state==androidx.work.WorkInfo.State.RUNNING || work?.state==androidx.work.WorkInfo.State.ENQUEUED || work?.state==androidx.work.WorkInfo.State.BLOCKED
    Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
     Text(media.title,color=ink,fontSize=14.sp,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis)
     Text(media.creator+" · "+(if(media.isAudio)"Audio" else "Video")+" · "+media.quality+" · ."+media.extension,color=muted,fontSize=10.sp,maxLines=2)
     Text(when {
      media.complete -> "Ready offline · ${android.text.format.Formatter.formatShortFileSize(context,media.file.length())}"
-     work?.state==androidx.work.WorkInfo.State.RUNNING -> work.progress.getString("stage") ?: "Downloading · $progress%"
+     work?.state==androidx.work.WorkInfo.State.RUNNING -> work.progress.getString("stage") ?: "Downloading · $progress% · ${android.text.format.Formatter.formatShortFileSize(context,downloadedBytes)}"
      work?.state==androidx.work.WorkInfo.State.ENQUEUED || work?.state==androidx.work.WorkInfo.State.BLOCKED -> "Queued"
      work?.state==androidx.work.WorkInfo.State.FAILED || work?.state==androidx.work.WorkInfo.State.CANCELLED -> "Interrupted · resume to continue"
      else -> "Preparing download"
