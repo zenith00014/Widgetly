@@ -33,9 +33,9 @@ private val mutedDark=Color(0xFFBDB3CA)
 
 private data class Pick(val id:String,val title:String,val creator:String,val music:Boolean,val colors:List<Color>,val reason:String,val localPath:String?=null)
 private data class SubscribedChannel(val id:String,val title:String,val subscriberCount:String)
-class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);setContent{RushApp(getSharedPreferences("rush_prefs",Context.MODE_PRIVATE))}}}
-@Composable private fun RushApp(prefs:android.content.SharedPreferences){
- var tab by remember{mutableStateOf("Home")};var light by remember{mutableStateOf(prefs.getBoolean("light",false))}
+class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:Bundle?){super.onCreate(savedInstanceState);setContent{RushApp(getSharedPreferences("rush_prefs",Context.MODE_PRIVATE),intent.getBooleanExtra("open_downloads",false))}}}
+@Composable private fun RushApp(prefs:android.content.SharedPreferences,openDownloads:Boolean=false){
+ var tab by remember{mutableStateOf(if(openDownloads)"Downloads" else "Home")};var light by remember{mutableStateOf(prefs.getBoolean("light",false))}
  var active by remember{mutableStateOf<Pick?>(null)}
  var playbackQueue by remember{mutableStateOf<List<Pick>>(emptyList())}
  var queuedIds by remember{mutableStateOf(QueueStore.load(prefs))}
