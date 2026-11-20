@@ -288,7 +288,16 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
        if(result.isChannel&&result.description.isNotBlank())Text(result.description,color=muted,fontSize=10.sp,maxLines=2,overflow=TextOverflow.Ellipsis)
       }
       if(result.isChannel||result.isCollection) Text("Open",color=magenta,fontSize=12.sp)
-      else Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result)}.padding(4.dp));Text("＋",color=magenta,modifier=Modifier.clickable{playlistTarget=result}.padding(4.dp));Text("Queue ↥",color=magenta,fontSize=10.sp,modifier=Modifier.clickable{enqueue(result)}.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
+      else Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result)}.padding(4.dp));Text("＋",color=magenta,modifier=Modifier.clickable{playlistTarget=result}.padding(4.dp));Text("Queue ↥",color=magenta,fontSize=10.sp,modifier=Modifier.clickable{enqueue(result)}.padding(4.dp));Text("⇩",color=magenta,fontSize=14.sp,modifier=Modifier.clickable{
+       scope.launch{
+        status="Preparing download…"
+        try{
+         val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(result.videoId,result.isMusic,preferMp4=!result.isMusic)}
+         withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,result.videoId,result.title,result.creator,result.isMusic,resolved,preferMp4=!result.isMusic)}
+         status="Download queued: "+result.title
+        }catch(e:Exception){status=e.localizedMessage?:"Could not queue this download."}
+       }
+      }.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
      }
     }
     if(continuation!=null||loadingMore)item {
