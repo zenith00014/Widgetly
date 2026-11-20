@@ -418,6 +418,16 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    if(!audio) Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",720 to "720p",480 to "480p",360 to "360p").forEach{(height,label)->FilterChip(selected=quality==height,onClick={quality=height},label={Text(label)})}}
    BasicTextField(url,{url=it},modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(surface).padding(15.dp),textStyle=TextStyle(color=ink),singleLine=true,decorationBox={inner->if(url.isEmpty())Text("YouTube URL or video ID",color=muted);inner()})
   }
+  Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically){
+   Text("Speed",color=muted,fontSize=10.sp)
+   listOf(0.75f,1f,1.25f,1.5f,2f).forEach{value->
+    FilterChip(selected=speed==value,onClick={speed=value;controller?.setPlaybackParameters(androidx.media3.common.PlaybackParameters(value))},label={Text("${value}x",fontSize=10.sp)})
+   }
+  }
+  FilterChip(selected=captionsEnabled,onClick={
+   captionsEnabled=!captionsEnabled
+   controller?.let{it.trackSelectionParameters=it.trackSelectionParameters.buildUpon().setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT,!captionsEnabled).build()}
+  },label={Text(if(captionsEnabled)"Captions enabled when available" else "Captions off")})
   Button(onClick={
    val activePlayer=controller
    if(activePlayer==null){status="Connecting to playback service…"}
