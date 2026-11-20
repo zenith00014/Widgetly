@@ -373,20 +373,42 @@ private fun LibraryPage(onOpen:(NexusItem)->Unit) {
 
 @Composable
 private fun NexusViewer(item:NexusItem,onBack:()->Unit) {
+    val context=LocalContext.current
+    val scope=rememberCoroutineScope()
+    var offlineVersion by remember(item.id) { mutableIntStateOf(0) }
+    var savingOffline by remember { mutableStateOf(false) }
+    var offlineStatus by remember { mutableStateOf<String?>(null) }
+    val hasOffline = remember(item.id,offlineVersion) { item.kind==ContentKind.NEWS && NexusOfflineCache.has(context,item.id) }
     Column(Modifier.fillMaxSize()) {
         Row(Modifier.fillMaxWidth().background(Panel).padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
             Text("← BACK",color=Lime,fontWeight=FontWeight.Bold,modifier=Modifier.clickable(onClick=onBack).padding(6.dp))
             Spacer(Modifier.width(10.dp)); Text(item.source.uppercase(),color=Muted,fontSize=10.sp)
         }
         Text(item.title,color=Paper,fontWeight=FontWeight.Bold,fontSize=18.sp,modifier=Modifier.padding(14.dp))
-        if(item.kind==ContentKind.NEWS) Text(item.description,color=Muted,fontSize=12.sp,modifier=Modifier.padding(horizontal=14.dp))
-        EmbeddedMedia(item,Modifier.weight(1f).fillMaxWidth())
+        if(item.kind==ContentKind.NEWS) {
+            Text(item.description,color=Muted,fontSize=12.sp,modifier=Modifier.padding(horizontal=14.dp))
+            Row(Modifier.fillMaxWidth().padding(horizontal=12.dp),verticalAlignment=Alignment.CenterVertically) {
+                TextButton(onClick={
+                    scope.launch {
+                        savingOffline=true
+                        val ok=NexusOfflineCache.save(context,item)
+                        savingOffline=false
+                        offlineVersion++
+                        offlineStatus=if(ok) "Saved as a text-only offline article." else "Could not extract readable text from this publisher."
+                    }
+                },enabled=!savingOffline) { Text(if(savingOffline) "SAVING…" else if(hasOffline) "UPDATE OFFLINE COPY" else "SAVE OFFLINE",color=Lime,fontSize=10.sp) }
+                if(hasOffline) TextButton(onClick={NexusOfflineCache.remove(context,item.id);offlineVersion++;offlineStatus="Offline copy removed."}) { Text("REMOVE COPY",color=Muted,fontSize=9.sp) }
+                if(offlineStatus!=null) Text(offlineStatus!!,color=Muted,fontSize=9.sp,maxLines=2)
+            }
+        }
+        EmbeddedMedia(item,Modifier.weight(1f).fillMaxWidth(),offlineVersion)
     }
 }
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun EmbeddedMedia(item:NexusItem,modifier:Modifier=Modifier) {
+private fun EmbeddedMedia(item:NexusItem,modifier:Modifier=Modifier,refreshKey:Int=0) {
+    val context=LocalContext.current
     val target=when(item.kind) {
         ContentKind.VIDEO -> {
             val id=Regex("[?&]v=([^&]+)").find(item.url)?.groupValues?.get(1) ?: Regex("youtu\\.be/([^?&]+)").find(item.url)?.groupValues?.get(1)
@@ -395,11 +417,20 @@ private fun EmbeddedMedia(item:NexusItem,modifier:Modifier=Modifier) {
         ContentKind.MOVIE -> "https://archive.org/embed/${item.id.removePrefix("ia:")}"
         ContentKind.NEWS -> item.url
     }
+    val offlineHtml=if(item.kind==ContentKind.NEWS) NexusOfflineCache.read(context,item.id) else null
+    val targetKey=offlineHtml?.hashCode() ?: target.hashCode()+refreshKey
     AndroidView(modifier=modifier,factory={ctx ->
         WebView(ctx).apply {
-            settings.javaScriptEnabled=true; settings.domStorageEnabled=true
+            settings.javaScriptEnabled=offlineHtml==null
+            settings.domStorageEnabled=true
             settings.mediaPlaybackRequiresUserGesture=true; settings.javaScriptCanOpenWindowsAutomatically=false
-            webChromeClient=WebChromeClient(); webViewClient=WebViewClient(); loadUrl(target)
+            if(item.kind==ContentKind.NEWS) settings.cacheMode=android.webkit.WebSettings.LOAD_CACHE_ELSE_NETWORK
+            webChromeClient=WebChromeClient(); webViewClient=WebViewClient()
+            if(offlineHtml!=null) loadDataWithBaseURL(item.url,offlineHtml,"text/html","UTF-8",null) else loadUrl(target)
+            tag=targetKey
         }
-    },update={view -> if(view.tag!=target) { view.tag=target; view.loadUrl(target) }})
+    },update={view -> if(view.tag!=targetKey) {
+        view.tag=targetKey
+        if(offlineHtml!=null) view.loadDataWithBaseURL(item.url,offlineHtml,"text/html","UTF-8",null) else view.loadUrl(target)
+    }})
 }
