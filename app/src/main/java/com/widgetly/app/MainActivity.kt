@@ -174,7 +174,7 @@ private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
 }
 
 @Composable
-private fun ContentCard(item:NexusItem,onClick:()->Unit) {
+private fun ContentCard(item:NexusItem,onClick:()->Unit,onChanged:()->Unit={}) {
     val context = LocalContext.current
     var saved by remember(item.id) { mutableStateOf(NexusLocalStore.isSaved(context, item.id)) }
     Column {
@@ -186,7 +186,7 @@ private fun ContentCard(item:NexusItem,onClick:()->Unit) {
             Text(item.title,color=Paper,fontSize=14.sp,fontWeight=FontWeight.SemiBold,maxLines=3)
             Text(item.description.ifBlank { item.published },color=Muted,fontSize=10.sp,maxLines=2)
             Text(when(item.kind){ContentKind.VIDEO->"▶ PLAY INSIDE NEXUS";ContentKind.NEWS->"READ INSIDE NEXUS";ContentKind.MOVIE->"▶ WATCH INSIDE NEXUS"},color=Lime,fontSize=9.sp,fontWeight=FontWeight.Bold)
-            TextButton(onClick={ saved = if(saved) { NexusLocalStore.remove(context,item.id); false } else { NexusLocalStore.save(context,item); true } }) { Text(if(saved) "SAVED ✓" else "+ SAVE",color=if(saved) Lime else Muted,fontSize=9.sp) }
+            TextButton(onClick={ saved = if(saved) { NexusLocalStore.remove(context,item.id); false } else { NexusLocalStore.save(context,item); true }; onChanged() }) { Text(if(saved) "SAVED ✓" else "+ SAVE",color=if(saved) Lime else Muted,fontSize=9.sp) }
         }
     }
     HorizontalDivider(color=Line,thickness=1.dp)
@@ -285,7 +285,7 @@ private fun LibraryPage(onOpen:(NexusItem)->Unit) {
         }
         if(savedItems.isEmpty()) Slab { Text("NOTHING SAVED YET",color=Paper,fontWeight=FontWeight.Bold); Text("Use + SAVE on any video, article or movie card.",color=Muted,fontSize=12.sp) }
         else LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=18.dp)) {
-            items(savedItems,key={it.id}) { item -> ContentCard(item) { onOpen(item) } }
+            items(savedItems,key={it.id}) { item -> ContentCard(item,{onOpen(item)},{refresh++}) }
         }
     }
 }
