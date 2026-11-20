@@ -809,7 +809,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     scope.launch{
      try{
       val refreshed=withContext(Dispatchers.IO){
-       val resolved=LibreTubePlayback.resolveMedia(input,audioOnly,maxHeight,maxBitrate,preferMp4,false)
+       val resolved=LibreTubePlayback.resolveMedia(input,audioOnly,maxHeight,maxBitrate,preferMp4,!audioOnly&&!preferMp4)
        val captions=if(audioOnly)emptyList() else resolved.subtitles
        val subtitleConfigs=captions.map{subtitle->
         androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
@@ -864,7 +864,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    try{
     suspend fun prepareQueueItem(queued:Pick):androidx.media3.common.MediaItem=withContext(Dispatchers.IO){
      val localFile=queued.localPath?.let{java.io.File(it)}?.takeIf{it.isFile}
-     val resolved=if(localFile==null)LibreTubePlayback.resolveMedia(queued.sourceId?:queued.id,queued.music,preferDash=false) else null
+     val resolved=if(localFile==null)LibreTubePlayback.resolveMedia(queued.sourceId?:queued.id,queued.music,preferDash=!queued.music,allowDashFallback=!queued.music) else null
      val uri=localFile?.toURI()?.toString()?:resolved!!.url
      val metadata=androidx.media3.common.MediaMetadata.Builder().setTitle(queued.title).setArtist(queued.creator).build()
      val subtitleConfigs=resolved?.subtitles.orEmpty().map{subtitle->
@@ -959,7 +959,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      val mediaItem=if(localFileAvailable){
       androidx.media3.common.MediaItem.Builder().setMediaId(playingPick.id).setUri(java.io.File(playingPick.localPath!!).toURI().toString()).setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(playingPick.title).setArtist(playingPick.creator).build()).build()
      }else{
-      val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,false)}
+      val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,false,!audio&&!mp4Format)}
       resolvedQuality=resolved.qualityLabel
       val captions=if(audio)emptyList() else resolved.subtitles
       val subtitleConfigs=captions.map{subtitle->
