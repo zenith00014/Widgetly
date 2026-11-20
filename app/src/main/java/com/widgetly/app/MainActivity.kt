@@ -178,6 +178,11 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  var loading by remember { mutableStateOf(false) }
  var selectedChannel by remember { mutableStateOf<YouTubeSearchResult?>(null) }
  val scope= rememberCoroutineScope()
+ val context=androidx.compose.ui.platform.LocalContext.current
+ val prefs=remember(context){context.getSharedPreferences("rush_prefs",Context.MODE_PRIVATE)}
+ var playlists by remember{mutableStateOf(PlaylistStore.load(prefs))}
+ var playlistTarget by remember{mutableStateOf<YouTubeSearchResult?>(null)}
+ var newPlaylistName by remember{mutableStateOf("")}
  if(selectedChannel!=null) {
   ChannelDetails(selectedChannel!!,ink,muted,surface,{selectedChannel=null},play)
  } else {
@@ -210,11 +215,32 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
        Text(if(result.isChannel)result.creator.ifBlank{"YouTube channel"} else result.creator + if(result.duration.isNotBlank()) " · ${result.duration}" else "",color=muted,fontSize=11.sp,maxLines=1)
       }
       if(result.isChannel) Text("Open",color=magenta,fontSize=12.sp)
-      else Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result.videoId)}.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
+      else Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(result.videoId in saved)"♥" else "♡",color=magenta,modifier=Modifier.clickable{save(result.videoId)}.padding(4.dp));Text("＋",color=magenta,modifier=Modifier.clickable{playlistTarget=result}.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
      }
     }
    }
   }
+ }
+ if(playlistTarget!=null) {
+  AlertDialog(
+   onDismissRequest={playlistTarget=null;newPlaylistName=""},
+   title={Text("Add to playlist")},
+   text={
+    Column(verticalArrangement=Arrangement.spacedBy(6.dp)){
+     OutlinedTextField(value=newPlaylistName,onValueChange={newPlaylistName=it},label={Text("New playlist name")},singleLine=true)
+     if(playlists.isEmpty())Text("Create your first playlist above.",color=muted,fontSize=11.sp)
+     playlists.forEach{playlist->TextButton(onClick={playlists=PlaylistStore.add(prefs,playlist.id,playlistTarget!!.videoId);playlistTarget=null}){Text("Add to ${playlist.name}",color=ink)}}
+    }
+   },
+   confirmButton={TextButton(onClick={
+    val target=playlistTarget
+    if(target!=null&&newPlaylistName.isNotBlank()){
+     playlists=PlaylistStore.create(prefs,newPlaylistName,target.videoId)
+     newPlaylistName="";playlistTarget=null
+    }
+   },enabled=newPlaylistName.isNotBlank()){Text("Create and add")}},
+   dismissButton={TextButton(onClick={playlistTarget=null;newPlaylistName=""}){Text("Close")}}
+  )
  }
 }
 
