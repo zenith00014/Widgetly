@@ -336,18 +336,6 @@ private suspend fun queueVideoDownloads(context:Context,tracks:List<YouTubeSearc
  return queued
 }
 
-private suspend fun queueVideoDownloads(context:Context,tracks:List<YouTubeSearchResult>):Int{
- var queued=0
- for(track in tracks){
-  try{
-   val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.videoId,false,preferMp4=true)}
-   withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,track.videoId,track.title,track.creator,false,media,preferMp4=true)}
-   queued++
-  }catch(_:Exception){}
- }
- return queued
-}
-
 private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearchResult>,mp3:Boolean):Int{
  var queued=0
  for(track in tracks){
