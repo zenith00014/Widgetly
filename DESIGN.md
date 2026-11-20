@@ -1,7 +1,10 @@
-# Nexus Design System — SLAB//GLASS
+# Nexus — Personal SLAB//GLASS UI
 
-## Direction
-A terminal slab: hard-edged brutalist blocks establish hierarchy, with glass reserved for transient overlays. The app should feel deliberate and calm, not like a social feed.
+## Product context
+Designed for one owner, on one Android phone. The UI should optimize for frequent personal tasks, not public onboarding, retention, growth, monetization, or broad device support.
+
+## Visual direction
+A terminal slab: hard-edged blocks establish hierarchy, with glass reserved for transient overlays. Calm, compact, tactile, and readable.
 
 ## Tokens
 | Token | Dark |
@@ -12,24 +15,24 @@ A terminal slab: hard-edged brutalist blocks establish hierarchy, with glass res
 | Muted | #8B8D82 |
 | Divider | #3A3C34 |
 | Accent | #C8F23A |
-| Warning | #FFB020 |
 
-## Components
-- Zero-radius slabs and rectangular buttons.
-- 2px structural borders; 1px dividers.
-- Hard offset shadows only on raised interactive blocks.
-- Monospace for labels, status and compact data; readable sans-serif for body copy.
-- Minimum 48dp touch targets and clear TalkBack descriptions.
-- Glass only for overlays; never use translucent glass as a content-card background.
-- Use short, low-motion transitions; respect Android reduced-motion settings.
+## UI rules
+- Zero-radius slabs and rectangular controls.
+- Keep primary actions reachable on a phone.
+- Use readable sans-serif body text and compact technical labels.
+- Load thumbnails lazily; keep layouts stable while images load.
+- Use short transitions and respect reduced-motion settings.
+- Avoid excessive settings and decorative UI.
+- Show clear loading, empty, and offline states.
 
-## Content behavior
-- Every Discover category is a finite session with a visible end.
-- Autoplay is disabled; media starts only after a user tap.
-- Images load lazily and have text fallbacks.
-- Cards identify their source.
-- PREVIEW and LIVE messaging states must never be conflated.
-- Empty, loading, offline and error states must be explicit.
+## Behavior
+- Discover categories are finite sessions with a visible end.
+- Autoplay is disabled; playback starts only after a tap.
+- Save, dismiss, and mark-read actions should be quick.
+- Inbox distinguishes notification PREVIEW from a real LIVE conversation.
+- Quick reply appears only when Android exposes a compatible action.
+- Contact shortcuts should open the owner's existing communication app when no official integration exists.
+- Store personal preferences locally unless the owner explicitly requests sync.
 
 ## Navigation
-Four primary tabs: HOME, DISCOVER, INBOX, LIBRARY. A media or article viewer temporarily replaces the tab body and has a clear BACK action that returns to the previous list.
+HOME, DISCOVER, INBOX, LIBRARY. The content viewer has an obvious BACK action. Add a dedicated Contacts view only when it is useful for the owner's actual workflow; do not create public profiles or directories.
