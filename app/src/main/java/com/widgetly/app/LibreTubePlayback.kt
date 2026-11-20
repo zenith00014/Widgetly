@@ -70,7 +70,7 @@ object LibreTubePlayback {
     fun resolve(input: String, audioOnly: Boolean): String =
         resolveMedia(input, audioOnly).url
 
-    fun resolveMedia(input: String, audioOnly: Boolean, maxHeight: Int? = null, maxAudioBitrate: Int? = null, preferMp4: Boolean = false): ResolvedMedia {
+    fun resolveMedia(input: String, audioOnly: Boolean, maxHeight: Int? = null, maxAudioBitrate: Int? = null, preferMp4: Boolean = false, preferDash: Boolean = false): ResolvedMedia {
         initialize()
         val videoId = extractVideoId(input)
         val info = StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId")
@@ -86,6 +86,20 @@ object LibreTubePlayback {
                 format?.suffix?.takeIf { it.isNotBlank() } ?: "m4a",
                 format?.mimeType?.takeIf { it.isNotBlank() } ?: if (format?.suffix.equals("webm", ignoreCase = true)) "audio/webm" else "audio/mp4",
                 "${stream.averageBitrate / 1000} kbps"
+            )
+        }
+        if (
+            preferDash && !preferMp4 &&
+            info.dashMpdUrl.isNotBlank() &&
+            info.videoOnlyStreams.any { it.isUrl && it.content.isNotBlank() } &&
+            info.audioStreams.any { it.isUrl && it.content.isNotBlank() }
+        ) {
+            return ResolvedMedia(
+                info.dashMpdUrl,
+                "mpd",
+                "application/dash+xml",
+                "Adaptive",
+                runCatching { mapSubtitles(info) }.getOrDefault(emptyList())
             )
         }
         val formatStreams = if (preferMp4) {
