@@ -101,7 +101,7 @@ private fun HomePage(onDiscover:()->Unit,onInbox:()->Unit,onLibrary:()->Unit,onO
         item { SectionLabel("A FEW GOOD VIDEOS","MAX 3") }
         if(loading) item { Text("Loading selected channels…",color=Muted,fontSize=12.sp) }
         if(!loading && videos.isEmpty()) item { Text("Video shelf unavailable. Open Discover to retry.",color=Muted,fontSize=12.sp) }
-        items(videos,key={it.id}) { ContentCard(it) { onOpen(it) } }
+        items(videos,key={it.id}) { ContentCard(it,{onOpen(it)}) }
         item { Text("CHANNEL RSS  /  EDITORIAL SOURCES  /  PUBLIC CATALOGS",color=Muted,fontSize=9.sp) }
     }
 }
@@ -163,7 +163,7 @@ private fun DiscoverPage(onOpen:(NexusItem)->Unit) {
                 OutlinedButton(onClick={refresh++}) { Text("TRY AGAIN") }
             }
             else -> LazyColumn(Modifier.fillMaxSize().padding(horizontal=14.dp),verticalArrangement=Arrangement.spacedBy(9.dp),contentPadding=PaddingValues(vertical=12.dp)) {
-                items(data.take(sessionLimit),key={it.id}) { ContentCard(it) { onOpen(it) } }
+                items(data.take(sessionLimit),key={it.id}) { ContentCard(it,{onOpen(it)}) }
                 item { Slab {
                     Text("END OF SESSION",color=Lime,fontWeight=FontWeight.Bold,fontSize=12.sp)
                     Text("You've reached the end of this set. Save an item or close Discover.",color=Muted,fontSize=12.sp)
