@@ -3,6 +3,8 @@ package com.widgetly.app
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.Intent
+import android.app.PendingIntent
 import android.os.Build
 import android.content.pm.ServiceInfo
 import androidx.core.app.NotificationCompat
@@ -313,16 +315,26 @@ class OfflineDownloadWorker(
                     )
                 )
             }
+            val notificationId = (id.hashCode() and 0x7fffffff).coerceAtLeast(1)
+            val openDownloads = Intent(context, MainActivity::class.java)
+                .putExtra("open_downloads", true)
+                .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
+            val contentIntent = PendingIntent.getActivity(
+                context,
+                notificationId,
+                openDownloads,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
             val notification = NotificationCompat.Builder(context, DOWNLOAD_CHANNEL)
                 .setSmallIcon(android.R.drawable.stat_sys_download)
                 .setContentTitle(if (converting) "Converting to MP3" else "Downloading media")
                 .setContentText(title)
+                .setContentIntent(contentIntent)
                 .setProgress(100, progress.coerceIn(0, 100), converting)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)
                 .setPriority(NotificationCompat.PRIORITY_LOW)
                 .build()
-            val notificationId = (id.hashCode() and 0x7fffffff).coerceAtLeast(1)
             return ForegroundInfo(
                 notificationId,
                 notification,
