@@ -96,6 +96,7 @@ private fun NexusApp() {
 
 @Composable
 private fun HomePage(onDiscover:()->Unit,onInbox:()->Unit,onLibrary:()->Unit,onOpen:(NexusItem)->Unit) {
+    val context = LocalContext.current
     var videos by remember { mutableStateOf<List<NexusItem>>(emptyList()) }
     var loading by remember { mutableStateOf(true) }
     LaunchedEffect(Unit) { videos=runCatching { NexusContentRepository.videos(context).take(3) }.getOrDefault(emptyList()); loading=false }
