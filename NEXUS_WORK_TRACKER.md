@@ -16,7 +16,7 @@ Nexus is a private, single-owner Android app. Keep it native, local-first, light
 - [ ] Fix any compile/runtime errors found by build and device testing.
 - [ ] Verify Discover feeds, thumbnails, embedded video/article/movie viewing, and back navigation.
 - [x] Improve Inbox: search, app filters, clear individual/all history, timestamps, and expired-reply fallback.
-- [ ] Make Saved Library refresh and item removal reliable; handle missing/broken saved URLs.
+- [ ] Make Saved Library refresh and item removal reliable; handle missing/broken saved URLs.\n- [x] Replace Beeper launcher with an in-app Matrix client for sign-in, joined rooms, direct-room creation, message history and text sending (homeserver/bridge availability still requires setup).\n- [x] Replace LibreTube launcher with an in-app Piped-compatible YouTube/music search and Media3 playback client (public API instance and real-device playback need verification).
 
 ### P1 — Personal media and communication
 - [x] Music: local audio picker, saved track list, playback, pause/resume, seek, next/previous. Background notification controls remain a separate enhancement.
@@ -38,8 +38,8 @@ Nexus is a private, single-owner Android app. Keep it native, local-first, light
 - [x] Update README and this tracker with verified implementation and build status.
 
 ## Constraints and integration notes
-- Notification previews are not full chat synchronization. Quick reply works only while a compatible Android RemoteInput action is available; otherwise open the original app.
-- YouTube embeds may show YouTube ads. Nexus must not claim to remove provider ads.
+- The Matrix DM client is not a Beeper API clone. Third-party network access requires a homeserver and working bridges; notification previews remain separate from full chat synchronization.
+- Nexus's in-app YouTube/music client uses a Piped-compatible API endpoint. Availability depends on the selected instance and upstream extraction support; do not claim permanent ad-free availability.
 - Only list films with source/rights information; Internet Archive availability alone does not prove public-domain status.
 - Local music uses files the owner selects. Spotify remains an official-app/deep-link integration unless authorized APIs and account rules permit more.
 - Prefer Android system pickers/intents and local storage over broad permissions or backend services.
