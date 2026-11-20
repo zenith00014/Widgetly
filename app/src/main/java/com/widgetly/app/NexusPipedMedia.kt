@@ -233,7 +233,7 @@ internal fun NexusPipedInlinePlayer(url: String, title: String) {
     DisposableEffect(player) { onDispose { player.release() } }
     Column(Modifier.fillMaxWidth().padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, color = Color.White, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-        AndroidView(Modifier.fillMaxWidth().aspectRatio(16f / 9f), factory = { ctx -> PlayerView(ctx).apply { this.player = player; useController = true } }, update = { it.player = player })
+        AndroidView(factory = { ctx -> PlayerView(ctx).apply { this.player = player; useController = true } }, modifier = Modifier.fillMaxWidth().aspectRatio(16f / 9f), update = { view -> view.player = player })
         if (streamUrl == null && error == null) LinearProgressIndicator(Modifier.fillMaxWidth(), color = PipedLime)
         error?.let { Text(it, color = Color(0xFFFF9A80), fontSize = 11.sp) }
     }
