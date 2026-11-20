@@ -82,6 +82,14 @@ private val NexusDarkColors = darkColorScheme(
     tertiary = NexusAmber
 )
 
+private val NexusShapes = Shapes(
+    extraSmall = RectangleShape,
+    small = RectangleShape,
+    medium = RectangleShape,
+    large = RectangleShape,
+    extraLarge = RectangleShape
+)
+
 private val NexusLightColors = lightColorScheme(
     primary = Color(0xFF596B3D),
     onPrimary = Color.White,
@@ -211,7 +219,10 @@ private fun NexusApp() {
         if (playerType.isNotBlank()) closePlayer() else showSettings = false
     }
 
-    MaterialTheme(colorScheme = if (useDark) NexusDarkColors else NexusLightColors) {
+    MaterialTheme(
+        colorScheme = if (useDark) NexusDarkColors else NexusLightColors,
+        shapes = NexusShapes
+    ) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(modifier = Modifier.fillMaxSize()) {
                 TopBar(
