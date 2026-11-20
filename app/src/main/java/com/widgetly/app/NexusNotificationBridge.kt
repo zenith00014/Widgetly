@@ -25,7 +25,7 @@ object NexusNotificationBridge {
             val fillIn = Intent()
             val results = android.os.Bundle().apply { putCharSequence(remoteInput.resultKey, message) }
             RemoteInput.addResultsToIntent(arrayOf(remoteInput), fillIn, results)
-            action.actionIntent.send(sbn.notification.contentIntent?.creatorPackage?.let { null }, 0, fillIn)
+            action.actionIntent.send(null, 0, fillIn)
             true
         }.getOrDefault(false)
     }
