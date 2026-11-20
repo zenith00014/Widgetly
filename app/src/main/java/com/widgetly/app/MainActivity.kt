@@ -154,10 +154,10 @@ private fun open(p:Pick,cb:(Pick)->Unit){cb(p)}
  LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(10.dp)){
   item{Shelf("Your shelf","Saved items",ink)}
   if(kept.isEmpty())item{Text("Nothing here yet. Use the heart in any player to save it.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(18.dp))}
-  items(kept){CardRow(it,ink,muted,surface,saved,{play(it.id)},{remove(it.id)})}
+  items(kept){pick->CardRow(pick,ink,muted,surface,saved,{play(pick.id)},{remove(pick.id)})}
   item{Shelf("Recently played","History",ink)}
   if(recent.isEmpty())item{Text("Your listening and viewing history will appear here.",color=muted)}
-  items(recent){CardRow(it,ink,muted,surface,saved,{play(it.id)},{})}
+  items(recent){pick->CardRow(pick,ink,muted,surface,saved,{play(pick.id)},{})}
  }
 }
 @Composable private fun RushPlayer(item:Pick,light:Boolean,back:()->Unit){
