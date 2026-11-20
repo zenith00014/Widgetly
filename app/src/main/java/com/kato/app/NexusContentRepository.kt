@@ -38,7 +38,7 @@ data class NexusMovie(
     val licenseUrl: String,
     val thumbnail: String
 ) {
-    val url: String get() = "https://archive.org/details/$identifier"
+    val url: String get() = "https://archive.org/embed/$identifier"
 }
 
 object NexusContentRepository {
@@ -70,6 +70,19 @@ object NexusContentRepository {
         "Football" to listOf("football", "soccer", "premier league", "champions league", "fifa", "goal", "club"),
         "Education" to listOf("education", "school", "university", "student", "learning", "research")
     )
+
+    fun scoreVideo(title: String, channel: String, selectedTopics: Set<String>, publishedAt: Long): Int {
+        val text = (title + " " + channel).lowercase(Locale.ROOT)
+        val relevance = selectedTopics.sumOf { topic ->
+            val topicWords = keywords[topic].orEmpty()
+            topicWords.count { text.contains(it) }
+        }
+        val ageHours = if (publishedAt > 0L) {
+            ((System.currentTimeMillis() - publishedAt).coerceAtLeast(0L) / 3_600_000L).toInt()
+        } else 72
+        val recency = (48 - ageHours.coerceAtMost(48)).coerceAtLeast(0)
+        return relevance * 10 + recency + 5
+    }
 
     fun fetchNews(selectedTopics: Set<String>, customFeedText: String): List<NexusNews> {
         val topics = selectedTopics.ifEmpty { setOf("World", "Bangladesh", "Technology", "Science") }
