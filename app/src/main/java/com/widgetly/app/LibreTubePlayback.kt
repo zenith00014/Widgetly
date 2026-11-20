@@ -66,7 +66,7 @@ object LibreTubePlayback {
     fun resolve(input: String, audioOnly: Boolean): String =
         resolveMedia(input, audioOnly).url
 
-    fun resolveMedia(input: String, audioOnly: Boolean, maxHeight: Int? = null, maxAudioBitrate: Int? = null): ResolvedMedia {
+    fun resolveMedia(input: String, audioOnly: Boolean, maxHeight: Int? = null, maxAudioBitrate: Int? = null, preferMp4: Boolean = false): ResolvedMedia {
         initialize()
         val videoId = extractVideoId(input)
         val info = StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId")
@@ -84,9 +84,17 @@ object LibreTubePlayback {
                 "${stream.averageBitrate / 1000} kbps"
             )
         }
-        val candidates = if (maxHeight == null) info.videoStreams else info.videoStreams.filter { it.height <= maxHeight }
+        val formatStreams = if (preferMp4) {
+            info.videoStreams.filter { it.format?.suffix.equals("mp4", ignoreCase = true) }
+        } else {
+            info.videoStreams
+        }
+        if (preferMp4 && formatStreams.isEmpty()) {
+            throw IOException("MP4 is not available for this video. Choose Original format instead.")
+        }
+        val candidates = if (maxHeight == null) formatStreams else formatStreams.filter { it.height <= maxHeight }
         val stream = candidates.maxByOrNull { it.height }
-            ?: info.videoStreams.minByOrNull { kotlin.math.abs(it.height - (maxHeight ?: 0)) }
+            ?: formatStreams.minByOrNull { kotlin.math.abs(it.height - (maxHeight ?: 0)) }
             ?: throw IOException("No playable video stream was found.")
         if (!stream.isUrl || stream.content.isBlank()) throw IOException("The extractor did not return a direct stream URL.")
         val format = stream.format
