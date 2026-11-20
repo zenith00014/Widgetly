@@ -73,9 +73,18 @@ class MainActivity:ComponentActivity(){override fun onCreate(savedInstanceState:
     Box(Modifier.weight(1f)){
      when(tab){
       "Discover"->LiveDiscover(ink,muted,surface,saved,storeResult,saveResult,playResult,{result->storeResult(result);queuedIds=QueueStore.add(prefs,result.videoId)})
-      "Downloads"->DownloadsScreen(ink,muted,surface,{media->active=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath)})
+      "Downloads"->DownloadsScreen(ink,muted,surface,{media->
+       val pick=Pick(media.id,media.title,media.creator,media.isAudio,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Downloaded for offline playback",media.file.absolutePath)
+       active=pick;playbackQueue=emptyList()
+       history=listOf(media.id)+history.filterNot{x->x==media.id};persistHistory(prefs,history)
+      })
       "Subscriptions"->SubscriptionsScreen(ink,muted,surface,{result->val pick=Pick(result.videoId,result.title,result.creator,result.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Latest upload");persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};persistHistory(prefs,history)})
-      "Library"->Library(saved,history,metadata,prefs,queuedIds,ink,muted,surface,{id->metadata[id]?.let{playbackQueue=emptyList();active=it}},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()},{queue->playbackQueue=queue;queuedIds=queue.map{it.id};QueueStore.replace(prefs,queuedIds);active=queue.firstOrNull()},{ids->queuedIds=ids;QueueStore.replace(prefs,ids)},{history=emptyList();persistHistory(prefs,history)})
+      "Library"->Library(saved,history,metadata,prefs,queuedIds,ink,muted,surface,{id->metadata[id]?.let{
+       playbackQueue=emptyList();active=it;history=listOf(id)+history.filterNot{x->x==id};persistHistory(prefs,history)
+      }},{id->saved=saved-id;prefs.edit().putStringSet("saved",saved).apply()},{queue->
+       playbackQueue=queue;queuedIds=queue.map{it.id};QueueStore.replace(prefs,queuedIds)
+       queue.firstOrNull()?.let{first->active=first;history=listOf(first.id)+history.filterNot{x->x==first.id};persistHistory(prefs,history)}
+      },{ids->queuedIds=ids;QueueStore.replace(prefs,ids)},{history=emptyList();persistHistory(prefs,history)})
       else->Home(ink,muted,surface,prefs,saved,metadata,history,{pick->persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};persistHistory(prefs,history)},{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()},{tab="Discover"})
      }
     }
