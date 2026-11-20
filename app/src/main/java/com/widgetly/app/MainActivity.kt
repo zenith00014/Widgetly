@@ -271,6 +271,8 @@ private fun LibraryPage(onOpen:(NexusItem)->Unit) {
     var noteSaved by remember { mutableStateOf(false) }
     var refresh by remember { mutableIntStateOf(0) }
     val savedItems = remember(refresh) { NexusLocalStore.all(context) }
+    var filter by remember { mutableStateOf("ALL") }
+    val visibleItems = remember(savedItems,filter) { savedItems.filter { filter=="ALL" || it.kind.name==filter } }
     Column(Modifier.fillMaxSize().padding(horizontal=16.dp,vertical=8.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
         Slab {
             Text("YOUR LIBRARY",color=Lime,fontWeight=FontWeight.Bold,fontSize=11.sp)
@@ -283,9 +285,12 @@ private fun LibraryPage(onOpen:(NexusItem)->Unit) {
             Button(onClick={prefs.edit().putString(NOTE_KEY,note.trim()).apply();noteSaved=true},colors=ButtonDefaults.buttonColors(containerColor=Lime,contentColor=Ink),shape=RectangleShape) { Text("SAVE NOTE") }
             if(noteSaved) Text("Saved on this device.",color=Lime,fontSize=11.sp)
         }
-        if(savedItems.isEmpty()) Slab { Text("NOTHING SAVED YET",color=Paper,fontWeight=FontWeight.Bold); Text("Use + SAVE on any video, article or movie card.",color=Muted,fontSize=12.sp) }
+        Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.spacedBy(5.dp)) {
+            listOf("ALL","VIDEO","NEWS","MOVIE").forEach { value -> FilterChip(selected=filter==value,onClick={filter=value},label={Text(value,fontSize=9.sp)},colors=FilterChipDefaults.filterChipColors(selectedContainerColor=Lime,selectedLabelColor=Ink,labelColor=Paper)) }
+        }
+        if(visibleItems.isEmpty()) Slab { Text(if(savedItems.isEmpty()) "NOTHING SAVED YET" else "NO ${filter} ITEMS",color=Paper,fontWeight=FontWeight.Bold); Text("Use + SAVE on any video, article or movie card.",color=Muted,fontSize=12.sp) }
         else LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(8.dp),contentPadding=PaddingValues(bottom=18.dp)) {
-            items(savedItems,key={it.id}) { item -> ContentCard(item,{onOpen(item)},{refresh++}) }
+            items(visibleItems,key={it.id}) { item -> ContentCard(item,{onOpen(item)},{refresh++}) }
         }
     }
 }
