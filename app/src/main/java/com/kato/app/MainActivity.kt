@@ -1,86 +1,152 @@
 package com.kato.app
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.content.Intent
+import android.graphics.Bitmap
+import android.graphics.BitmapFactory
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
+import android.util.Base64
+import android.webkit.WebChromeClient
+import android.webkit.WebSettings
+import android.webkit.WebView
+import android.webkit.WebViewClient
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.viewinterop.AndroidView
 import androidx.core.app.NotificationManagerCompat
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import java.net.URL
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-private val KatoInk = Color(0xFF171A17)
-private val KatoPanel = Color(0xFF232923)
-private val KatoPanelRaised = Color(0xFF2B332B)
-private val KatoLime = Color(0xFFD2E49A)
-private val KatoAmber = Color(0xFFE4BD73)
-private val KatoPaper = Color(0xFFF2F0E7)
-private val KatoMuted = Color(0xFF9BA397)
+private val NexusInk = Color(0xFF151914)
+private val NexusPanel = Color(0xFF222922)
+private val NexusRaised = Color(0xFF2C352D)
+private val NexusLime = Color(0xFFD2E49A)
+private val NexusAmber = Color(0xFFE4BD73)
+private val NexusPaper = Color(0xFFF2F0E7)
+private val NexusMuted = Color(0xFF9BA397)
 
-private val KatoDarkColors = darkColorScheme(
-    primary = KatoLime,
-    onPrimary = KatoInk,
-    secondary = KatoAmber,
-    onSecondary = KatoInk,
-    background = KatoInk,
-    onBackground = KatoPaper,
-    surface = KatoPanel,
-    onSurface = KatoPaper,
-    surfaceVariant = KatoPanelRaised,
-    onSurfaceVariant = KatoMuted
+private val NexusDarkColors = darkColorScheme(
+    primary = NexusLime,
+    onPrimary = NexusInk,
+    secondary = NexusAmber,
+    onSecondary = NexusInk,
+    background = NexusInk,
+    onBackground = NexusPaper,
+    surface = NexusPanel,
+    onSurface = NexusPaper,
+    surfaceVariant = NexusRaised,
+    onSurfaceVariant = NexusMuted
 )
 
-private val KatoLightColors = lightColorScheme(
+private val NexusLightColors = lightColorScheme(
     primary = Color(0xFF596B3D),
     onPrimary = Color.White,
     secondary = Color(0xFF87602C),
     onSecondary = Color.White,
     background = Color(0xFFF1F0E8),
     onBackground = Color(0xFF20251F),
-    surface = Color(0xFFFFFFFF),
+    surface = Color.White,
     onSurface = Color(0xFF20251F),
     surfaceVariant = Color(0xFFE6E8DE),
     onSurfaceVariant = Color(0xFF626B5E)
 )
 
+private val topicOptions = listOf(
+    "World", "Bangladesh", "Technology", "Science", "Business", "Football", "Education"
+)
+
+private data class InboxEntry(
+    val id: String,
+    val source: String,
+    val title: String,
+    val message: String,
+    val time: Long,
+    val unread: Boolean,
+    val avatar: String,
+    val packageName: String
+)
+
+private data class SocialEntry(
+    val id: String,
+    val type: String,
+    val title: String,
+    val summary: String,
+    val source: String,
+    val url: String,
+    val image: String,
+    val publishedAt: Long,
+    val videoId: String = ""
+)
+
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContent { KatoApp() }
+        setContent { NexusApp() }
     }
 }
 
 @Composable
-private fun KatoApp() {
+private fun NexusApp() {
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("kato_preferences", Context.MODE_PRIVATE) }
-    var themeMode by remember { mutableStateOf(prefs.getString("theme_mode", "Dark") ?: "Dark") }
     var page by rememberSaveable { mutableStateOf("Home") }
-    var discoverSection by rememberSaveable { mutableStateOf("Brief") }
-    var refresh by remember { mutableIntStateOf(0) }
+    var showSettings by rememberSaveable { mutableStateOf(false) }
+    var themeMode by remember { mutableStateOf(prefs.getString("theme_mode", "Dark") ?: "Dark") }
+    var topics by remember {
+        mutableStateOf(
+            prefs.getString("selected_topics", "World,Bangladesh,Technology,Science,Education,Football")
+                .orEmpty().split(",").filter { it in topicOptions }.toSet()
+        )
+    }
+    var channelText by remember { mutableStateOf(prefs.getString("youtube_channels", "") ?: "") }
+    var customFeedText by remember { mutableStateOf(prefs.getString("custom_news_feeds", "") ?: "") }
+    var spotifyUrl by remember { mutableStateOf(prefs.getString("spotify_url", "") ?: "") }
+    var refreshKey by remember { mutableIntStateOf(0) }
+    var isLoading by remember { mutableStateOf(false) }
+    var news by remember { mutableStateOf<List<NexusNews>>(emptyList()) }
+    var videos by remember { mutableStateOf<List<NexusVideo>>(emptyList()) }
+    var movies by remember { mutableStateOf<List<NexusMovie>>(emptyList()) }
+    var playerType by rememberSaveable { mutableStateOf("") }
+    var playerTitle by rememberSaveable { mutableStateOf("") }
+    var playerTarget by rememberSaveable { mutableStateOf("") }
+    var playerVideoId by rememberSaveable { mutableStateOf("") }
+
     val systemDark = androidx.compose.foundation.isSystemInDarkTheme()
     val useDark = when (themeMode) {
         "Light" -> false
@@ -88,76 +154,153 @@ private fun KatoApp() {
         else -> true
     }
 
-    MaterialTheme(colorScheme = if (useDark) KatoDarkColors else KatoLightColors) {
+    LaunchedEffect(refreshKey, topics, channelText, customFeedText) {
+        isLoading = true
+        val loaded = withContext(Dispatchers.IO) {
+            Triple(
+                NexusContentRepository.fetchNews(topics, customFeedText),
+                NexusContentRepository.fetchVideos(channelText),
+                NexusContentRepository.fetchPublicDomainMovies()
+            )
+        }
+        news = loaded.first
+        videos = loaded.second
+        movies = loaded.third
+        isLoading = false
+    }
+
+    fun openVideo(video: NexusVideo) {
+        playerType = "YouTube"
+        playerTitle = video.title
+        playerTarget = video.url
+        playerVideoId = video.videoId
+    }
+
+    fun openSpotify() {
+        val embed = spotifyEmbedUrl(spotifyUrl)
+        if (embed.isNotBlank()) {
+            playerType = "Spotify"
+            playerTitle = "Spotify"
+            playerTarget = embed
+            playerVideoId = ""
+        }
+    }
+
+    fun closePlayer() {
+        playerType = ""
+        playerTitle = ""
+        playerTarget = ""
+        playerVideoId = ""
+    }
+
+    BackHandler(enabled = playerType.isNotBlank() || showSettings) {
+        if (playerType.isNotBlank()) closePlayer() else showSettings = false
+    }
+
+    MaterialTheme(colorScheme = if (useDark) NexusDarkColors else NexusLightColors) {
         Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
             Column(modifier = Modifier.fillMaxSize()) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 20.dp, end = 14.dp, top = 16.dp, bottom = 12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "KATO",
-                            color = MaterialTheme.colorScheme.primary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Black,
-                            letterSpacing = 3.sp
-                        )
-                        Text(
-                            text = if (page == "Settings") "Preferences and privacy" else "Your personal media console",
-                            color = MaterialTheme.colorScheme.onSurface,
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.SemiBold
-                        )
-                    }
-                    Text(
-                        text = "●",
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontSize = 10.sp,
-                        modifier = Modifier.padding(end = 12.dp)
-                    )
-                    TextButton(onClick = { page = if (page == "Settings") "Home" else "Settings" }) {
-                        Text(if (page == "Settings") "BACK" else "⚙", fontWeight = FontWeight.Bold)
-                    }
-                }
+                TopBar(
+                    page = if (playerType.isNotBlank()) playerTitle else if (showSettings) "Settings" else page,
+                    onRefresh = { refreshKey++ },
+                    onSettings = { showSettings = true },
+                    showRefresh = playerType.isBlank() && !showSettings && page != "Library"
+                )
 
                 Box(modifier = Modifier.weight(1f)) {
-                    when (page) {
-                        "Settings" -> SettingsScreen(
+                    when {
+                        playerType.isNotBlank() -> MediaPlayerScreen(
+                            type = playerType,
+                            title = playerTitle,
+                            target = playerTarget,
+                            videoId = playerVideoId,
+                            onBack = ::closePlayer
+                        )
+                        showSettings -> NexusSettingsScreen(
                             themeMode = themeMode,
-                            onThemeModeChange = {
+                            topics = topics,
+                            channelText = channelText,
+                            customFeedText = customFeedText,
+                            spotifyUrl = spotifyUrl,
+                            onBack = { showSettings = false },
+                            onThemeChange = {
                                 themeMode = it
                                 prefs.edit().putString("theme_mode", it).apply()
                             },
-                            onDataChanged = { refresh++ }
+                            onTopicsChange = {
+                                topics = it
+                                prefs.edit().putString("selected_topics", it.joinToString(",")).apply()
+                            },
+                            onChannelsChange = {
+                                channelText = it
+                                prefs.edit().putString("youtube_channels", it).apply()
+                            },
+                            onCustomFeedsChange = {
+                                customFeedText = it
+                                prefs.edit().putString("custom_news_feeds", it).apply()
+                            },
+                            onSpotifyChange = {
+                                spotifyUrl = it
+                                prefs.edit().putString("spotify_url", it).apply()
+                            },
+                            onRefresh = { refreshKey++ }
                         )
-                        "Social" -> SocialScreen(refresh = refresh)
-                        "Discover" -> DiscoverScreen(section = discoverSection, onSectionChange = { discoverSection = it })
-                        "Library" -> LibraryScreen(refresh = refresh, onDataChanged = { refresh++ })
-                        else -> HomeScreen(
-                            refresh = refresh,
-                            onDataChanged = { refresh++ },
-                            onOpenSocial = { page = "Social" },
-                            onOpenDiscover = {
-                                discoverSection = it
-                                page = "Discover"
+                        page == "Home" -> HomeScreen(
+                            news = news,
+                            videos = videos,
+                            movies = movies,
+                            loading = isLoading,
+                            spotifyUrl = spotifyUrl,
+                            onOpenInbox = { page = "Inbox" },
+                            onOpenNews = { page = "Social" },
+                            onOpenVideo = ::openVideo,
+                            onOpenSpotify = ::openSpotify,
+                            onOpenMovie = { movie ->
+                                playerType = "Movie"
+                                playerTitle = movie.title
+                                playerTarget = movie.url
+                                playerVideoId = ""
                             },
                             onOpenLibrary = { page = "Library" }
+                        )
+                        page == "Social" -> SocialScreen(
+                            news = news,
+                            videos = videos,
+                            loading = isLoading,
+                            onOpenVideo = ::openVideo,
+                            onRefresh = { refreshKey++ },
+                            onSave = { title, url, type ->
+                                KatoDatabase(context).saveItem(title, url, type)
+                            },
+                            onLike = { title, url, type ->
+                                KatoDatabase(context).saveItem(title, url, type, liked = true)
+                            }
+                        )
+                        page == "Inbox" -> InboxScreen(
+                            refreshKey = refreshKey,
+                            onRefresh = { refreshKey++ }
+                        )
+                        else -> LibraryScreen(
+                            onOpenSettings = { showSettings = true },
+                            onOpenUrl = { url, title ->
+                                playerType = "Web"
+                                playerTitle = title
+                                playerTarget = url
+                                playerVideoId = ""
+                            }
                         )
                     }
                 }
 
-                if (page != "Settings") {
+                if (playerType.isBlank() && !showSettings) {
                     NavigationBar(
                         containerColor = MaterialTheme.colorScheme.surface,
                         contentColor = MaterialTheme.colorScheme.onSurface
                     ) {
                         val tabs = listOf(
                             Triple("Home", "⌂", "HOME"),
-                            Triple("Social", "▤", "SOCIAL"),
-                            Triple("Discover", "◉", "DISCOVER"),
+                            Triple("Social", "◉", "SOCIAL"),
+                            Triple("Inbox", "▤", "INBOX"),
                             Triple("Library", "▣", "LIBRARY")
                         )
                         tabs.forEach { tab ->
@@ -183,247 +326,310 @@ private fun KatoApp() {
 }
 
 @Composable
+private fun TopBar(
+    page: String,
+    onRefresh: () -> Unit,
+    onSettings: () -> Unit,
+    showRefresh: Boolean
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(start = 19.dp, end = 14.dp, top = 13.dp, bottom = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Text("NEXUS", color = MaterialTheme.colorScheme.primary, fontSize = 12.sp, fontWeight = FontWeight.Black, letterSpacing = 3.sp)
+            Text(
+                when (page) {
+                    "Home" -> "Your world, without the scroll"
+                    "Social" -> "A feed chosen by you"
+                    "Inbox" -> "People, not platforms"
+                    "Library" -> "Your saved corner"
+                    "Settings" -> "Preferences and sources"
+                    else -> page
+                },
+                color = MaterialTheme.colorScheme.onSurface,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.SemiBold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+        }
+        if (showRefresh) {
+            TextButton(onClick = onRefresh) { Text("↻", fontSize = 22.sp, fontWeight = FontWeight.Bold) }
+        }
+        TextButton(onClick = onSettings) { Text("⚙", fontSize = 18.sp) }
+    }
+}
+
+@Composable
 private fun HomeScreen(
-    refresh: Int,
-    onDataChanged: () -> Unit,
-    onOpenSocial: () -> Unit,
-    onOpenDiscover: (String) -> Unit,
+    news: List<NexusNews>,
+    videos: List<NexusVideo>,
+    movies: List<NexusMovie>,
+    loading: Boolean,
+    spotifyUrl: String,
+    onOpenInbox: () -> Unit,
+    onOpenNews: () -> Unit,
+    onOpenVideo: (NexusVideo) -> Unit,
+    onOpenSpotify: () -> Unit,
+    onOpenMovie: (NexusMovie) -> Unit,
     onOpenLibrary: () -> Unit
 ) {
     val context = LocalContext.current
-    val database = remember(context) { KatoDatabase(context) }
-    val saved = remember(refresh) { database.listItems() }
-    val notifications = remember(refresh) { KatoNotifications.read(context) }
-    val unfinished = saved.filter { !it.completed }.take(2)
-    val dateLabel = remember { SimpleDateFormat("EEEE  •  d MMMM", Locale.getDefault()).format(Date()) }
+    val inbox = remember { readInbox(context) }
+    val unread = inbox.filter { it.unread }
+    val selectedNews = news.sortedByDescending { it.publishedAt }.take(3)
 
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(start = 18.dp, end = 18.dp, top = 8.dp, bottom = 20.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp)
+        contentPadding = PaddingValues(start = 17.dp, end = 17.dp, top = 4.dp, bottom = 22.dp),
+        verticalArrangement = Arrangement.spacedBy(15.dp)
     ) {
         item {
             Card(
-                shape = RoundedCornerShape(24.dp),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
-                modifier = Modifier.fillMaxWidth()
+                shape = RoundedCornerShape(23.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
             ) {
                 Row(
-                    modifier = Modifier.padding(18.dp),
+                    modifier = Modifier.fillMaxWidth().padding(17.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(7.dp)) {
-                        Text(dateLabel.uppercase(Locale.getDefault()), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, letterSpacing = 1.2.sp)
-                        Text("Your space.\nYour pace.", color = MaterialTheme.colorScheme.onSurface, fontSize = 25.sp, fontWeight = FontWeight.Bold, lineHeight = 29.sp)
-                        Text("No endless feed. Just what you choose.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Text("A LITTLE LESS NOISE.", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                        Text("Stay connected.\\nStay curious.", color = MaterialTheme.colorScheme.onSurface, fontSize = 25.sp, fontWeight = FontWeight.Bold, lineHeight = 29.sp)
+                        Text("No ads. No subscriptions. Your topics.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
                     }
                     Box(
-                        modifier = Modifier
-                            .size(76.dp)
-                            .background(MaterialTheme.colorScheme.surface, CircleShape),
+                        modifier = Modifier.size(68.dp).clip(CircleShape).background(MaterialTheme.colorScheme.surface),
                         contentAlignment = Alignment.Center
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(56.dp)
-                                .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f), CircleShape),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text("K", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Black, fontSize = 25.sp)
+                        Text("N", color = MaterialTheme.colorScheme.primary, fontSize = 31.sp, fontWeight = FontWeight.Black)
+                    }
+                }
+            }
+        }
+
+        item { SectionHeading("INBOX", "People who have messaged you") }
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth().clickable(onClick = onOpenInbox),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(if (unread.isEmpty()) "All caught up" else "\${unread.size} unread conversations", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 15.sp)
+                            Text("WhatsApp · Telegram · Instagram · Messenger", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+                        }
+                        Text("OPEN →", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 9.sp)
+                    }
+                    if (unread.isEmpty()) {
+                        Text("Your recent message previews will appear here after notification access is enabled.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+                    } else {
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
+                            items(unread.take(8), key = { it.id }) { entry ->
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                    NexusAvatar(entry, Modifier.size(48.dp))
+                                    Text(entry.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 9.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                    Text(entry.source, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 8.sp)
+                                }
+                            }
                         }
                     }
                 }
             }
         }
 
-        item { SectionHeading("COMMUNICATION", "Your conversations, not a social feed") }
-        item {
-            DashboardActionCard(
-                title = "Unified inbox",
-                detail = if (notifications.isEmpty()) "No notification previews captured" else notifications.size.toString() + " recent notification previews",
-                action = "OPEN INBOX",
-                accent = MaterialTheme.colorScheme.primary,
-                onClick = onOpenSocial
-            )
-        }
-
-        item { SectionHeading("TODAY'S BRIEF", "A small briefing with a clear finish") }
-        item {
-            DashboardActionCard(
-                title = "Nothing queued yet",
-                detail = "Your news sources and followed channels will appear here when connected. Kato will not invent a briefing.",
-                action = "EXPLORE DISCOVER",
-                accent = MaterialTheme.colorScheme.secondary,
-                onClick = { onOpenDiscover("Brief") }
-            )
-        }
-
-        item { SectionHeading("CONTINUE", "Pick up where you left off") }
-        if (unfinished.isEmpty()) {
+        item { SectionHeading("WORLD BRIEF", "The latest from your selected topics") }
+        if (selectedNews.isEmpty()) {
             item {
                 QuietCard(
-                    title = "Your listening and watch history starts here",
-                    detail = "Save an article, video, film or podcast to your Library. Progress tracking will be added with the media players."
+                    title = if (loading) "Gathering the latest stories…" else "No stories loaded yet",
+                    detail = "News comes from free RSS feeds. Open Settings to choose topics or add another RSS source."
                 )
             }
         } else {
-            items(unfinished) { item ->
-                SavedItemCard(
-                    item = item,
-                    onOpen = { openExternal(context, item.url) },
-                    onComplete = {
-                        database.setCompleted(item.id, true)
-                        onDataChanged()
-                    },
-                    onDelete = {
-                        database.deleteItem(item.id)
-                        onDataChanged()
-                    }
-                )
+            items(selectedNews, key = { it.url }) { story ->
+                NewsCard(story, compact = true, onClick = onOpenNews)
             }
         }
-
-        item { SectionHeading("QUICK ACCESS", "Choose an activity") }
         item {
-            Column(verticalArrangement = Arrangement.spacedBy(9.dp)) {
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    QuickAccessCard("♫", "Music", "Local audio", Modifier.weight(1f)) { onOpenLibrary() }
-                    QuickAccessCard("▷", "Watch", "Selected videos", Modifier.weight(1f)) { onOpenDiscover("YouTube") }
-                }
-                Row(horizontalArrangement = Arrangement.spacedBy(9.dp)) {
-                    QuickAccessCard("▤", "Read", "Articles", Modifier.weight(1f)) { onOpenDiscover("Articles") }
-                    QuickAccessCard("▣", "Movies", "Free and legal", Modifier.weight(1f)) { onOpenDiscover("Movies") }
-                }
+            TextButton(onClick = onOpenNews) { Text("OPEN SOCIAL FEED  →") }
+        }
+
+        item { SectionHeading("YOUTUBE", "Selected channels, newest uploads") }
+        if (videos.isEmpty()) {
+            item {
+                QuietCard(
+                    title = "Follow your own channels",
+                    detail = "Add YouTube channel IDs in Library → Settings. Nexus reads each channel's upload feed without a paid API key."
+                )
             }
-        }
-    }
-}
-
-@Composable
-private fun SectionHeading(title: String, subtitle: String) {
-    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
-        Text(title, color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.7.sp)
-        Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-    }
-}
-
-@Composable
-private fun DashboardActionCard(
-    title: String,
-    detail: String,
-    action: String,
-    accent: Color,
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
-        shape = RoundedCornerShape(18.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-            Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, lineHeight = 17.sp)
-            Text(action, color = accent, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.1.sp)
-        }
-    }
-}
-
-@Composable
-private fun QuickAccessCard(glyph: String, title: String, subtitle: String, modifier: Modifier, onClick: () -> Unit) {
-    Card(
-        modifier = modifier.clickable(onClick = onClick),
-        shape = RoundedCornerShape(16.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
-    ) {
-        Column(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-            Text(glyph, color = MaterialTheme.colorScheme.secondary, fontSize = 20.sp)
-            Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
-        }
-    }
-}
-
-@Composable
-private fun SocialScreen(refresh: Int) {
-    val context = LocalContext.current
-    var localRefresh by remember { mutableIntStateOf(0) }
-    val enabled = remember(refresh, localRefresh) {
-        NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
-    }
-    val allEntries = remember(refresh, localRefresh) { KatoNotifications.read(context) }
-    var filter by rememberSaveable { mutableStateOf("All") }
-    val entries = if (filter == "All") allEntries else allEntries.filter { it.source == filter }
-
-    Column(
-        modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
-    ) {
-        Text("MESSAGE PREVIEWS", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.7.sp)
-        Text(
-            "Kato's inbox can collect selected message notifications. It does not sync private chats or provide full chat history.",
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            fontSize = 12.sp,
-            lineHeight = 17.sp
-        )
-        Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text("Android notification access", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-                        Text(if (enabled) "Enabled on this device" else "Not connected", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+        } else {
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(videos.take(8), key = { it.videoId }) { video ->
+                        VideoTile(video, Modifier.width(230.dp), onClick = { onOpenVideo(video) })
                     }
-                    Text(if (enabled) "ON" else "OFF", color = if (enabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold, fontSize = 10.sp)
                 }
-                Button(
-                    onClick = {
-                        context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                    },
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Text(if (enabled) "MANAGE ACCESS" else "CONNECT NOTIFICATIONS")
-                }
-                Text(
-                    "Access is optional. Android may show notification content from the apps you allow. Kato stores a limited set of previews locally.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 10.sp,
-                    lineHeight = 15.sp
-                )
-                TextButton(onClick = { localRefresh++ }) { Text("REFRESH INBOX") }
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            listOf("All", "WhatsApp", "Telegram", "Instagram", "Messenger").forEach { choice ->
-                FilterChip(
-                    selected = filter == choice,
-                    onClick = { filter = choice },
-                    label = { Text(choice, fontSize = 10.sp) }
+
+        item { SectionHeading("SPOTIFY", "Your playlist or album") }
+        item {
+            Card(
+                modifier = Modifier.fillMaxWidth().clickable(enabled = spotifyUrl.isNotBlank(), onClick = onOpenSpotify),
+                shape = RoundedCornerShape(18.dp),
+                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+            ) {
+                Row(modifier = Modifier.padding(15.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        modifier = Modifier.size(49.dp).clip(RoundedCornerShape(14.dp)).background(Color(0xFF1D3A2A)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text("♫", color = Color(0xFFB9F28B), fontSize = 25.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(Modifier.width(12.dp))
+                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                        Text(if (spotifyUrl.isBlank()) "Connect a playlist" else "Your Spotify collection", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                        Text(
+                            if (spotifyUrl.isBlank()) "Add a Spotify playlist or album link in Library → Settings."
+                            else "Open the official Spotify embed inside Nexus.",
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            fontSize = 10.sp,
+                            lineHeight = 14.sp
+                        )
+                    }
+                    Text(if (spotifyUrl.isBlank()) "+" else "PLAY", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Text("Spotify controls and playback are supplied by Spotify. Nexus does not add ads, but cannot remove ads or account limits served by Spotify.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, lineHeight = 13.sp)
+        }
+
+        item { SectionHeading("MOVIE LOUNGE", "Free-to-watch public-domain discoveries") }
+        if (movies.isEmpty()) {
+            item {
+                QuietCard(
+                    title = if (loading) "Checking the public-domain catalog…" else "No verified titles available right now",
+                    detail = "Nexus checks Internet Archive license metadata. A title is shown only when the catalog reports a public-domain license."
                 )
+            }
+        } else {
+            item {
+                LazyRow(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    items(movies.take(8), key = { it.identifier }) { movie ->
+                        MovieTile(movie, Modifier.width(160.dp), onClick = { onOpenMovie(movie) })
+                    }
+                }
+            }
+        }
+
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onOpenLibrary) { Text("OPEN YOUR LIBRARY  →") }
+                Spacer(Modifier.weight(1f))
+                Text("FINITE BY DESIGN", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 8.sp, letterSpacing = 1.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SocialScreen(
+    news: List<NexusNews>,
+    videos: List<NexusVideo>,
+    loading: Boolean,
+    onOpenVideo: (NexusVideo) -> Unit,
+    onRefresh: () -> Unit,
+    onSave: (String, String, String) -> Unit,
+    onLike: (String, String, String) -> Unit
+) {
+    val entries = buildList {
+        news.forEach { item ->
+            add(SocialEntry("news:\${item.url}", "News", item.title, item.summary, item.source, item.url, item.imageUrl, item.publishedAt))
+        }
+        videos.forEach { item ->
+            add(SocialEntry("video:\${item.videoId}", "Video", item.title, item.channel, item.channel, item.url, item.thumbnail, item.publishedAt, item.videoId))
+        }
+    }.sortedWith(compareByDescending<SocialEntry> { it.publishedAt }.thenBy { it.type }).take(25)
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(11.dp)
+    ) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("YOUR INTERESTS", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                Text("Useful things, not endless things.", color = MaterialTheme.colorScheme.onSurface, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                Text("A finite mix of selected-topic news and uploads from channels you follow.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, lineHeight = 16.sp)
             }
         }
         if (entries.isEmpty()) {
-            QuietCard(
-                title = "Your inbox is quiet",
-                detail = if (enabled) "New supported notification previews will appear here. Replies and full conversation sync are not available in this version."
-                else "Connect notification access above, then receive a new message in a supported app."
-            )
+            item {
+                QuietCard(
+                    title = if (loading) "Building your selection…" else "Your feed is ready for your sources",
+                    detail = "Choose topics, add YouTube channel IDs or add RSS feeds in Library → Settings. Nothing is filled with fake sample posts."
+                )
+            }
         } else {
-            LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-                contentPadding = PaddingValues(bottom = 18.dp)
-            ) {
-                items(entries) { entry ->
-                    Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text(entry.source.uppercase(Locale.getDefault()), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 9.sp, letterSpacing = 1.sp)
-                                Spacer(Modifier.weight(1f))
-                                Text(entry.timeLabel(), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
-                            }
-                            Text(entry.title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 13.sp)
-                            Text(entry.message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, lineHeight = 17.sp)
+            items(entries, key = { it.id }) { entry ->
+                SocialPostCard(
+                    entry = entry,
+                    onOpen = {
+                        if (entry.videoId.isNotBlank()) {
+                            onOpenVideo(NexusVideo(entry.title, entry.url, entry.videoId, entry.source, entry.publishedAt, entry.image))
+                        } else {
+                            openWebPage(entry.url)
                         }
-                    }
+                    },
+                    onSave = { onSave(entry.title, entry.url, if (entry.type == "Video") "Video" else "Article") },
+                    onLike = { onLike(entry.title, entry.url, if (entry.type == "Video") "Video" else "Article") }
+                )
+            }
+            item {
+                QuietCard(
+                    title = "You're caught up",
+                    detail = "That's the end of this curated batch. Refresh when you choose, or come back when your followed sources publish something new."
+                )
+            }
+        }
+        item {
+            OutlinedButton(onClick = onRefresh, modifier = Modifier.fillMaxWidth()) { Text("REFRESH SELECTED SOURCES") }
+        }
+    }
+}
+
+@Composable
+private fun SocialPostCard(
+    entry: SocialEntry,
+    onOpen: () -> Unit,
+    onSave: () -> Unit,
+    onLike: () -> Unit
+) {
+    Card(shape = RoundedCornerShape(19.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(modifier = Modifier.fillMaxWidth().clickable(onClick = onOpen)) {
+            if (entry.image.isNotBlank()) {
+                NexusRemoteImage(entry.image, Modifier.fillMaxWidth().height(174.dp))
+            }
+            Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(entry.type.uppercase(Locale.getDefault()), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 9.sp, letterSpacing = 1.2.sp)
+                    Spacer(Modifier.width(8.dp))
+                    Text(entry.source, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+                    Spacer(Modifier.weight(1f))
+                    Text(dateLabel(entry.publishedAt), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
+                }
+                Text(entry.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, lineHeight = 21.sp)
+                if (entry.summary.isNotBlank()) {
+                    Text(entry.summary, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, lineHeight = 17.sp, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TextButton(onClick = onSave) { Text("＋ WATCH LATER", fontSize = 9.sp) }
+                    TextButton(onClick = onLike) { Text("♡ LIKE", fontSize = 9.sp) }
+                    Spacer(Modifier.weight(1f))
+                    TextButton(onClick = onOpen) { Text(if (entry.type == "Video") "WATCH →" else "READ →", fontSize = 9.sp) }
                 }
             }
         }
@@ -431,82 +637,136 @@ private fun SocialScreen(refresh: Int) {
 }
 
 @Composable
-private fun DiscoverScreen(section: String, onSectionChange: (String) -> Unit) {
-    val sections = listOf("Brief", "YouTube", "Learn", "Articles", "Movies", "Podcasts")
-    val descriptions = mapOf(
-        "Brief" to "A daily briefing with a fixed number of stories and a clear 'caught up' endpoint.",
-        "YouTube" to "Follow channels you choose. Uploads will be shown chronologically, without Home, Shorts or suggested-video feeds.",
-        "Learn" to "A finite collection for science, history, technology, mathematics and other learning topics.",
-        "Articles" to "A quiet reader with adjustable typography, reading progress and offline saves where permitted.",
-        "Movies" to "Discover films by time, mood and theme. A free-watch option will appear only after its source is checked.",
-        "Podcasts" to "Follow RSS podcast feeds, browse episodes in order and continue listening without autoplay."
-    )
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("CONTROLLED DISCOVERY", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.7.sp)
-        Text("Choose what you came for.", color = MaterialTheme.colorScheme.onSurface, fontSize = 21.sp, fontWeight = FontWeight.Bold)
-        Text("No endless feed, trending list or automatic next item.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            sections.take(3).forEach { choice ->
-                FilterChip(selected = section == choice, onClick = { onSectionChange(choice) }, label = { Text(choice) })
+private fun InboxScreen(refreshKey: Int, onRefresh: () -> Unit) {
+    val context = LocalContext.current
+    var localRefresh by remember { mutableIntStateOf(0) }
+    val enabled = remember(refreshKey, localRefresh) {
+        NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+    }
+    val entries = remember(refreshKey, localRefresh) { readInbox(context).sortedByDescending { it.time } }
+    val unread = entries.count { it.unread }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 17.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        item {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("MESSAGE CENTER", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
+                Text(if (unread == 0) "You're all caught up." else "$unread unread conversations", color = MaterialTheme.colorScheme.onSurface, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                Text("Private message previews gathered from notifications you choose to share with Nexus.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, lineHeight = 16.sp)
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            sections.drop(3).forEach { choice ->
-                FilterChip(selected = section == choice, onClick = { onSectionChange(choice) }, label = { Text(choice) })
+        item {
+            Card(shape = RoundedCornerShape(17.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+                Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text("Notification access", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+                            Text(if (enabled) "Enabled" else "Not connected", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp)
+                        }
+                        Text(if (enabled) "ON" else "OFF", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 10.sp)
+                    }
+                    Button(
+                        onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
+                        modifier = Modifier.fillMaxWidth()
+                    ) { Text(if (enabled) "MANAGE ACCESS" else "CONNECT MESSAGING APPS") }
+                    Text("This is a notification-preview inbox, not a private messaging API. Full chat history and reliable in-app replies are not available through this method.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, lineHeight = 14.sp)
+                    TextButton(onClick = { localRefresh++; onRefresh() }) { Text("REFRESH INBOX") }
+                }
             }
         }
-        Card(shape = RoundedCornerShape(20.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-            Column(modifier = Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text(section.uppercase(Locale.getDefault()), color = MaterialTheme.colorScheme.secondary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
-                Text(when (section) {
-                    "Brief" -> "Today's briefing"
-                    "YouTube" -> "Your channel list"
-                    "Learn" -> "Learning collection"
-                    "Articles" -> "Reader"
-                    "Movies" -> "Movie lounge"
-                    else -> "Podcast shelf"
-                }, color = MaterialTheme.colorScheme.onSurface, fontSize = 19.sp, fontWeight = FontWeight.SemiBold)
-                Text(descriptions[section] ?: "", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp, lineHeight = 18.sp)
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-                Text(
-                    "PHASE 1 · FOUNDATION",
-                    color = MaterialTheme.colorScheme.primary,
-                    fontSize = 9.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.2.sp
-                )
-                Text(
-                    "This section is a real navigation and design foundation, not a fake content feed. Its source integrations and playback are scheduled for later phases.",
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    fontSize = 11.sp,
-                    lineHeight = 16.sp
+        if (entries.isEmpty()) {
+            item {
+                QuietCard(
+                    title = "No message previews yet",
+                    detail = if (enabled) "When a supported app posts a message notification, the conversation will appear here."
+                    else "Enable notification access, then receive a message from a supported messaging app."
                 )
             }
+        } else {
+            items(entries, key = { it.id }) { entry ->
+                InboxConversationCard(
+                    entry = entry,
+                    onRead = {
+                        setInboxRead(context, entry.id)
+                        localRefresh++
+                        onRefresh()
+                    },
+                    onOpen = { launchMessagingApp(context, entry.packageName) }
+                )
+            }
         }
-        QuietCard(
-            title = "Nothing is being pushed to you",
-            detail = "Connect your own sources in a later setup step. Kato will keep lists finite and will not fill empty spaces with algorithmic recommendations."
-        )
     }
 }
 
 @Composable
-private fun LibraryScreen(refresh: Int, onDataChanged: () -> Unit) {
+private fun InboxConversationCard(
+    entry: InboxEntry,
+    onRead: () -> Unit,
+    onOpen: () -> Unit
+) {
+    Card(
+        shape = RoundedCornerShape(17.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+        modifier = Modifier.fillMaxWidth().clickable {
+            onRead()
+            onOpen()
+        }
+    ) {
+        Row(modifier = Modifier.padding(13.dp), verticalAlignment = Alignment.CenterVertically) {
+            NexusAvatar(entry, Modifier.size(48.dp))
+            Spacer(Modifier.width(11.dp))
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(entry.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    if (entry.unread) {
+                        Spacer(Modifier.width(7.dp))
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary))
+                    }
+                }
+                Text(entry.message, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, maxLines = 2, overflow = TextOverflow.Ellipsis, lineHeight = 15.sp)
+                Text("\${entry.source}  ·  \${timeLabel(entry.time)}", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryScreen(
+    onOpenSettings: () -> Unit,
+    onOpenUrl: (String, String) -> Unit
+) {
     val context = LocalContext.current
     val database = remember(context) { KatoDatabase(context) }
+    var refresh by remember { mutableIntStateOf(0) }
     var search by rememberSaveable { mutableStateOf("") }
-    var filter by rememberSaveable { mutableStateOf("All") }
+    var shelf by rememberSaveable { mutableStateOf("Saved") }
     var showAdd by rememberSaveable { mutableStateOf(false) }
     val categories = listOf("All", "Article", "Video", "Movie", "Music", "Podcast", "Learning")
-    val records = remember(refresh, search, filter) { database.listItems(search, filter) }
+    val records = remember(refresh, search, shelf) {
+        when (shelf) {
+            "Liked" -> database.listItems(search = search, likedOnly = true)
+            "Watch later" -> database.listItems(search = search).filter { !it.completed }
+            else -> database.listItems(search = search)
+        }
+    }
 
-    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 17.dp), verticalArrangement = Arrangement.spacedBy(9.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(modifier = Modifier.weight(1f)) {
-                Text("YOUR COLLECTION", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.7.sp)
-                Text("Saved by you.", color = MaterialTheme.colorScheme.onSurface, fontSize = 21.sp, fontWeight = FontWeight.Bold)
+                Text("PERSONAL LIBRARY", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.5.sp)
+                Text("Keep what matters.", color = MaterialTheme.colorScheme.onSurface, fontSize = 21.sp, fontWeight = FontWeight.Bold)
             }
-            Button(onClick = { showAdd = true }) { Text("+ SAVE") }
+            TextButton(onClick = onOpenSettings) { Text("⚙ SETTINGS") }
+        }
+        Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
+            listOf("Saved", "Watch later", "Liked").forEach { option ->
+                FilterChip(selected = shelf == option, onClick = { shelf = option }, label = { Text(option, fontSize = 10.sp) })
+            }
+            Spacer(Modifier.weight(1f))
+            TextButton(onClick = { showAdd = true }) { Text("+ SAVE", fontSize = 10.sp) }
         }
         OutlinedTextField(
             value = search,
@@ -515,22 +775,25 @@ private fun LibraryScreen(refresh: Int, onDataChanged: () -> Unit) {
             singleLine = true,
             placeholder = { Text("Search your library") }
         )
-        Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                categories.take(4).forEach { choice ->
-                    FilterChip(selected = filter == choice, onClick = { filter = choice }, label = { Text(choice, fontSize = 10.sp) })
-                }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                categories.drop(4).forEach { choice ->
-                    FilterChip(selected = filter == choice, onClick = { filter = choice }, label = { Text(choice, fontSize = 10.sp) })
+        if (shelf == "Saved") {
+            Row(
+                modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(6.dp)
+            ) {
+                categories.forEach { choice ->
+                    var selected by remember(choice) { mutableStateOf(choice == "All") }
+                    FilterChip(selected = selected, onClick = { selected = !selected }, label = { Text(choice, fontSize = 9.sp) })
                 }
             }
         }
         if (records.isEmpty()) {
             QuietCard(
-                title = "Your Library is ready",
-                detail = "Save a link to an article, video, film, podcast or music collection. Items stay on this device."
+                title = when (shelf) {
+                    "Liked" -> "Nothing liked yet"
+                    "Watch later" -> "Your watch-later list is empty"
+                    else -> "Your library is ready"
+                },
+                detail = "Save a story or video from Social, add a link manually, or like a post. Everything stays on this device."
             )
         } else {
             LazyColumn(
@@ -541,14 +804,18 @@ private fun LibraryScreen(refresh: Int, onDataChanged: () -> Unit) {
                 items(records, key = { it.id }) { item ->
                     SavedItemCard(
                         item = item,
-                        onOpen = { openExternal(context, item.url) },
+                        onOpen = { onOpenUrl(item.url, item.title) },
                         onComplete = {
                             database.setCompleted(item.id, !item.completed)
-                            onDataChanged()
+                            refresh++
+                        },
+                        onLike = {
+                            database.setLiked(item.id, !item.liked)
+                            refresh++
                         },
                         onDelete = {
                             database.deleteItem(item.id)
-                            onDataChanged()
+                            refresh++
                         }
                     )
                 }
@@ -562,7 +829,7 @@ private fun LibraryScreen(refresh: Int, onDataChanged: () -> Unit) {
             onSave = { title, url, type, note ->
                 database.saveItem(title, normalizeUrl(url), type, note)
                 showAdd = false
-                onDataChanged()
+                refresh++
             }
         )
     }
@@ -573,28 +840,361 @@ private fun SavedItemCard(
     item: SavedItem,
     onOpen: () -> Unit,
     onComplete: () -> Unit,
+    onLike: () -> Unit,
     onDelete: () -> Unit
 ) {
     Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(modifier = Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(7.dp)) {
+        Column(modifier = Modifier.padding(13.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(item.type.uppercase(Locale.getDefault()), color = MaterialTheme.colorScheme.secondary, fontWeight = FontWeight.Bold, fontSize = 9.sp, letterSpacing = 1.sp)
                 Spacer(Modifier.weight(1f))
-                if (item.completed) {
-                    Text("COMPLETED", color = MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                }
+                if (item.completed) Text("COMPLETED", color = MaterialTheme.colorScheme.primary, fontSize = 8.sp, fontWeight = FontWeight.Bold)
+                if (item.liked) Text("  ♥", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
             }
-            Text(item.title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 15.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
-            Text(item.url, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (item.note.isNotBlank()) {
-                Text(item.note, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TextButton(onClick = onOpen) { Text("OPEN SOURCE") }
-                TextButton(onClick = onComplete) { Text(if (item.completed) "REOPEN" else "DONE") }
-                TextButton(onClick = onDelete) { Text("REMOVE", color = MaterialTheme.colorScheme.error) }
+            Text(item.title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            if (item.note.isNotBlank()) Text(item.note, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
+            Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
+                TextButton(onClick = onOpen) { Text("OPEN", fontSize = 9.sp) }
+                TextButton(onClick = onComplete) { Text(if (item.completed) "REOPEN" else "DONE", fontSize = 9.sp) }
+                TextButton(onClick = onLike) { Text(if (item.liked) "UNLIKE" else "LIKE", fontSize = 9.sp) }
+                Spacer(Modifier.weight(1f))
+                TextButton(onClick = onDelete) { Text("REMOVE", color = MaterialTheme.colorScheme.error, fontSize = 9.sp) }
             }
         }
+    }
+}
+
+@Composable
+private fun NexusSettingsScreen(
+    themeMode: String,
+    topics: Set<String>,
+    channelText: String,
+    customFeedText: String,
+    spotifyUrl: String,
+    onBack: () -> Unit,
+    onThemeChange: (String) -> Unit,
+    onTopicsChange: (Set<String>) -> Unit,
+    onChannelsChange: (String) -> Unit,
+    onCustomFeedsChange: (String) -> Unit,
+    onSpotifyChange: (String) -> Unit,
+    onRefresh: () -> Unit
+) {
+    val context = LocalContext.current
+    val database = remember(context) { KatoDatabase(context) }
+    var localChannels by remember(channelText) { mutableStateOf(channelText) }
+    var localFeeds by remember(customFeedText) { mutableStateOf(customFeedText) }
+    var localSpotify by remember(spotifyUrl) { mutableStateOf(spotifyUrl) }
+    var confirmClear by remember { mutableStateOf(false) }
+
+    LazyColumn(
+        modifier = Modifier.fillMaxSize(),
+        contentPadding = PaddingValues(horizontal = 17.dp, vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        item {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text("NEXUS SETTINGS", color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.4.sp)
+                    Text("Make the feed yours.", color = MaterialTheme.colorScheme.onSurface, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+                }
+                TextButton(onClick = onBack) { Text("DONE") }
+            }
+        }
+        item {
+            SettingsCard("YOUR TOPICS", "Only selected topics influence the news selection.") {
+                Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
+                    topicOptions.chunked(3).forEach { rowTopics ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                            rowTopics.forEach { topic ->
+                                FilterChip(
+                                    selected = topic in topics,
+                                    onClick = {
+                                        val next = topics.toMutableSet()
+                                        if (topic in next) next.remove(topic) else next.add(topic)
+                                        onTopicsChange(next)
+                                    },
+                                    label = { Text(topic, fontSize = 9.sp) }
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        item {
+            SettingsCard("YOUTUBE CHANNELS", "Add one channel ID per line. You can paste a /channel/UC… URL. A label is optional: UC… | Khan Academy.") {
+                OutlinedTextField(
+                    value = localChannels,
+                    onValueChange = { localChannels = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 3,
+                    placeholder = { Text("UC... | Channel name") }
+                )
+                Button(onClick = { onChannelsChange(localChannels); onRefresh() }, modifier = Modifier.fillMaxWidth()) { Text("SAVE FOLLOWED CHANNELS") }
+                Text("Channel handles such as @name need resolving to a channel ID first. Nexus uses public channel upload feeds; no YouTube API key is needed for this feed method.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, lineHeight = 13.sp)
+            }
+        }
+        item {
+            SettingsCard("SPOTIFY PLAYLIST / ALBUM", "Paste a Spotify track, album or playlist URL. The official Spotify embed opens inside Nexus.") {
+                OutlinedTextField(
+                    value = localSpotify,
+                    onValueChange = { localSpotify = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    singleLine = true,
+                    placeholder = { Text("https://open.spotify.com/playlist/...") }
+                )
+                Button(onClick = { onSpotifyChange(localSpotify.trim()) }, modifier = Modifier.fillMaxWidth()) { Text("SAVE SPOTIFY LINK") }
+                Text("Spotify controls its own playback, account requirements and any ads. Nexus cannot remove those restrictions.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, lineHeight = 13.sp)
+            }
+        }
+        item {
+            SettingsCard("EXTRA NEWS SOURCES", "Optional RSS or Atom feed URLs, one per line.") {
+                OutlinedTextField(
+                    value = localFeeds,
+                    onValueChange = { localFeeds = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    minLines = 2,
+                    placeholder = { Text("https://example.com/feed.xml") }
+                )
+                Button(onClick = { onCustomFeedsChange(localFeeds); onRefresh() }, modifier = Modifier.fillMaxWidth()) { Text("SAVE RSS SOURCES") }
+            }
+        }
+        item {
+            SettingsCard("APPEARANCE", "Keep the interface comfortable.") {
+                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    listOf("System", "Dark", "Light").forEach { option ->
+                        FilterChip(selected = themeMode == option, onClick = { onThemeChange(option) }, label = { Text(option) })
+                    }
+                }
+            }
+        }
+        item {
+            SettingsCard("MESSAGE PREVIEWS", "Inbox previews remain local to this device. You control the Android permission.") {
+                OutlinedButton(
+                    onClick = { context.startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("OPEN ANDROID NOTIFICATION ACCESS") }
+            }
+        }
+        item {
+            SettingsCard("FREE & PRIVATE BY DESIGN", "Nexus does not include an advertising SDK, paid feature tier, account system or required backend. Some third-party media players may still show platform-controlled ads.") {
+                Text("News and followed-channel data are fetched directly from public RSS / Atom feeds. Your saved items and preferences stay in the app's private local storage.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, lineHeight = 15.sp)
+                Button(
+                    onClick = {
+                        val share = Intent(Intent.ACTION_SEND).apply {
+                            type = "application/json"
+                            putExtra(Intent.EXTRA_TEXT, database.exportJson())
+                        }
+                        context.startActivity(Intent.createChooser(share, "Export Nexus library"))
+                    },
+                    modifier = Modifier.fillMaxWidth()
+                ) { Text("EXPORT LIBRARY DATA") }
+                OutlinedButton(onClick = { confirmClear = true }, modifier = Modifier.fillMaxWidth()) { Text("CLEAR LOCAL CONTENT") }
+            }
+        }
+    }
+
+    if (confirmClear) {
+        AlertDialog(
+            onDismissRequest = { confirmClear = false },
+            title = { Text("Clear local content?") },
+            text = { Text("This removes saved items and message previews from this device. It cannot be undone.") },
+            confirmButton = {
+                TextButton(onClick = {
+                    database.clearItems()
+                    context.getSharedPreferences("kato_preferences", Context.MODE_PRIVATE)
+                        .edit().remove("kato_notifications").apply()
+                    confirmClear = false
+                }) { Text("CLEAR", color = MaterialTheme.colorScheme.error) }
+            },
+            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("CANCEL") } }
+        )
+    }
+}
+
+@Composable
+private fun VideoTile(video: NexusVideo, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Card(modifier = modifier.clickable(onClick = onClick), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column {
+            NexusRemoteImage(video.thumbnail, Modifier.fillMaxWidth().height(126.dp))
+            Column(Modifier.padding(11.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(video.channel.uppercase(Locale.getDefault()), color = MaterialTheme.colorScheme.primary, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text(video.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(dateLabel(video.publishedAt), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun MovieTile(movie: NexusMovie, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Card(modifier = modifier.clickable(onClick = onClick), shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column {
+            NexusRemoteImage(movie.thumbnail, Modifier.fillMaxWidth().height(190.dp))
+            Column(Modifier.padding(10.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("PUBLIC DOMAIN", color = MaterialTheme.colorScheme.primary, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text(movie.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(movie.year, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun NewsCard(story: NexusNews, compact: Boolean, onClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable(onClick = onClick),
+        shape = RoundedCornerShape(17.dp),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
+    ) {
+        Row(modifier = Modifier.padding(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+            if (story.imageUrl.isNotBlank()) {
+                NexusRemoteImage(story.imageUrl, Modifier.size(if (compact) 78.dp else 96.dp).clip(RoundedCornerShape(11.dp)))
+            } else {
+                Box(Modifier.size(78.dp).clip(RoundedCornerShape(11.dp)).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+                    Text("NEWS", color = MaterialTheme.colorScheme.primary, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                }
+            }
+            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(story.source.uppercase(Locale.getDefault()), color = MaterialTheme.colorScheme.primary, fontSize = 8.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.sp)
+                Text(story.title, color = MaterialTheme.colorScheme.onSurface, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 3, overflow = TextOverflow.Ellipsis)
+                Text(dateLabel(story.publishedAt), color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp)
+            }
+        }
+    }
+}
+
+@Composable
+private fun NexusAvatar(entry: InboxEntry, modifier: Modifier = Modifier) {
+    val bitmap = remember(entry.avatar) {
+        try {
+            if (entry.avatar.isBlank()) null else {
+                val bytes = Base64.decode(entry.avatar, Base64.DEFAULT)
+                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+            }
+        } catch (_: Exception) { null }
+    }
+    if (bitmap != null) {
+        Image(bitmap.asImageBitmap(), contentDescription = entry.title, modifier = modifier.clip(CircleShape), contentScale = ContentScale.Crop)
+    } else {
+        Box(modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+            Text(entry.title.take(1).uppercase(Locale.getDefault()), color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 17.sp)
+        }
+    }
+}
+
+@Composable
+private fun NexusRemoteImage(url: String, modifier: Modifier = Modifier) {
+    val bitmap by produceState<Bitmap?>(initialValue = null, key1 = url) {
+        value = withContext(Dispatchers.IO) {
+            try {
+                val connection = URL(url).openConnection()
+                connection.connectTimeout = 5000
+                connection.readTimeout = 6000
+                connection.getInputStream().use { BitmapFactory.decodeStream(it) }
+            } catch (_: Exception) { null }
+        }
+    }
+    if (bitmap != null) {
+        Image(bitmap!!.asImageBitmap(), contentDescription = null, modifier = modifier, contentScale = ContentScale.Crop)
+    } else {
+        Box(modifier.background(MaterialTheme.colorScheme.surfaceVariant), contentAlignment = Alignment.Center) {
+            Text("N", color = MaterialTheme.colorScheme.primary.copy(alpha = 0.55f), fontWeight = FontWeight.Black, fontSize = 22.sp)
+        }
+    }
+}
+
+@Composable
+private fun MediaPlayerScreen(
+    type: String,
+    title: String,
+    target: String,
+    videoId: String,
+    onBack: () -> Unit
+) {
+    Column(modifier = Modifier.fillMaxSize().padding(horizontal = 12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(onClick = onBack) { Text("← BACK") }
+            Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        Text(
+            when (type) {
+                "YouTube" -> "Official YouTube player · no autoplay"
+                "Spotify" -> "Official Spotify embed"
+                "Movie" -> "Internet Archive source page"
+                else -> "Source page"
+            },
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            fontSize = 10.sp
+        )
+        NexusWebView(
+            type = type,
+            target = target,
+            videoId = videoId,
+            modifier = Modifier.fillMaxWidth().weight(1f).clip(RoundedCornerShape(15.dp))
+        )
+    }
+}
+
+@SuppressLint("SetJavaScriptEnabled")
+@Composable
+private fun NexusWebView(type: String, target: String, videoId: String, modifier: Modifier = Modifier) {
+    AndroidView(
+        modifier = modifier,
+        factory = { context ->
+            WebView(context).apply {
+                settings.javaScriptEnabled = true
+                settings.domStorageEnabled = true
+                settings.mediaPlaybackRequiresUserGesture = true
+                settings.javaScriptCanOpenWindowsAutomatically = false
+                settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                webChromeClient = WebChromeClient()
+                webViewClient = WebViewClient()
+                when (type) {
+                    "YouTube" -> {
+                        val html = """
+                            <!doctype html><html><head><meta name="viewport" content="width=device-width, initial-scale=1"></head>
+                            <body style="margin:0;background:#000;display:flex;align-items:center;min-height:100vh">
+                            <iframe style="width:100%;aspect-ratio:16/9;border:0" src="https://www.youtube-nocookie.com/embed/$videoId?playsinline=1&rel=0"
+                            title="YouTube video player" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen></iframe>
+                            </body></html>
+                        """.trimIndent()
+                        loadDataWithBaseURL("https://www.youtube-nocookie.com", html, "text/html", "UTF-8", null)
+                    }
+                    else -> loadUrl(target)
+                }
+            }
+        },
+        update = { }
+    )
+}
+
+@Composable
+private fun SettingsCard(title: String, detail: String, content: @Composable ColumnScope.() -> Unit) {
+    Card(shape = RoundedCornerShape(17.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(Modifier.fillMaxWidth().padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text(title, color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 10.sp, letterSpacing = 1.2.sp)
+            Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, lineHeight = 14.sp)
+            content()
+        }
+    }
+}
+
+@Composable
+private fun QuietCard(title: String, detail: String) {
+    Card(shape = RoundedCornerShape(17.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+        Column(modifier = Modifier.fillMaxWidth().padding(15.dp), verticalArrangement = Arrangement.spacedBy(5.dp)) {
+            Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
+            Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, lineHeight = 16.sp)
+        }
+    }
+}
+
+@Composable
+private fun SectionHeading(title: String, subtitle: String) {
+    Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+        Text(title, color = MaterialTheme.colorScheme.primary, fontSize = 10.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.6.sp)
+        Text(subtitle, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp)
     }
 }
 
@@ -606,201 +1206,105 @@ private fun SaveItemDialog(onDismiss: () -> Unit, onSave: (String, String, Strin
     var type by rememberSaveable { mutableStateOf("Article") }
     var error by rememberSaveable { mutableStateOf(false) }
     val types = listOf("Article", "Video", "Movie", "Music", "Podcast", "Learning")
-
     AlertDialog(
         onDismissRequest = onDismiss,
-        title = { Text("Save to Kato") },
+        title = { Text("Save to Nexus") },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(7.dp)) {
                 OutlinedTextField(value = title, onValueChange = { title = it; error = false }, label = { Text("Title") }, singleLine = true)
                 OutlinedTextField(value = url, onValueChange = { url = it; error = false }, label = { Text("Original link") }, singleLine = true)
-                OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Personal note (optional)") }, minLines = 2)
-                Text("CONTENT TYPE", color = MaterialTheme.colorScheme.primary, fontWeight = FontWeight.Bold, fontSize = 9.sp, letterSpacing = 1.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    types.take(3).forEach { choice ->
-                        FilterChip(selected = type == choice, onClick = { type = choice }, label = { Text(choice, fontSize = 9.sp) })
+                OutlinedTextField(value = note, onValueChange = { note = it }, label = { Text("Note (optional)") }, minLines = 2)
+                Row(horizontalArrangement = Arrangement.spacedBy(4.dp)) {
+                    types.forEach { choice ->
+                        FilterChip(selected = type == choice, onClick = { type = choice }, label = { Text(choice, fontSize = 8.sp) })
                     }
                 }
-                Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-                    types.drop(3).forEach { choice ->
-                        FilterChip(selected = type == choice, onClick = { type = choice }, label = { Text(choice, fontSize = 9.sp) })
-                    }
-                }
-                if (error) Text("Enter a title and a valid web link.", color = MaterialTheme.colorScheme.error, fontSize = 11.sp)
+                if (error) Text("Enter a title and valid web link.", color = MaterialTheme.colorScheme.error, fontSize = 10.sp)
             }
         },
         confirmButton = {
             TextButton(onClick = {
-                val cleanUrl = normalizeUrl(url)
-                if (title.isNotBlank() && (cleanUrl.startsWith("https://") || cleanUrl.startsWith("http://"))) {
-                    onSave(title.trim(), cleanUrl, type, note.trim())
-                } else {
-                    error = true
-                }
+                val safeUrl = normalizeUrl(url)
+                if (title.isNotBlank() && safeUrl.startsWith("https://")) onSave(title.trim(), safeUrl, type, note.trim()) else error = true
             }) { Text("SAVE") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("CANCEL") } }
     )
 }
 
-@Composable
-private fun SettingsScreen(
-    themeMode: String,
-    onThemeModeChange: (String) -> Unit,
-    onDataChanged: () -> Unit
-) {
-    val context = LocalContext.current
-    val prefs = remember { context.getSharedPreferences("kato_preferences", Context.MODE_PRIVATE) }
-    val database = remember(context) { KatoDatabase(context) }
-    var confirmClear by remember { mutableStateOf(false) }
-
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 8.dp),
-        verticalArrangement = Arrangement.spacedBy(13.dp)
-    ) {
-        item { SectionHeading("APPEARANCE", "A quiet interface, day or night") }
-        item {
-            Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(modifier = Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Theme", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-                    Row(horizontalArrangement = Arrangement.spacedBy(7.dp)) {
-                        listOf("System", "Dark", "Light").forEach { option ->
-                            FilterChip(selected = themeMode == option, onClick = { onThemeModeChange(option) }, label = { Text(option) })
-                        }
-                    }
-                }
-            }
-        }
-        item { SectionHeading("YOUR EXPERIENCE", "No engagement engine is active") }
-        item {
-            QuietCard(
-                title = "Recommendations are disabled",
-                detail = "This foundation build does not run a recommendation engine. Source-based discovery will be added as a finite, optional feature."
+private fun readInbox(context: Context): List<InboxEntry> {
+    return try {
+        val prefs = context.getSharedPreferences("kato_preferences", Context.MODE_PRIVATE)
+        val array = JSONArray(prefs.getString("kato_notifications", "[]"))
+        (0 until array.length()).mapNotNull { index ->
+            val item = array.optJSONObject(index) ?: return@mapNotNull null
+            InboxEntry(
+                id = item.optString("id", item.optString("source") + "|" + item.optString("title")),
+                source = item.optString("source", "Message"),
+                title = item.optString("title", "Conversation"),
+                message = item.optString("message", ""),
+                time = item.optLong("time", 0L),
+                unread = item.optBoolean("unread", true),
+                avatar = item.optString("avatar", ""),
+                packageName = item.optString("packageName", "")
             )
         }
-        item {
-            QuietCard(
-                title = "Session awareness is planned",
-                detail = "Session reminders and natural-end prompts will be added in a later phase. Nothing in this build blocks or interrupts media."
-            )
-        }
-        item { SectionHeading("PRIVACY AND DATA", "Local-first by default") }
-        item {
-            Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-                Column(modifier = Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Text("Stored on this device", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-                    Text("Saved links, notes and theme preference are kept locally. No Kato account or cloud service is required in this build.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, lineHeight = 16.sp)
-                    Button(
-                        onClick = {
-                            val share = Intent(Intent.ACTION_SEND).apply {
-                                type = "application/json"
-                                putExtra(Intent.EXTRA_TEXT, database.exportJson())
-                            }
-                            context.startActivity(Intent.createChooser(share, "Export Kato library"))
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    ) { Text("EXPORT LIBRARY DATA") }
-                    OutlinedButton(onClick = { confirmClear = true }, modifier = Modifier.fillMaxWidth()) {
-                        Text("CLEAR LOCAL CONTENT")
-                    }
-                }
-            }
-        }
-        item {
-            Text("KATO 0.1 · FOUNDATION BUILD", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 9.sp, letterSpacing = 1.2.sp)
-        }
-    }
-
-    if (confirmClear) {
-        AlertDialog(
-            onDismissRequest = { confirmClear = false },
-            title = { Text("Clear local content?") },
-            text = { Text("This removes saved library items and captured notification previews from this device. This cannot be undone.") },
-            confirmButton = {
-                TextButton(onClick = {
-                    database.clearItems()
-                    context.getSharedPreferences("kato_preferences", Context.MODE_PRIVATE)
-                        .edit().remove("kato_notifications").apply()
-                    confirmClear = false
-                    onDataChanged()
-                }) { Text("CLEAR", color = MaterialTheme.colorScheme.error) }
-            },
-            dismissButton = { TextButton(onClick = { confirmClear = false }) { Text("CANCEL") } }
-        )
-    }
+    } catch (_: Exception) { emptyList() }
 }
 
-@Composable
-private fun SettingSwitchCard(title: String, detail: String, checked: Boolean, onCheckedChange: (Boolean) -> Unit) {
-    Card(shape = RoundedCornerShape(16.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Row(modifier = Modifier.fillMaxWidth().padding(14.dp), verticalAlignment = Alignment.CenterVertically) {
-            Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(title, color = MaterialTheme.colorScheme.onSurface, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
-                Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, lineHeight = 15.sp)
-            }
-            Switch(checked = checked, onCheckedChange = onCheckedChange)
+private fun setInboxRead(context: Context, id: String) {
+    try {
+        val prefs = context.getSharedPreferences("kato_preferences", Context.MODE_PRIVATE)
+        val old = JSONArray(prefs.getString("kato_notifications", "[]"))
+        val next = JSONArray()
+        for (index in 0 until old.length()) {
+            val item = old.optJSONObject(index) ?: continue
+            if (item.optString("id") == id) item.put("unread", false)
+            next.put(item)
         }
-    }
+        prefs.edit().putString("kato_notifications", next.toString()).apply()
+    } catch (_: Exception) { }
 }
 
-@Composable
-private fun QuietCard(title: String, detail: String) {
-    Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
-        Column(modifier = Modifier.fillMaxWidth().padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(title, color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold, fontSize = 14.sp)
-            Text(detail, color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, lineHeight = 16.sp)
-        }
-    }
+private fun launchMessagingApp(context: Context, packageName: String) {
+    if (packageName.isBlank()) return
+    try {
+        val intent = context.packageManager.getLaunchIntentForPackage(packageName) ?: return
+        context.startActivity(intent)
+    } catch (_: Exception) { }
 }
 
 private fun normalizeUrl(raw: String): String {
     val clean = raw.trim()
     return when {
-        clean.startsWith("https://", true) || clean.startsWith("http://", true) -> clean
-        clean.contains(".") && !clean.contains(" ") -> "https://" + clean
+        clean.startsWith("https://", true) -> clean
+        clean.startsWith("http://", true) -> "https://" + clean.removePrefix("http://")
+        clean.contains(".") && !clean.contains(" ") -> "https://$clean"
         else -> clean
     }
 }
 
-private fun openExternal(context: Context, rawUrl: String) {
-    val safeUrl = normalizeUrl(rawUrl)
-    if (!safeUrl.startsWith("https://") && !safeUrl.startsWith("http://")) return
-    try {
-        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(safeUrl)))
-    } catch (_: Exception) {
-    }
+private fun spotifyEmbedUrl(raw: String): String {
+    val uri = try { Uri.parse(raw.trim()) } catch (_: Exception) { return "" }
+    val parts = uri.pathSegments
+    if (uri.host?.contains("spotify.com", true) != true || parts.size < 2) return ""
+    val type = parts[0]
+    val id = parts[1]
+    if (type !in listOf("playlist", "album", "track", "episode", "show") || id.isBlank()) return ""
+    return "https://open.spotify.com/embed/$type/$id?utm_source=generator&theme=0"
 }
 
-private data class KatoNotification(
-    val source: String,
-    val title: String,
-    val message: String,
-    val time: Long
-) {
-    fun timeLabel(): String = try {
-        DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(time))
-    } catch (_: Exception) {
-        ""
-    }
+private fun openWebPage(url: String) {
+    // The Compose feed's open action is intentionally handled by the Android browser for publisher articles.
+    // Nexus does not strip publisher ads, paywalls or login requirements.
 }
 
-private object KatoNotifications {
-    fun read(context: Context): List<KatoNotification> {
-        return try {
-            val prefs = context.getSharedPreferences("kato_preferences", Context.MODE_PRIVATE)
-            val array = JSONArray(prefs.getString("kato_notifications", "[]"))
-            (0 until array.length()).map { index ->
-                val item = array.getJSONObject(index)
-                KatoNotification(
-                    source = item.optString("source", "App"),
-                    title = item.optString("title", "Notification"),
-                    message = item.optString("message", ""),
-                    time = item.optLong("time", 0L)
-                )
-            }
-        } catch (_: Exception) {
-            emptyList()
-        }
-    }
+private fun dateLabel(time: Long): String {
+    if (time <= 0L) return "RECENT"
+    return try { SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(time)) } catch (_: Exception) { "RECENT" }
+}
+
+private fun timeLabel(time: Long): String {
+    if (time <= 0L) return ""
+    return try { DateFormat.getTimeInstance(DateFormat.SHORT).format(Date(time)) } catch (_: Exception) { "" }
 }
