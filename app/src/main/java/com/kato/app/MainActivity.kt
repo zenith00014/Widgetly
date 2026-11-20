@@ -141,6 +141,7 @@ private fun NexusApp() {
     var page by rememberSaveable { mutableStateOf("Home") }
     var showSettings by rememberSaveable { mutableStateOf(false) }
     var themeMode by remember { mutableStateOf(prefs.getString("theme_mode", "Dark") ?: "Dark") }
+    var sessionSize by remember { mutableIntStateOf(prefs.getInt("session_size", 20).coerceIn(10, 40)) }
     var topics by remember {
         mutableStateOf(
             prefs.getString("selected_topics", "World,Bangladesh,Technology,Science,Education,Football")
@@ -235,6 +236,7 @@ private fun NexusApp() {
                             channelText = channelText,
                             customFeedText = customFeedText,
                             spotifyUrl = spotifyUrl,
+                            sessionSize = sessionSize,
                             onBack = { showSettings = false },
                             onThemeChange = {
                                 themeMode = it
@@ -255,6 +257,10 @@ private fun NexusApp() {
                             onSpotifyChange = {
                                 spotifyUrl = it
                                 prefs.edit().putString("spotify_url", it).apply()
+                            },
+                            onSessionSizeChange = {
+                                sessionSize = it
+                                prefs.edit().putInt("session_size", it).apply()
                             },
                             onRefresh = { refreshKey++ }
                         )
@@ -285,6 +291,7 @@ private fun NexusApp() {
                         )
                         page == "Social" -> SocialScreen(
                             topics = topics,
+                            sessionSize = sessionSize,
                             news = news,
                             videos = videos,
                             loading = isLoading,
@@ -644,6 +651,7 @@ private fun buildNexusSocialSession(
 @Composable
 private fun SocialScreen(
     topics: Set<String>,
+    sessionSize: Int,
     news: List<NexusNews>,
     videos: List<NexusVideo>,
     loading: Boolean,
@@ -656,7 +664,7 @@ private fun SocialScreen(
     val context = LocalContext.current
     val savedTitles = remember { KatoDatabase(context).listItems().map { it.title } }
     val entries = remember(news, videos, topics, savedTitles) {
-        buildNexusSocialSession(news, videos, topics, savedTitles, sessionSize = 20)
+        buildNexusSocialSession(news, videos, topics, savedTitles, sessionSize = sessionSize)
     }
 
     LazyColumn(
@@ -702,7 +710,7 @@ private fun SocialScreen(
                     Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text("+---------------- SESSION END ----------------+", fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary, fontSize = 10.sp)
                         Text("You've reached the end.", color = MaterialTheme.colorScheme.onSurface, fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                        Text("Reviewed ${entries.size} of 20 selected items. Nothing else loads until you refresh.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
+                        Text("Reviewed ${entries.size} of ${sessionSize} selected items. Nothing else loads until you refresh.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 12.sp)
                         Text("[x] SESSION COMPLETE", fontFamily = FontFamily.Monospace, color = MaterialTheme.colorScheme.primary, fontSize = 10.sp)
                     }
                 }
@@ -1021,6 +1029,7 @@ private fun SavedItemCard(
 private fun NexusSettingsScreen(
     themeMode: String,
     topics: Set<String>,
+    sessionSize: Int,
     channelText: String,
     customFeedText: String,
     spotifyUrl: String,
@@ -1030,6 +1039,7 @@ private fun NexusSettingsScreen(
     onChannelsChange: (String) -> Unit,
     onCustomFeedsChange: (String) -> Unit,
     onSpotifyChange: (String) -> Unit,
+    onSessionSizeChange: (Int) -> Unit,
     onRefresh: () -> Unit
 ) {
     val context = LocalContext.current
@@ -1088,7 +1098,21 @@ private fun NexusSettingsScreen(
             }
         }
         item {
-            SettingsCard("SPOTIFY PLAYLIST / ALBUM", "Paste a Spotify track, album or playlist URL. The official Spotify embed opens inside Nexus.") {
+            SettingsCard("FEED SESSION LIMIT", "Choose how many items Social prepares for one session. The feed stops at the limit.") {
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf(10, 20, 30, 40).forEach { size ->
+                        FilterChip(
+                            selected = sessionSize == size,
+                            onClick = { onSessionSizeChange(size) },
+                            label = { Text(size.toString(), fontFamily = FontFamily.Monospace) }
+                        )
+                    }
+                }
+                Text("[x] No pagination · no autoplay · no infinite feed", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 10.sp, fontFamily = FontFamily.Monospace)
+            }
+        }
+        item {
+            SettingsCard("SPOTIFY PLAYLIST / ALBUM", "Paste a Spotify track, album or playlist URL. The official Spotify embed opens inside Nexus.")
                 OutlinedTextField(
                     value = localSpotify,
                     onValueChange = { localSpotify = it },
