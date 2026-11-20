@@ -481,8 +481,8 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
        var queued=0
        for(track in tracks){
         try{
-         val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.id,track.music)}
-         withContext(Dispatchers.IO){OfflineDownloads.enqueue(context=context,id=track.id,title=track.title,creator=track.creator,isAudio=track.music,media=resolved)}
+         val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.id,track.music,preferMp4=!track.music)}
+         withContext(Dispatchers.IO){OfflineDownloads.enqueue(context=context,id=track.id,title=track.title,creator=track.creator,isAudio=track.music,media=resolved,preferMp4=!track.music)}
          queued++
         }catch(_:Exception){}
        }
