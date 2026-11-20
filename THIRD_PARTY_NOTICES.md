@@ -14,8 +14,14 @@ Rush's YouTube playback integration adapts the extraction and stream-resolution 
 
 The playback adapter in `app/src/main/java/com/widgetly/app/LibreTubePlayback.kt` is an adaptation for Rush's Compose UI. It uses NewPipeExtractor to resolve YouTube audio and video streams, then Media3 to play the resolved URL.
 
-The NewPipeExtractor dependency is provided by the LibreTube project's NewPipeExtractor fork:
-https://github.com/libre-tube/NewPipeExtractor
+The NewPipeExtractor dependency is provided by the LibreTube project's NewPipeExtractor fork.
+
+- Maven coordinate: `com.github.libre-tube:NewPipeExtractor:894ae973d29b7c26502c72834bad636a72e345ca`
+- Pinned upstream commit: `894ae973d29b7c26502c72834bad636a72e345ca` (2026-09-22)
+- Source: https://github.com/libre-tube/NewPipeExtractor/tree/894ae973d29b7c26502c72834bad636a72e345ca
+- License: GPL-3.0-or-later
+
+This fork contains upstream NewPipeExtractor changes used by LibreTube. Keep the included GPL license and corresponding notices when redistributing.
 
 LibreTube and NewPipeExtractor are not affiliated with or endorsed by YouTube or Google.
 
