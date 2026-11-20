@@ -411,7 +411,7 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
    if(downloadMessage.isNotBlank())Text(downloadMessage,color=muted,fontSize=10.sp)
   }
   if(tracks.isNotEmpty()){
-   TextButton(onClick={
+   TextButton(enabled=libraryMessage.isBlank(),onClick={
     val prefs=context.getSharedPreferences("rush_prefs",Context.MODE_PRIVATE)
     tracks.forEach{track->persistPickMetadata(prefs,track.toPick())}
     val created=PlaylistStore.create(prefs,collection.title,tracks.first().videoId)
