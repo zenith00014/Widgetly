@@ -48,6 +48,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import java.net.URL
+import java.io.ByteArrayInputStream
 import java.text.DateFormat
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -1155,7 +1156,28 @@ private fun NexusWebView(type: String, target: String, videoId: String, modifier
                 settings.javaScriptCanOpenWindowsAutomatically = false
                 settings.mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
                 webChromeClient = WebChromeClient()
-                webViewClient = WebViewClient()
+                webViewClient = object : WebViewClient() {
+                    override fun shouldInterceptRequest(
+                        view: WebView?,
+                        request: android.webkit.WebResourceRequest?
+                    ): android.webkit.WebResourceResponse? {
+                        val uri = request?.url ?: return super.shouldInterceptRequest(view, request)
+                        if (NexusAdBlocker.shouldBlock(uri)) {
+                            return android.webkit.WebResourceResponse(
+                                "text/plain", "utf-8", ByteArrayInputStream(ByteArray(0))
+                            )
+                        }
+                        return super.shouldInterceptRequest(view, request)
+                    }
+
+                    override fun shouldOverrideUrlLoading(
+                        view: WebView?,
+                        request: android.webkit.WebResourceRequest?
+                    ): Boolean {
+                        val uri = request?.url ?: return false
+                        return uri.scheme !in listOf("https", "http")
+                    }
+                }
                 when (type) {
                     "YouTube" -> {
                         val html = """
@@ -1173,6 +1195,25 @@ private fun NexusWebView(type: String, target: String, videoId: String, modifier
         },
         update = { }
     )
+}
+
+private object NexusAdBlocker {
+    // A lightweight local blocklist for common ad, analytics and tracking hosts.
+    // This is not a VPN-level filter and cannot reliably remove first-party ads.
+    private val blockedHosts = listOf(
+        "doubleclick.net", "googlesyndication.com", "googleadservices.com",
+        "adservice.google.com", "adnxs.com", "adsrvr.org", "adform.net",
+        "taboola.com", "outbrain.com", "criteo.com", "scorecardresearch.com",
+        "quantserve.com", "hotjar.com", "fullstory.com", "clarity.ms",
+        "segment.io", "segment.com", "amplitude.com", "mixpanel.com",
+        "app-measurement.com", "branch.io", "adjust.com", "unityads.unity3d.com",
+        "applovin.com", " ironsource.com", "inmobi.com"
+    )
+
+    fun shouldBlock(uri: Uri): Boolean {
+        val host = uri.host?.lowercase(Locale.ROOT) ?: return false
+        return blockedHosts.any { host == it.trim() || host.endsWith("." + it.trim()) }
+    }
 }
 
 @Composable
