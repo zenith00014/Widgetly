@@ -266,6 +266,7 @@ private fun NexusApp() {
                             onOpenLibrary = { page = "Library" }
                         )
                         page == "Social" -> SocialScreen(
+                            topics = topics,
                             news = news,
                             videos = videos,
                             loading = isLoading,
@@ -540,6 +541,7 @@ private fun HomeScreen(
 
 @Composable
 private fun SocialScreen(
+    topics: Set<String>,
     news: List<NexusNews>,
     videos: List<NexusVideo>,
     loading: Boolean,
@@ -554,7 +556,7 @@ private fun SocialScreen(
             add(SocialEntry("news:${item.url}", "News", item.title, item.summary, item.source, item.url, item.imageUrl, item.publishedAt, score = item.score))
         }
         videos.forEach { item ->
-            add(SocialEntry("video:${item.videoId}", "Video", item.title, item.channel, item.channel, item.url, item.thumbnail, item.publishedAt, item.videoId, 8))
+            add(SocialEntry("video:${item.videoId}", "Video", item.title, item.channel, item.channel, item.url, item.thumbnail, item.publishedAt, item.videoId, NexusContentRepository.scoreVideo(item.title, item.channel, topics, item.publishedAt)))
         }
     }.sortedWith(compareByDescending<SocialEntry> { it.score }.thenByDescending { it.publishedAt }).take(25)
 
