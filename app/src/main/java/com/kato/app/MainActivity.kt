@@ -138,6 +138,7 @@ private fun KatoApp() {
                         "Library" -> LibraryScreen(refresh = refresh, onDataChanged = { refresh++ })
                         else -> HomeScreen(
                             refresh = refresh,
+                            onDataChanged = { refresh++ },
                             onOpenSocial = { page = "Social" },
                             onOpenDiscover = {
                                 discoverSection = it
@@ -184,6 +185,7 @@ private fun KatoApp() {
 @Composable
 private fun HomeScreen(
     refresh: Int,
+    onDataChanged: () -> Unit,
     onOpenSocial: () -> Unit,
     onOpenDiscover: (String) -> Unit,
     onOpenLibrary: () -> Unit
@@ -269,8 +271,14 @@ private fun HomeScreen(
                 SavedItemCard(
                     item = item,
                     onOpen = { openExternal(context, item.url) },
-                    onComplete = { database.setCompleted(item.id, true) },
-                    onDelete = { database.deleteItem(item.id) }
+                    onComplete = {
+                        database.setCompleted(item.id, true)
+                        onDataChanged()
+                    },
+                    onDelete = {
+                        database.deleteItem(item.id)
+                        onDataChanged()
+                    }
                 )
             }
         }
@@ -338,10 +346,11 @@ private fun QuickAccessCard(glyph: String, title: String, subtitle: String, modi
 @Composable
 private fun SocialScreen(refresh: Int) {
     val context = LocalContext.current
-    val enabled = remember(refresh) {
+    var localRefresh by remember { mutableIntStateOf(0) }
+    val enabled = remember(refresh, localRefresh) {
         NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
     }
-    val allEntries = remember(refresh) { KatoNotifications.read(context) }
+    val allEntries = remember(refresh, localRefresh) { KatoNotifications.read(context) }
     var filter by rememberSaveable { mutableStateOf("All") }
     val entries = if (filter == "All") allEntries else allEntries.filter { it.source == filter }
 
@@ -379,6 +388,7 @@ private fun SocialScreen(refresh: Int) {
                     fontSize = 10.sp,
                     lineHeight = 15.sp
                 )
+                TextButton(onClick = { localRefresh++ }) { Text("REFRESH INBOX") }
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -642,8 +652,6 @@ private fun SettingsScreen(
     val context = LocalContext.current
     val prefs = remember { context.getSharedPreferences("kato_preferences", Context.MODE_PRIVATE) }
     val database = remember(context) { KatoDatabase(context) }
-    var recommendationsOff by remember { mutableStateOf(prefs.getBoolean("recommendations_off", true)) }
-    var sessionReminder by remember { mutableStateOf(prefs.getBoolean("session_reminder", false)) }
     var confirmClear by remember { mutableStateOf(false) }
 
     LazyColumn(
@@ -664,27 +672,17 @@ private fun SettingsScreen(
                 }
             }
         }
-        item { SectionHeading("YOUR EXPERIENCE", "Optional controls, never forced") }
+        item { SectionHeading("YOUR EXPERIENCE", "No engagement engine is active") }
         item {
-            SettingSwitchCard(
-                title = "Disable recommendations",
-                detail = "Keep discovery limited to sources and interests you select.",
-                checked = recommendationsOff,
-                onCheckedChange = {
-                    recommendationsOff = it
-                    prefs.edit().putBoolean("recommendations_off", it).apply()
-                }
+            QuietCard(
+                title = "Recommendations are disabled",
+                detail = "This foundation build does not run a recommendation engine. Source-based discovery will be added as a finite, optional feature."
             )
         }
         item {
-            SettingSwitchCard(
-                title = "Session reminders",
-                detail = "A gentle reminder at a natural stopping point. It does not close media.",
-                checked = sessionReminder,
-                onCheckedChange = {
-                    sessionReminder = it
-                    prefs.edit().putBoolean("session_reminder", it).apply()
-                }
+            QuietCard(
+                title = "Session awareness is planned",
+                detail = "Session reminders and natural-end prompts will be added in a later phase. Nothing in this build blocks or interrupts media."
             )
         }
         item { SectionHeading("PRIVACY AND DATA", "Local-first by default") }
@@ -692,7 +690,7 @@ private fun SettingsScreen(
             Card(shape = RoundedCornerShape(18.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
                 Column(modifier = Modifier.padding(15.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Stored on this device", color = MaterialTheme.colorScheme.onSurface, fontWeight = FontWeight.SemiBold)
-                    Text("Saved links, notes, theme and session preferences are kept locally. No Kato account or cloud service is required in this build.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, lineHeight = 16.sp)
+                    Text("Saved links, notes and theme preference are kept locally. No Kato account or cloud service is required in this build.", color = MaterialTheme.colorScheme.onSurfaceVariant, fontSize = 11.sp, lineHeight = 16.sp)
                     Button(
                         onClick = {
                             val share = Intent(Intent.ACTION_SEND).apply {
