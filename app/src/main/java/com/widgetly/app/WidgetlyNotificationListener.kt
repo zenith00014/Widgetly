@@ -16,13 +16,22 @@ class WidgetlyNotificationListener : NotificationListenerService() {
         }
         val extras = sbn.notification.extras
         val title = extras.getCharSequence("android.title")?.toString()?.take(100) ?: source
-        val message = extras.getCharSequence("android.text")?.toString()?.take(500) ?: return
+        val message = (extras.getCharSequence("android.text") ?: extras.getCharSequence("android.bigText"))?.toString()?.take(500) ?: return
         if (message.isBlank()) return
+        NexusNotificationBridge.register(sbn)
         val prefs = getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
         val old = try { JSONArray(prefs.getString("social_notifications", "[]")) } catch (_: Exception) { JSONArray() }
         val next = JSONArray()
-        next.put(JSONObject().put("source", source).put("title", title).put("message", message).put("time", System.currentTimeMillis()))
+        next.put(JSONObject()
+            .put("source", source).put("title", title).put("message", message)
+            .put("time", System.currentTimeMillis()).put("key", sbn.key)
+            .put("package", sbn.packageName)
+            .put("canReply", sbn.notification.actions?.any { !it.remoteInputs.isNullOrEmpty() } == true))
         for (i in 0 until minOf(old.length(), 49)) next.put(old.getJSONObject(i))
         prefs.edit().putString("social_notifications", next.toString()).apply()
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        // Keep the preview in Nexus history; reply actions may expire with the source notification.
     }
 }
