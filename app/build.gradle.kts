@@ -33,5 +33,9 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.glance:glance-appwidget:1.1.1")
     implementation("androidx.glance:glance-material3:1.1.1")
+    implementation("androidx.media3:media3-exoplayer:1.5.1")
+    implementation("androidx.media3:media3-ui:1.5.1")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
+    implementation("com.github.libre-tube:NewPipeExtractor:894ae97")
     debugImplementation("androidx.compose.ui:ui-tooling")
 }
