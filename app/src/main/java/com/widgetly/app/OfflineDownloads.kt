@@ -189,8 +189,13 @@ object OfflineDownloads {
             .sortedByDescending { it.file.lastModified() }
     }
 
-    fun delete(context: Context, media: OfflineMedia) {
-        WorkManager.getInstance(context).cancelUniqueWork(workName(media.id))
+    suspend fun delete(context: Context, media: OfflineMedia) = withContext(Dispatchers.IO) {
+        runCatching {
+            WorkManager.getInstance(context)
+                .cancelUniqueWork(workName(media.id))
+                .result
+                .get(10, TimeUnit.SECONDS)
+        }
         media.file.delete()
         File(media.file.parentFile, "${media.id}.json").delete()
         File(media.file.parentFile, "${media.id}.${media.extension}.part").delete()
