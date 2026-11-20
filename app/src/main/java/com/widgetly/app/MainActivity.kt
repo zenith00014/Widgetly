@@ -394,8 +394,12 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
  val scope=rememberCoroutineScope()
  LaunchedEffect(context) {
   while (true) {
-   downloads=withContext(Dispatchers.IO){OfflineDownloads.list(context)}
-   workInfos=withContext(Dispatchers.IO){runCatching{OfflineDownloads.workInfos(context)}.getOrDefault(emptyList())}
+   val snapshot=withContext(Dispatchers.IO){
+    Triple(OfflineDownloads.list(context),runCatching{OfflineDownloads.workInfos(context)}.getOrDefault(emptyList()),OfflineDownloads.storageBytes(context))
+   }
+   downloads=snapshot.first
+   workInfos=snapshot.second
+   storageBytes=snapshot.third
    kotlinx.coroutines.delay(1200)
   }
  }
