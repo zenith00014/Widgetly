@@ -960,6 +960,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   }
   Spacer(Modifier.height(8.dp))
   androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).apply{player=controller;useController=true}},update={it.player=controller},modifier=Modifier.fillMaxWidth().height(if(audio)96.dp else 220.dp))
+  Text(status,color=muted,fontSize=11.sp)
   Text(playingTitle,color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold);Text(playingCreator,color=muted)
   if(!localFileAvailable) {
    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=audio,onClick={audio=true;quality=playerPrefs.getInt("audio_quality",0)},label={Text("Audio only")});FilterChip(selected=!audio,onClick={audio=false;quality=playerPrefs.getInt("video_quality",0)},label={Text("Video")})}
@@ -1037,7 +1038,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    }catch(e:Exception){status=e.localizedMessage?:"Could not start download."}
   }},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=raised)){Text(when{audio&&mp3Format->"Download MP3";!audio&&mp4Format->"Download MP4";else->"Download offline"},color=ink)}
 
-  Text(status,color=muted,fontSize=11.sp);Text("Use offline downloads only where permitted. Formats and quality depend on the source.",color=muted,fontSize=10.sp)
+  Text("Use offline downloads only where permitted. Formats and quality depend on the source.",color=muted,fontSize=10.sp)
   Spacer(Modifier.height(8.dp))
  }
 }
