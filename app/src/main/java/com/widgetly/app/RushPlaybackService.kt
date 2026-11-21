@@ -3,6 +3,12 @@ package com.widgetly.app
 import com.github.libretube.player.RushMediaSourceFactory
 
 import androidx.media3.exoplayer.ExoPlayer
+import androidx.media3.exoplayer.DefaultLoadControl
+import androidx.media3.datasource.cache.CacheDataSource
+import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
+import androidx.media3.datasource.cache.SimpleCache
+import androidx.media3.database.StandaloneDatabaseProvider
+import java.io.File
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import kotlinx.coroutines.CoroutineScope
@@ -16,6 +22,7 @@ import kotlinx.coroutines.launch
 class RushPlaybackService : MediaSessionService() {
     private val STREAM_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0"
     private var mediaSession: MediaSession? = null
+    private var streamCache: SimpleCache? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     override fun onCreate() {
@@ -33,9 +40,30 @@ class RushPlaybackService : MediaSessionService() {
                 )
             )
         val dataSourceFactory = androidx.media3.datasource.DefaultDataSource.Factory(this, httpFactory)
-        val mediaSourceFactory = RushMediaSourceFactory(dataSourceFactory)
+        val cache = SimpleCache(
+            File(cacheDir, "media3-stream-cache"),
+            LeastRecentlyUsedCacheEvictor(256L * 1024L * 1024L),
+            StandaloneDatabaseProvider(this)
+        )
+        streamCache = cache
+        val cachedDataSourceFactory = CacheDataSource.Factory()
+            .setCache(cache)
+            .setUpstreamDataSourceFactory(dataSourceFactory)
+            .setFlags(CacheDataSource.FLAG_IGNORE_CACHE_ON_ERROR)
+        val mediaSourceFactory = RushMediaSourceFactory(cachedDataSourceFactory)
+        val loadControl = DefaultLoadControl.Builder()
+            .setBufferDurationsMs(
+                15_000,
+                50_000,
+                1_000,
+                1_500
+            )
+            .setBackBuffer(30_000, true)
+            .setPrioritizeTimeOverSizeThresholds(true)
+            .build()
         val player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(mediaSourceFactory)
+            .setLoadControl(loadControl)
             .setWakeMode(androidx.media3.common.C.WAKE_MODE_LOCAL)
             .build()
         player.setAudioAttributes(androidx.media3.common.AudioAttributes.DEFAULT, true)
@@ -74,6 +102,8 @@ class RushPlaybackService : MediaSessionService() {
             session.release()
         }
         mediaSession = null
+        streamCache?.release()
+        streamCache = null
         super.onDestroy()
     }
 }
