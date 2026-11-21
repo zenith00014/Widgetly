@@ -53,21 +53,21 @@ class RushPlaybackService : MediaSessionService() {
         val mediaSourceFactory = RushMediaSourceFactory(cachedDataSourceFactory)
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                25_000,
-                90_000,
-                1_800,
-                4_000
+                20_000,
+                60_000,
+                1_500,
+                3_000
             )
-            .setBackBuffer(10_000, false)
+            .setBackBuffer(15_000, true)
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
         val trackSelector = androidx.media3.exoplayer.trackselection.DefaultTrackSelector(
             this,
             androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection.Factory(
-                12_000,
-                6_000,
-                12_000,
-                0.65f
+                15_000,
+                3_000,
+                10_000,
+                0.70f
             )
         ).apply {
             setParameters(buildUponParameters().setForceHighestSupportedBitrate(false))
