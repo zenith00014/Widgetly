@@ -244,10 +244,12 @@ class OfflineDownloadWorker(
         val partial = File(directory, "$id.$extension.part")
         val destination = File(directory, "$id.$extension")
         var cancellationHandle: kotlinx.coroutines.DisposableHandle? = null
+        try {
         if (url.startsWith("rush-sabr://")) {
             if (!downloadSabrAudio(id, title, extension, metadata, partial, destination)) {
                 return@withContext Result.retry()
             }
+            Unit
         } else {
         val existingBytes = partial.length()
         fun requestFor(streamUrl: String): Request = Request.Builder()
@@ -264,7 +266,6 @@ class OfflineDownloadWorker(
         cancellationHandle = coroutineContext[Job]?.invokeOnCompletion { cause ->
             if (cause != null) activeCall?.cancel()
         }
-        try {
             activeCall = CLIENT.newCall(requestFor(url))
             var response = activeCall!!.execute()
             if (response.code == 403 || response.code == 410) {
