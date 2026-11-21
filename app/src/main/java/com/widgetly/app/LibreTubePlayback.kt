@@ -88,7 +88,10 @@ object LibreTubePlayback {
                 val manifest = com.github.libretube.player.manifest.SabrManifestFactory.from(videoId, info, audioOnly = true)
                     ?: throw IOException("No playable audio stream was found.")
                 com.github.libretube.player.manifest.SabrManifestStore.put(videoId, manifest)
-                return ResolvedMedia("rush-sabr://youtube/$videoId", "sabr", "application/x-rush-sabr", "Adaptive audio")
+                val audioFormat = (audioCandidates.maxByOrNull { it.averageBitrate }
+                    ?: info.audioStreams.maxByOrNull { it.averageBitrate })?.format
+                val extension = audioFormat?.suffix?.takeIf { it.matches(Regex("[A-Za-z0-9]{1,8}")) } ?: "m4a"
+                return ResolvedMedia("rush-sabr://youtube/$videoId", extension, "application/x-rush-sabr", "Adaptive audio")
             }
             val format = stream.format
             return ResolvedMedia(
