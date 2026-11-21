@@ -199,24 +199,9 @@ class SabrClient private constructor(
      */
     private val partialSegments = mutableMapOf<Int, Segment>()
 
-    /** HTTP Client for requesting UMP data. */
-    private val client: OkHttpClient = OkHttpClient.Builder()
-        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-        .readTimeout(45, java.util.concurrent.TimeUnit.SECONDS)
-        .writeTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
-        .callTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
-        .addInterceptor { chain ->
-            val request = chain.request().newBuilder()
-                .addHeader("Content-Type", CONTENT_TYPE)
-                .addHeader("Accept-Encoding", ENCODING)
-                .addHeader("Accept", ACCEPT)
-                .addHeader("Origin", YOUTUBE_FRONTEND_URL)
-                .addHeader("Referer", "${YOUTUBE_FRONTEND_URL}/")
-                .addHeader("User-Agent", USER_AGENT)
-                .build()
-            chain.proceed(request)
-        }
-        .build()
+    /** Shared client reuses connections and its dispatcher across queued stream items. */
+    private val client: OkHttpClient
+        get() = sharedHttpClient
 
     /** Sequence number of the request. */
     private var requestNumber = 1
@@ -651,5 +636,25 @@ class SabrClient private constructor(
         private const val ENCODING = "identity"
         private const val ACCEPT = "application/vnd.yt-ump"
         private const val USER_AGENT = "com.google.visionos.youtube/1.02(RealityDevice14,1; U; CPU visionOS 25_6_0 like Mac OS X; GB)";
+
+        private val sharedHttpClient: OkHttpClient by lazy(LazyThreadSafetyMode.SYNCHRONIZED) {
+            OkHttpClient.Builder()
+                .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(45, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+                .callTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+                .addInterceptor { chain ->
+                    val request = chain.request().newBuilder()
+                        .addHeader("Content-Type", CONTENT_TYPE)
+                        .addHeader("Accept-Encoding", ENCODING)
+                        .addHeader("Accept", ACCEPT)
+                        .addHeader("Origin", YOUTUBE_FRONTEND_URL)
+                        .addHeader("Referer", "${YOUTUBE_FRONTEND_URL}/")
+                        .addHeader("User-Agent", USER_AGENT)
+                        .build()
+                    chain.proceed(request)
+                }
+                .build()
+        }
     }
 }
