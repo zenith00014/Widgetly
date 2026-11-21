@@ -15,6 +15,7 @@ import org.schabi.newpipe.extractor.downloader.Response
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Uses the same NewPipe extraction path used by LibreTube to resolve YouTube
@@ -25,6 +26,10 @@ data class ResolvedSubtitle(val url: String, val languageTag: String, val label:
 
 object LibreTubePlayback {
     @Volatile private var initialized = false
+    private data class CachedStreamInfo(val fetchedAtMs: Long, val info: StreamInfo)
+    private val streamInfoCache = ConcurrentHashMap<String, CachedStreamInfo>()
+    private val streamInfoLocks = ConcurrentHashMap<String, Any>()
+    private val streamInfoTtlMs = 180_000L
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(45, java.util.concurrent.TimeUnit.SECONDS)
@@ -76,7 +81,7 @@ object LibreTubePlayback {
     fun resolveMedia(input: String, audioOnly: Boolean, maxHeight: Int? = null, maxAudioBitrate: Int? = null, preferMp4: Boolean = false, preferDash: Boolean = false, allowDashFallback: Boolean = false): ResolvedMedia {
         initialize()
         val videoId = extractVideoId(input)
-        val info = StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId")
+        val info = getStreamInfo(videoId)
         if (audioOnly) {
             val audioCandidates = if (maxAudioBitrate == null) info.audioStreams
                 else info.audioStreams.filter { it.averageBitrate / 1000 <= maxAudioBitrate }
@@ -156,7 +161,20 @@ object LibreTubePlayback {
     fun resolveSubtitles(input: String): List<ResolvedSubtitle> {
         initialize()
         val videoId = extractVideoId(input)
-        return mapSubtitles(StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId"))
+        return mapSubtitles(getStreamInfo(videoId))
+    }
+
+    private fun getStreamInfo(videoId: String): StreamInfo {
+        val now = System.currentTimeMillis()
+        streamInfoCache[videoId]?.takeIf { now - it.fetchedAtMs < streamInfoTtlMs }?.let { return it.info }
+        val lock = streamInfoLocks.computeIfAbsent(videoId) { Any() }
+        return synchronized(lock) {
+            val checkedAt = System.currentTimeMillis()
+            streamInfoCache[videoId]?.takeIf { checkedAt - it.fetchedAtMs < streamInfoTtlMs }?.info
+                ?: StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId").also {
+                    streamInfoCache[videoId] = CachedStreamInfo(System.currentTimeMillis(), it)
+                }
+        }
     }
 
     private fun mapSubtitles(info: StreamInfo): List<ResolvedSubtitle> =
