@@ -69,6 +69,7 @@ class MainActivity:ComponentActivity(){
  }
 }
 @Composable private fun RushApp(prefs:android.content.SharedPreferences,openDownloadsRequest:Int=0,isInPipMode:Boolean=false){
+ val activity=androidx.compose.ui.platform.LocalContext.current.activityOrNull()
  var tab by remember{mutableStateOf(if(openDownloadsRequest>0)"Downloads" else "Home")};var light by remember{mutableStateOf(prefs.getBoolean("light",false))}
  var active by remember{mutableStateOf<Pick?>(null)}
  var playbackQueue by remember{mutableStateOf<List<Pick>>(emptyList())}
@@ -95,7 +96,7 @@ class MainActivity:ComponentActivity(){
   history=listOf(pick.id)+history.filterNot{x->x==pick.id}
   persistHistory(prefs,history)
  }
- SideEffect{(androidx.compose.ui.platform.LocalContext.current.activityOrNull() as? MainActivity)?.setPipEligible(active!=null&&active?.music==false)}
+ SideEffect{(activity as? MainActivity)?.setPipEligible(active!=null&&active?.music==false)}
  val bg=if(light)lilac else bgDark;val surface=if(light)Color.White else panelDark
  val ink=if(light)Color(0xFF241B32) else paper;val muted=if(light)Color(0xFF70677D) else mutedDark
  MaterialTheme(colorScheme=if(light)lightColorScheme(primary=magenta,background=bg,surface=surface,onSurface=ink)else darkColorScheme(primary=magenta,background=bg,surface=surface,onSurface=ink)){
