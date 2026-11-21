@@ -174,9 +174,10 @@ object LibreTubePlayback {
         val lock = streamInfoLocks[(videoId.hashCode() and Int.MAX_VALUE) % streamInfoLocks.size]
         return synchronized(lock) {
             val checkedAt = System.currentTimeMillis()
-            if (!forceRefresh) {
+            val cached = if (forceRefresh) null else {
                 streamInfoCache[videoId]?.takeIf { checkedAt - it.fetchedAtMs < streamInfoTtlMs }?.info
-            } else null ?: StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId").also {
+            }
+            cached ?: StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId").also {
                 cacheStreamInfo(videoId, it)
             }
         }
