@@ -99,6 +99,22 @@ class RushPlaybackService : MediaSessionService() {
                 }
             }
 
+            override fun onPositionDiscontinuity(
+                oldPosition: androidx.media3.common.Player.PositionInfo,
+                newPosition: androidx.media3.common.Player.PositionInfo,
+                reason: Int
+            ) {
+                val mediaId = player.currentMediaItem?.mediaId.orEmpty()
+                if (mediaId.isNotBlank()) {
+                    PlaybackProgress.save(
+                        this@RushPlaybackService,
+                        mediaId,
+                        newPosition.positionMs,
+                        player.duration
+                    )
+                }
+            }
+
             override fun onPlaybackStateChanged(playbackState: Int) {
                 if (playbackState == androidx.media3.common.Player.STATE_READY) {
                     val mediaId = player.currentMediaItem?.mediaId.orEmpty()
