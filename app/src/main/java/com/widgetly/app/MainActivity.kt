@@ -809,7 +809,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     scope.launch{
      try{
       val refreshed=withContext(Dispatchers.IO){
-       val resolved=LibreTubePlayback.resolveMedia(input,audioOnly,maxHeight,maxBitrate,preferMp4,false,!audioOnly&&!preferMp4)
+       val resolved=LibreTubePlayback.resolveMedia(input,audioOnly,maxHeight,maxBitrate,preferMp4,!audioOnly&&!preferMp4,!audioOnly&&!preferMp4)
        val captions=if(audioOnly)emptyList() else resolved.subtitles
        val subtitleConfigs=captions.map{subtitle->
         androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
