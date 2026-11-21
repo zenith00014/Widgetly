@@ -42,7 +42,6 @@ private fun androidx.media3.ui.PlayerView.prepareForPlayback(
  this.player=player
  useController=true
  controllerAutoShow=true
- showBuffering=androidx.media3.ui.PlayerView.SHOW_BUFFERING_WHEN_PLAYING
  setResizeMode(androidx.media3.ui.AspectRatioFrameLayout.RESIZE_MODE_FIT)
  setKeepContentOnPlayerReset(true)
  setShowFastForwardButton(true)
