@@ -408,7 +408,7 @@ class OfflineDownloadWorker(
         var manifest = com.github.libretube.player.manifest.SabrManifestStore.get(videoId)
         if (manifest == null) {
             val refreshed = LibreTubePlayback.resolveMedia(sourceId, true, maxAudioBitrate = maxBitrate)
-            if (!refreshed.url.startsWith("rush-sabr://")) {
+            if (!refreshed.url.startsWith("rush-sabr://") || refreshed.extension != extension) {
                 details.put("sourceUrl", refreshed.url)
                     .put("extension", refreshed.extension)
                     .put("file", "$id.${refreshed.extension}")
