@@ -1073,8 +1073,8 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
  val recoveryMessage=PlaybackRecoveryStatus.current.value?.takeIf{it.mediaId==playingPick.id}?.message
  if(isInPipMode){
   androidx.compose.ui.viewinterop.AndroidView(
-   factory={ctx->androidx.media3.ui.PlayerView(ctx).prepareForPlayback(controller,isPlaying)},
-   update={it.prepareForPlayback(controller,isPlaying)},
+   factory={ctx->androidx.media3.ui.PlayerView(ctx).prepareForPlayback(controller,isPlaying&&!audio)},
+   update={it.prepareForPlayback(controller,isPlaying&&!audio)},
    modifier=Modifier.fillMaxSize()
   )
  }else Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){
@@ -1084,7 +1084,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    if(!audio&&controller?.currentMediaItem!=null&&android.os.Build.VERSION.SDK_INT>=26)TextButton(onClick={(context.activityOrNull() as? MainActivity)?.enterPlayerPip()}){Text("Picture-in-Picture",color=magenta)}
   }
   Spacer(Modifier.height(8.dp))
-  androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).prepareForPlayback(controller,isPlaying)},update={it.prepareForPlayback(controller,isPlaying)},modifier=Modifier.fillMaxWidth().height(if(audio)96.dp else 220.dp))
+  androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).prepareForPlayback(controller,isPlaying&&!audio)},update={it.prepareForPlayback(controller,isPlaying&&!audio)},modifier=Modifier.fillMaxWidth().height(if(audio)96.dp else 220.dp))
   Text(if(isBuffering)"Buffering…" else recoveryMessage?:status,color=muted,fontSize=11.sp)
   Text(playingTitle,color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold);Text(playingCreator,color=muted)
   if(!localFileAvailable) {
