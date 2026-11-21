@@ -1038,7 +1038,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   }},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=raised)){Text(when{audio&&mp3Format->"Download MP3";!audio&&mp4Format->"Download MP4";else->"Download offline"},color=ink)}
 
   Text(status,color=muted,fontSize=11.sp);Text("Use offline downloads only where permitted. Formats and quality depend on the source.",color=muted,fontSize=10.sp)
-  Spacer(Modifier.weight(.5f))
+  Spacer(Modifier.height(8.dp))
  }
 }
 @Composable private fun CardRow(p:Pick,ink:Color,muted:Color,surface:Color,saved:Set<String>,play:(Pick)->Unit,save:(String)->Unit){
