@@ -78,11 +78,18 @@ object LibreTubePlayback {
         val videoId = extractVideoId(input)
         val info = StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId")
         if (audioOnly) {
-            val audioCandidates = if(maxAudioBitrate==null)info.audioStreams else info.audioStreams.filter{it.averageBitrate/1000<=maxAudioBitrate}
-            val stream = audioCandidates.maxByOrNull { it.averageBitrate }
-                ?: info.audioStreams.minByOrNull { kotlin.math.abs(it.averageBitrate/1000-(maxAudioBitrate?:0)) }
-                ?: throw IOException("No playable audio stream was found.")
-            if (!stream.isUrl || stream.content.isBlank()) throw IOException("The extractor did not return a direct stream URL.")
+            val audioCandidates = if (maxAudioBitrate == null) info.audioStreams
+                else info.audioStreams.filter { it.averageBitrate / 1000 <= maxAudioBitrate }
+            val stream = audioCandidates.filter { it.isUrl && it.content.isNotBlank() }
+                .maxByOrNull { it.averageBitrate }
+                ?: info.audioStreams.filter { it.isUrl && it.content.isNotBlank() }
+                    .minByOrNull { kotlin.math.abs(it.averageBitrate / 1000 - (maxAudioBitrate ?: 0)) }
+            if (stream == null) {
+                val manifest = com.github.libretube.player.manifest.SabrManifestFactory.from(videoId, info, audioOnly = true)
+                    ?: throw IOException("No playable audio stream was found.")
+                com.github.libretube.player.manifest.SabrManifestStore.put(videoId, manifest)
+                return ResolvedMedia("rush-sabr://youtube/$videoId", "sabr", "application/x-rush-sabr", "Adaptive audio")
+            }
             val format = stream.format
             return ResolvedMedia(
                 stream.content,
