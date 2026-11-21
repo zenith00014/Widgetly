@@ -242,10 +242,19 @@ object LiveYouTubeSearch {
         else String.format(Locale.US, "%d:%02d", minutes, remainder)
     }
 
+    private val webClientVersion: String by lazy {
+        runCatching { org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper.getClientVersion() }
+            .getOrNull()?.takeIf { it.isNotBlank() } ?: "2.20261119.01.00"
+    }
+    private val musicClientVersion: String by lazy {
+        runCatching { org.schabi.newpipe.extractor.services.youtube.YoutubeParsingHelper.getYoutubeMusicClientVersion() }
+            .getOrNull()?.takeIf { it.isNotBlank() } ?: "1.20261119.01.00"
+    }
+
     private fun searchContext(music: Boolean): JSONObject =
         JSONObject().put("context", JSONObject().put("client", JSONObject()
             .put("clientName", if (music) "WEB_REMIX" else "WEB")
-            .put("clientVersion", if (music) "1.20261119.01.00" else "2.20261119.01.00")))
+            .put("clientVersion", if (music) musicClientVersion else webClientVersion)))
 
     @Throws(IOException::class)
     private fun executeSearch(
@@ -414,10 +423,7 @@ object LiveYouTubeSearch {
         params: String? = null,
         continuation: String? = null
     ): JSONObject {
-        val body = JSONObject()
-            .put("context", JSONObject().put("client", JSONObject()
-                .put("clientName", "WEB")
-                .put("clientVersion", "2.20261119.01.00")))
+        val body = searchContext(false)
             .apply {
                 if (continuation.isNullOrBlank()) {
                     put("browseId", browseId)
