@@ -201,6 +201,10 @@ class SabrClient private constructor(
 
     /** HTTP Client for requesting UMP data. */
     private val client: OkHttpClient = OkHttpClient.Builder()
+        .connectTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(45, java.util.concurrent.TimeUnit.SECONDS)
+        .writeTimeout(15, java.util.concurrent.TimeUnit.SECONDS)
+        .callTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
         .addInterceptor { chain ->
             val request = chain.request().newBuilder()
                 .addHeader("Content-Type", CONTENT_TYPE)
@@ -438,13 +442,14 @@ class SabrClient private constructor(
             .build()
 
         lastRequestMs = Instant.now().toEpochMilli()
-        val response = client.newCall(request).execute()
-        if (!response.isSuccessful) {
-            Log.e(TAG, "fetchStreamData: Failed to fetch data (${response.code})")
-            throw Exception("HTTP request failed: ${response.code}")
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) {
+                Log.e(TAG, "fetchStreamData: Failed to fetch data (${response.code})")
+                throw IOException("SABR request failed with HTTP ${response.code}.")
+            }
+            return response.body?.bytes()
+                ?: throw IOException("SABR server returned an empty response body.")
         }
-
-        return response.body?.bytes() ?: throw IOException("SABR server returned an empty response body.")
     }
 
     /**
