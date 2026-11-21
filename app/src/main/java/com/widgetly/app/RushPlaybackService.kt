@@ -68,7 +68,18 @@ class RushPlaybackService : MediaSessionService() {
             .build()
         player.setAudioAttributes(androidx.media3.common.AudioAttributes.DEFAULT, true)
         player.setHandleAudioBecomingNoisy(true)
-        mediaSession = MediaSession.Builder(this, player).build()
+        val sessionActivity = android.app.PendingIntent.getActivity(
+            this,
+            0,
+            android.content.Intent(this, MainActivity::class.java).apply {
+                flags = android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP or
+                    android.content.Intent.FLAG_ACTIVITY_CLEAR_TOP
+            },
+            android.app.PendingIntent.FLAG_UPDATE_CURRENT or android.app.PendingIntent.FLAG_IMMUTABLE
+        )
+        mediaSession = MediaSession.Builder(this, player)
+            .setSessionActivity(sessionActivity)
+            .build()
         serviceScope.launch {
             while (isActive) {
                 val activePlayer = mediaSession?.player
