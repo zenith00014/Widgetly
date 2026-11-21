@@ -834,6 +834,9 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
  val latestOnTrackChanged by rememberUpdatedState(onTrackChanged)
  val latestQueue by rememberUpdatedState(queue)
  val latestPlayingPick by rememberUpdatedState(playingPick)
+ SideEffect{
+  (context.activityOrNull() as? MainActivity)?.setPipEligible(controller?.currentMediaItem!=null&&!audio)
+ }
  DisposableEffect(controller){
   val listener=object:androidx.media3.common.Player.Listener{
    override fun onMediaItemTransition(mediaItem:androidx.media3.common.MediaItem?,reason:Int){
