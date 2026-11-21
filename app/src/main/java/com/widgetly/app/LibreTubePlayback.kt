@@ -172,8 +172,21 @@ object LibreTubePlayback {
             val checkedAt = System.currentTimeMillis()
             streamInfoCache[videoId]?.takeIf { checkedAt - it.fetchedAtMs < streamInfoTtlMs }?.info
                 ?: StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId").also {
-                    streamInfoCache[videoId] = CachedStreamInfo(System.currentTimeMillis(), it)
+                    cacheStreamInfo(videoId, it)
                 }
+        }
+    }
+
+    private fun cacheStreamInfo(videoId: String, info: StreamInfo) {
+        val now = System.currentTimeMillis()
+        streamInfoCache[videoId] = CachedStreamInfo(now, info)
+        streamInfoCache.entries.removeIf { now - it.value.fetchedAtMs >= streamInfoTtlMs }
+        val excess = streamInfoCache.size - MAX_CACHED_STREAMS
+        if (excess > 0) {
+            streamInfoCache.entries
+                .sortedBy { it.value.fetchedAtMs }
+                .take(excess)
+                .forEach { streamInfoCache.remove(it.key, it.value) }
         }
     }
 
@@ -198,6 +211,7 @@ object LibreTubePlayback {
             ?: throw IllegalArgumentException("Enter a valid YouTube URL or video ID.")
     }
 
+    private const val MAX_CACHED_STREAMS = 64
     private const val USER_AGENT =
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0"
 }
