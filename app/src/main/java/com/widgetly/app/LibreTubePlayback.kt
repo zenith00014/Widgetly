@@ -142,10 +142,12 @@ object LibreTubePlayback {
         if (preferMp4 && formatStreams.isEmpty()) {
             throw IOException("MP4 is not available for this video. Choose Original format instead.")
         }
-        val candidates = if (maxHeight == null) formatStreams else formatStreams.filter { it.height <= maxHeight }
-        val stream = candidates.maxByOrNull { it.height }
-            ?: formatStreams.minByOrNull { kotlin.math.abs(it.height - (maxHeight ?: 0)) }
-            ?: throw IOException("No playable video stream was found.")
+        val stream = if (maxHeight == null) {
+            formatStreams.maxByOrNull { it.height }
+        } else {
+            formatStreams.filter { it.height == maxHeight }.maxByOrNull { it.averageBitrate }
+                ?: throw IOException("The selected ${maxHeight}p quality is not available for this video. Choose Auto or another quality.")
+        } ?: throw IOException("No playable video stream was found.")
         if (!stream.isUrl || stream.content.isBlank()) throw IOException("The extractor did not return a direct stream URL.")
         val format = stream.format
         val subtitles = runCatching { mapSubtitles(info) }.getOrDefault(emptyList())
