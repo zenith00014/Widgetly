@@ -11,12 +11,12 @@ import org.schabi.newpipe.extractor.stream.StreamInfo
 import org.schabi.newpipe.extractor.stream.VideoStream
 
 object SabrManifestFactory {
-    fun from(videoId: String, info: StreamInfo): SabrManifest? {
+    fun from(videoId: String, info: StreamInfo, audioOnly: Boolean = false): SabrManifest? {
         val serverUrl = info.serverAbrStreamingUrl.takeIf { it.isNotBlank() } ?: return null
         val config = info.ustreamerConfig.takeIf { it.isNotBlank() } ?: return null
         val audio = info.audioStreams.mapNotNull { it.toPipedStream() }
-        val video = info.videoOnlyStreams.mapNotNull { it.toPipedStream() }
-        if (audio.isEmpty() || video.isEmpty()) return null
+        val video = if (audioOnly) emptyList() else info.videoOnlyStreams.mapNotNull { it.toPipedStream() }
+        if (audio.isEmpty() || (!audioOnly && video.isEmpty())) return null
         val configBytes = runCatching { Base64.decode(config, Base64.URL_SAFE) }.getOrNull() ?: return null
         return SabrManifest(videoId, Uri.parse(serverUrl), configBytes, info.duration.coerceAtLeast(0L) * 1000L, audio, video)
     }
