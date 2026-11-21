@@ -1148,6 +1148,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   }
   if(queue.isNotEmpty())Text("${queue.size} items in queue",color=muted,fontSize=10.sp)
   Button(onClick={
+   PlaybackRecoveryStatus.current.value=null
    val activePlayer=controller
    if(activePlayer==null){status="Connecting to playback service…"}
    else scope.launch{
