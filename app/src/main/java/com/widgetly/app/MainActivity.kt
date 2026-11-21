@@ -34,6 +34,7 @@ private val mutedDark=Color(0xFFBDB3CA)
 
 private fun Context.activityOrNull():android.app.Activity?=when(this){is android.app.Activity->this;is ContextWrapper->baseContext.activityOrNull();else->null}
 
+@androidx.media3.common.util.UnstableApi
 private fun androidx.media3.ui.PlayerView.prepareForPlayback(
  player: androidx.media3.common.Player?,
  keepScreenOn: Boolean
@@ -46,6 +47,9 @@ private fun androidx.media3.ui.PlayerView.prepareForPlayback(
  setKeepContentOnPlayerReset(true)
  setShowFastForwardButton(true)
  setShowRewindButton(true)
+ setShowPreviousButton(true)
+ setShowNextButton(true)
+ setShowSubtitleButton(true)
  this.keepScreenOn=keepScreenOn
  return this
 }
@@ -942,7 +946,6 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
       queuedMp4,!queued.music&&!queuedMp4,!queued.music&&!queuedMp4
      ) else null
      val uri=localFile?.toURI()?.toString()?:resolved!!.url
-     val metadata=queued.toMediaMetadata()
      val subtitleConfigs=resolved?.subtitles.orEmpty().map{subtitle->
       androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
        .setMimeType(subtitle.mimeType)
