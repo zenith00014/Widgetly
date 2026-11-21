@@ -972,8 +972,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      if(audio)quality.takeIf{it>0} else null,
      !audio&&mp4Format,
      !audio&&!mp4Format,
-     !audio&&!mp4Format,
-     forceRefresh=true
+     !audio&&!mp4Format
     )
    }
    val subtitleConfigs=if(audio)emptyList() else resolved.subtitles.map{subtitle->
