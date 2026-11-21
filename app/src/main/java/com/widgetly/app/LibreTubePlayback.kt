@@ -118,7 +118,7 @@ object LibreTubePlayback {
                 )
             }
             fun hlsFallback(): ResolvedMedia? = info.hlsUrl.takeIf { it.isNotBlank() }?.let {
-                ResolvedMedia(it, "m3u8", "application/x-mpegURL", "Adaptive HLS")
+                ResolvedMedia(it, "m3u8", "application/x-mpegURL", "Adaptive HLS", runCatching { mapSubtitles(info) }.getOrDefault(emptyList()))
             }
 
             // On the one-time playback retry, try standard DASH/HLS before repeating a failed SABR request.
@@ -128,7 +128,7 @@ object LibreTubePlayback {
             val sabrManifest = com.github.libretube.player.manifest.SabrManifestFactory.from(videoId, info)
             if (sabrManifest != null) {
                 com.github.libretube.player.manifest.SabrManifestStore.put(videoId, sabrManifest)
-                return ResolvedMedia("rush-sabr://youtube/$videoId", "sabr", "application/x-rush-sabr", "Adaptive SABR")
+                return ResolvedMedia("rush-sabr://youtube/$videoId", "sabr", "application/x-rush-sabr", "Adaptive SABR", runCatching { mapSubtitles(info) }.getOrDefault(emptyList()))
             }
 
             if (!preferDash) dashFallback()?.let { return it }
