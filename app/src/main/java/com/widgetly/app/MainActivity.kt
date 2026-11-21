@@ -809,7 +809,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     scope.launch{
      try{
       val refreshed=withContext(Dispatchers.IO){
-       val resolved=LibreTubePlayback.resolveMedia(input,audioOnly,maxHeight,maxBitrate,preferMp4,!audioOnly&&!preferMp4)
+       val resolved=LibreTubePlayback.resolveMedia(input,audioOnly,maxHeight,maxBitrate,preferMp4,false,!audioOnly&&!preferMp4)
        val captions=if(audioOnly)emptyList() else resolved.subtitles
        val subtitleConfigs=captions.map{subtitle->
         androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
@@ -859,7 +859,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
       .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(playingPick.title).setArtist(playingPick.creator).build()).build()
     }else{
      val source=url.ifBlank{playingPick.sourceId?:playingPick.id}
-     val resolved=LibreTubePlayback.resolveMedia(source,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,false,!audio&&!mp4Format)
+     val resolved=LibreTubePlayback.resolveMedia(source,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,!audio&&!mp4Format,!audio&&!mp4Format)
      resolvedQuality=resolved.qualityLabel
      val subtitles=if(audio)emptyList() else resolved.subtitles
      val configs=subtitles.map{subtitle->
@@ -884,15 +884,30 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
  }
  var shuffleEnabled by remember(item.id){mutableStateOf(playerPrefs.getBoolean("shuffle_enabled",false))}
  var repeatMode by remember(item.id){mutableIntStateOf(playerPrefs.getInt("repeat_mode",androidx.media3.common.Player.REPEAT_MODE_OFF))}
- LaunchedEffect(controller,shuffleEnabled,repeatMode,speed,captionsEnabled,quality,audio){
+ LaunchedEffect(controller,shuffleEnabled,repeatMode,captionsEnabled,quality,audio){
   controller?.let{player->
    player.setShuffleModeEnabled(shuffleEnabled)
    player.setRepeatMode(repeatMode)
-   player.setPlaybackParameters(androidx.media3.common.PlaybackParameters(speed))
    player.trackSelectionParameters=player.trackSelectionParameters.buildUpon()
     .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT,!captionsEnabled)
     .setMaxVideoSize(Int.MAX_VALUE,if(!audio&&quality>0)quality else Int.MAX_VALUE)
     .build()
+  }
+ }
+ LaunchedEffect(controller,speed){
+  val player=controller?:return@LaunchedEffect
+  val startSpeed=player.playbackParameters.speed.coerceIn(0.25f,4f)
+  val targetSpeed=speed.coerceIn(0.25f,4f)
+  val steps=5
+  if(kotlin.math.abs(targetSpeed-startSpeed)<0.01f){
+   player.setPlaybackParameters(androidx.media3.common.PlaybackParameters(targetSpeed))
+  }else{
+   repeat(steps){step->
+    val progress=(step+1)/steps.toFloat()
+    val nextSpeed=startSpeed+(targetSpeed-startSpeed)*progress
+    player.setPlaybackParameters(androidx.media3.common.PlaybackParameters(nextSpeed))
+    kotlinx.coroutines.delay(60)
+   }
   }
  }
  LaunchedEffect(controller,queue.map{it.id}.joinToString("|")){
@@ -903,7 +918,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    try{
     suspend fun prepareQueueItem(queued:Pick):androidx.media3.common.MediaItem=withContext(Dispatchers.IO){
      val localFile=queued.localPath?.let{java.io.File(it)}?.takeIf{it.isFile}
-     val resolved=if(localFile==null)LibreTubePlayback.resolveMedia(queued.sourceId?:queued.id,queued.music,allowDashFallback=!queued.music) else null
+     val resolved=if(localFile==null)LibreTubePlayback.resolveMedia(queued.sourceId?:queued.id,queued.music,preferDash=!queued.music,allowDashFallback=!queued.music) else null
      val uri=localFile?.toURI()?.toString()?:resolved!!.url
      val metadata=androidx.media3.common.MediaMetadata.Builder().setTitle(queued.title).setArtist(queued.creator).build()
      val subtitleConfigs=resolved?.subtitles.orEmpty().map{subtitle->
@@ -972,7 +987,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically){
    Text("Speed",color=muted,fontSize=10.sp)
    listOf(0.75f,1f,1.25f,1.5f,2f).forEach{value->
-    FilterChip(selected=speed==value,onClick={speed=value;playerPrefs.edit().putFloat("playback_speed",value).apply();controller?.setPlaybackParameters(androidx.media3.common.PlaybackParameters(value))},label={Text("${value}x",fontSize=10.sp)})
+    FilterChip(selected=speed==value,onClick={speed=value;playerPrefs.edit().putFloat("playback_speed",value).apply()},label={Text("${value}x",fontSize=10.sp)})
    }
   }
   FilterChip(selected=captionsEnabled,onClick={
@@ -999,7 +1014,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      val mediaItem=if(localFileAvailable){
       androidx.media3.common.MediaItem.Builder().setMediaId(playingPick.id).setUri(java.io.File(playingPick.localPath!!).toURI().toString()).setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(playingPick.title).setArtist(playingPick.creator).build()).build()
      }else{
-      val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,false,!audio&&!mp4Format)}
+      val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,!audio&&!mp4Format,!audio&&!mp4Format)}
       resolvedQuality=resolved.qualityLabel
       val captions=if(audio)emptyList() else resolved.subtitles
       val subtitleConfigs=captions.map{subtitle->
