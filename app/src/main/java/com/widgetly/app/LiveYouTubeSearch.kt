@@ -52,20 +52,18 @@ object LiveYouTubeSearch {
     @Throws(IOException::class)
     fun searchPage(query: String, music: Boolean = false, channels: Boolean = false, playlists: Boolean = false): YouTubeSearchPage {
         require(query.isNotBlank()) { "Enter something to search for." }
-        if (!music) {
-            runCatching {
-                val filter = when {
-                    channels -> "channels"
-                    playlists -> "playlists"
-                    else -> "videos"
-                }
-                searchWithNewPipe(query, listOf(filter), false)
-            }.getOrNull()?.let { if (it.items.isNotEmpty() || it.continuation != null) return it }
+        val extractorPage = if (music) {
+            runCatching { searchWithNewPipe(query, listOf("music_songs", "music_albums"), true) }.getOrNull()
         } else {
-            runCatching {
-                searchWithNewPipe(query, listOf("music_songs", "music_albums"), true)
-            }.getOrNull()?.let { if (it.items.isNotEmpty() || it.continuation != null) return it }
+            val filter = when {
+                channels -> "channels"
+                playlists -> "playlists"
+                else -> "videos"
+            }
+            runCatching { searchWithNewPipe(query, listOf(filter), false) }.getOrNull()
         }
+        if (music && extractorPage != null && extractorPage.items.size >= 8) return extractorPage
+
         val body = searchContext(music)
             .put("query", query)
             .apply {
@@ -75,11 +73,23 @@ object LiveYouTubeSearch {
                     else -> "EgIQAQ=="
                 })
             }
-        val primary = executeSearch(body, music, channels, playlists)
-        if (music || primary.items.size >= 8) return primary
-        val fallback = searchContext(false).put("query", query)
-        val broad = executeSearch(fallback, false, channels, playlists)
-        return YouTubeSearchPage((primary.items + broad.items).distinctBy { resultKey(it) }.take(40), broad.continuation ?: primary.continuation)
+        val primary = runCatching { executeSearch(body, music, channels, playlists) }.getOrNull()
+        val merged = LinkedHashMap<String, YouTubeSearchResult>()
+        extractorPage?.items.orEmpty().forEach { merged.putIfAbsent(resultKey(it), it) }
+        primary?.items.orEmpty().forEach { merged.putIfAbsent(resultKey(it), it) }
+        val primaryContinuation = primary?.continuation ?: extractorPage?.continuation
+        if (music || merged.size >= 8) {
+            if (merged.isEmpty()) throw IOException("YouTube returned no search results.")
+            return YouTubeSearchPage(merged.values.take(40), primaryContinuation)
+        }
+
+        // A sparse filtered search is broadened once; keep the category-specific results first.
+        val broad = runCatching {
+            executeSearch(searchContext(false).put("query", query), false, channels, playlists)
+        }.getOrNull()
+        broad?.items.orEmpty().forEach { merged.putIfAbsent(resultKey(it), it) }
+        if (merged.isEmpty()) throw IOException("YouTube returned no search results.")
+        return YouTubeSearchPage(merged.values.take(40), broad?.continuation ?: primaryContinuation)
     }
 
     @Throws(IOException::class)
