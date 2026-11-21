@@ -48,7 +48,7 @@ private fun androidx.media3.ui.PlayerView.prepareForPlayback(
  setShowRewindButton(true)
  setShowPreviousButton(true)
  setShowNextButton(true)
- setShowSubtitleButton(true)
+ setShowSubtitleButton(false)
  this.keepScreenOn=keepScreenOn
  return this
 }
@@ -259,7 +259,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   else {
    status="Refreshing your feed…"
    try { uploads=withContext(Dispatchers.IO){channels.flatMap{channel->runCatching{LiveYouTubeSearch.latestUploads(channel.id)}.getOrDefault(emptyList())}.distinctBy{it.videoId}.take(30)};status="${uploads.size} latest uploads" }
-   catch(e:Exception){status=e.localizedMessage?:"Could not refresh the feed."}
+   catch(e:Exception){status=playbackErrorMessage(e,"Could not refresh the feed.")}
   }
  }
  LazyColumn(contentPadding=PaddingValues(bottom=20.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
@@ -353,7 +353,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
          val resolved=withContext(Dispatchers.IO){resolvePlaybackMedia(result.videoId,result.isMusic)}
          withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,result.videoId,result.title,result.creator,result.isMusic,resolved)}
          status="Download queued: "+result.title
-        }catch(e:Exception){status=e.localizedMessage?:"Could not queue this download."}
+        }catch(e:Exception){status=playbackErrorMessage(e,"Could not queue this download.")}
        }
       }.padding(4.dp));Text("Play",color=magenta,fontSize=12.sp)}
      }
@@ -367,7 +367,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
         val page=withContext(Dispatchers.IO){LiveYouTubeSearch.continueSearch(token,filter=="Music",filter=="Channels",filter=="Playlists")}
         val merged=(results+page.items).distinctBy{result->when{result.isChannel->"channel:"+result.channelId;result.isCollection->"collection:"+result.collectionId;else->result.videoId}}
         results=merged;continuation=page.continuation;status="${results.size} results"
-       }catch(e:Exception){status=e.localizedMessage?:"Could not load more results."}
+       }catch(e:Exception){status=playbackErrorMessage(e,"Could not load more results.")}
        finally{loadingMore=false}
       }
      },modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=raised)){
@@ -418,7 +418,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    uploads=withContext(Dispatchers.IO){LiveYouTubeSearch.latestUploads(loaded.channelId)}
    status=if(uploads.isEmpty())"No public uploads were found." else "${uploads.size} latest uploads"
   }
-  catch(e:Exception){status=e.localizedMessage?:"Could not load channel details or uploads."}
+  catch(e:Exception){status=playbackErrorMessage(e,"Could not load channel details or uploads.")}
   finally {loading=false}
  }
  Column(Modifier.fillMaxSize().padding(16.dp)) {
@@ -507,7 +507,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     else LiveYouTubeSearch.browseVideoPlaylist(collection.collectionId)
    }
    status=if(tracks.isEmpty())"No playable items were found in this playlist." else "${tracks.size} items"
-  }catch(e:Exception){status=e.localizedMessage?:"Could not load this music collection."}
+  }catch(e:Exception){status=playbackErrorMessage(e,"Could not load this music collection.")}
   finally{loading=false}
  }
  Column(Modifier.fillMaxSize().padding(16.dp)){
@@ -585,7 +585,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   try {
    uploads=withContext(Dispatchers.IO){channels.flatMap{channel->runCatching{LiveYouTubeSearch.latestUploads(channel.id)}.getOrDefault(emptyList())}.distinctBy{it.videoId}.take(60)}
    status=if(uploads.isEmpty())"No recent public uploads found." else "${uploads.size} recent uploads"
-  } catch(e:Exception){status=e.localizedMessage?:"Could not refresh subscriptions."}
+  } catch(e:Exception){status=playbackErrorMessage(e,"Could not refresh subscriptions.")}
   finally{loading=false}
  }
  LazyColumn(contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(9.dp)){
@@ -910,6 +910,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      val configs=subtitles.map{subtitle->
       androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
        .setMimeType(subtitle.mimeType).setLanguage(subtitle.languageTag)
+       .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT)
        .setLabel(subtitle.label).build()
      }
      androidx.media3.common.MediaItem.Builder().setMediaId(playingPick.id).setUri(resolved.url).setMimeType(resolved.mimeType)
@@ -924,7 +925,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    activePlayer.play()
    status=if(localFileAvailable)"Playing offline" else "Playing · $resolvedQuality"
   }catch(e:Exception){
-   status=e.localizedMessage?:"Could not start playback automatically. Use Load and play to retry."
+   status=playbackErrorMessage(e,"Could not start playback automatically. Use Load and play to retry.")
   }
  }
  var shuffleEnabled by remember(item.id){mutableStateOf(playerPrefs.getBoolean("shuffle_enabled",false))}
@@ -934,6 +935,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    player.setShuffleModeEnabled(shuffleEnabled)
    player.setRepeatMode(repeatMode)
    player.trackSelectionParameters=player.trackSelectionParameters.buildUpon()
+    .setPreferredTextLanguage("en")
     .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT,!captionsEnabled)
     .setMinVideoSize(1,if(!audio&&quality>0)quality else 0)
     .setMaxVideoSize(Int.MAX_VALUE,if(!audio&&quality>0)quality else Int.MAX_VALUE)
@@ -979,6 +981,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
      .setMimeType(subtitle.mimeType)
      .setLanguage(subtitle.languageTag)
+       .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT)
      .setLabel(subtitle.label)
      .build()
    }
@@ -999,7 +1002,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   }catch(cancelled:kotlinx.coroutines.CancellationException){
    throw cancelled
   }catch(e:Exception){
-   status=e.localizedMessage?:"Could not change playback quality."
+   status=playbackErrorMessage(e,"Could not change playback quality.")
   }
  }
  LaunchedEffect(controller,speed){
@@ -1040,6 +1043,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
       androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
        .setMimeType(subtitle.mimeType)
        .setLanguage(subtitle.languageTag)
+       .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT)
        
        .setLabel(subtitle.label)
        .build()
@@ -1071,7 +1075,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     }
     status="Queue ready · ${queue.size-skipped} of ${queue.size} tracks"+if(skipped>0)" · $skipped unavailable" else ""
    }catch(cancelled:kotlinx.coroutines.CancellationException){throw cancelled}
-   catch(e:Exception){status=e.localizedMessage?:"Could not prepare this playlist queue."}
+   catch(e:Exception){status=playbackErrorMessage(e,"Could not prepare this playlist queue.")}
   }
  }
  val ink=if(light)Color(0xFF241B32)else paper;val muted=if(light)Color(0xFF70677D)else mutedDark;val surface=if(light)Color.White else panelDark
@@ -1136,13 +1140,9 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    FilterChip(selected=captionsEnabled,onClick={
     captionsEnabled=!captionsEnabled
     playerPrefs.edit().putBoolean("captions_enabled",captionsEnabled).apply()
-    controller?.let{it.trackSelectionParameters=it.trackSelectionParameters.buildUpon().setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT,!captionsEnabled).build()}
-   },label={Text(if(captionsEnabled)"Captions on" else "Captions off")})
-   TextButton(onClick={
-    controller?.let{player->
-     androidx.media3.ui.TrackSelectionDialogBuilder(context,"Select captions",player,androidx.media3.common.C.TRACK_TYPE_TEXT).build().show()
-    }
-   }){Text("CC · Select language",color=magenta)}
+    controller?.let{it.trackSelectionParameters=it.trackSelectionParameters.buildUpon().setPreferredTextLanguage("en")
+    .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT,!captionsEnabled).build()}
+   },label={Text(if(captionsEnabled)"CC · English" else "CC off")})
   }
   Row(horizontalArrangement=Arrangement.spacedBy(7.dp),verticalAlignment=Alignment.CenterVertically){
    FilterChip(selected=shuffleEnabled,onClick={shuffleEnabled=!shuffleEnabled;playerPrefs.edit().putBoolean("shuffle_enabled",shuffleEnabled).apply();controller?.setShuffleModeEnabled(shuffleEnabled)},label={Text("Shuffle")})
@@ -1171,6 +1171,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
        androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
         .setMimeType(subtitle.mimeType)
         .setLanguage(subtitle.languageTag)
+       .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT)
         
         .setLabel(subtitle.label)
         .build()
@@ -1181,7 +1182,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      val savedPosition=PlaybackProgress.resumePositionMs(context,playingPick.id)
      if(savedPosition>0)activePlayer.seekTo(savedPosition)
      activePlayer.prepare();activePlayer.play();status=if(localFileAvailable)"Playing offline" else "Playing · $resolvedQuality"
-    }catch(e:Exception){status=e.localizedMessage?:"Unable to load this stream."}
+    }catch(e:Exception){status=playbackErrorMessage(e,"Unable to load this stream.")}
    }
   },enabled=controller!=null,modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=magenta)){Text(if(localFileAvailable)"Play offline" else "Load and play",color=Color.White)}
   Button(
@@ -1200,7 +1201,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     val media=withContext(Dispatchers.IO){resolvePlaybackMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format)}
     withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,playingPick.id,playingPick.title,playingPick.creator,audio,media,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,audio&&mp3Format,!audio&&mp4Format)}
     status="Download queued · ${media.qualityLabel} · .${media.extension}"
-   }catch(e:Exception){status=e.localizedMessage?:"Could not start download."}
+   }catch(e:Exception){status=playbackErrorMessage(e,"Could not start download.")}
   }},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=raised)){Text(when{audio&&mp3Format->"Download MP3";!audio&&mp4Format->"Download MP4";else->"Download offline"},color=ink)}
 
   Text("Use offline downloads only where permitted. Formats and quality depend on the source.",color=muted,fontSize=10.sp)
