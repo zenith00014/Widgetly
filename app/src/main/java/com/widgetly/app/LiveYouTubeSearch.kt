@@ -307,13 +307,32 @@ object LiveYouTubeSearch {
         else -> result.videoId
     }
 
+    private fun thumbnailUrl(value: JSONObject?): String {
+        if (value == null) return ""
+        value.optJSONArray("thumbnails")?.let { images ->
+            for (index in images.length() - 1 downTo 0) {
+                val url = images.optJSONObject(index)?.optString("url").orEmpty()
+                if (url.startsWith("https://")) return url
+            }
+        }
+        val keys = value.keys()
+        while (keys.hasNext()) {
+            val child = value.opt(keys.next())
+            if (child is JSONObject) thumbnailUrl(child).takeIf { it.isNotBlank() }?.let { return it }
+            if (child is JSONArray) for (index in 0 until child.length()) {
+                thumbnailUrl(child.optJSONObject(index)).takeIf { it.isNotBlank() }?.let { return it }
+            }
+        }
+        return ""
+    }
+
     private fun addVideo(item: JSONObject, out: MutableMap<String, YouTubeSearchResult>, music: Boolean) {
         val id = item.optString("videoId")
         val title = text(item.optJSONObject("title"))
         if (id.isBlank() || title.isBlank()) return
         val owner = text(item.optJSONObject("ownerText")).ifBlank { text(item.optJSONObject("shortBylineText")) }.ifBlank { "YouTube creator" }
         val duration = text(item.optJSONObject("lengthText"))
-        out.putIfAbsent(id, YouTubeSearchResult(id, title, owner, duration, music))
+        out.putIfAbsent(id, YouTubeSearchResult(id, title, owner, duration, music, thumbnailUrl = thumbnailUrl(item)))
     }
 
     private fun addChannel(item: JSONObject, out: MutableMap<String, YouTubeSearchResult>) {
@@ -345,7 +364,8 @@ object LiveYouTubeSearch {
                 duration = text(item.optJSONObject("videoCountText")),
                 isMusic = false,
                 isCollection = true,
-                collectionId = playlistId
+                collectionId = playlistId,
+                thumbnailUrl = thumbnailUrl(item)
             )
         )
     }
@@ -358,7 +378,7 @@ object LiveYouTubeSearch {
             .ifBlank { text(item.optJSONObject("longBylineText")) }
             .ifBlank { "YouTube creator" }
         val duration = text(item.optJSONObject("lengthText"))
-        out.putIfAbsent(id, YouTubeSearchResult(id, title, creator, duration, false))
+        out.putIfAbsent(id, YouTubeSearchResult(id, title, creator, duration, false, thumbnailUrl = thumbnailUrl(item)))
     }
 
     @Throws(IOException::class)
@@ -544,7 +564,7 @@ object LiveYouTubeSearch {
         val creator = flex.getOrNull(1).orEmpty().ifBlank { "YouTube Music" }
         val duration = fixed.firstOrNull().orEmpty()
         if (id.isNotBlank()) {
-            out.putIfAbsent(id, YouTubeSearchResult(id, title, creator, duration, true))
+            out.putIfAbsent(id, YouTubeSearchResult(id, title, creator, duration, true, thumbnailUrl = thumbnailUrl(item)))
         } else if (browseId.isNotBlank()) {
             out.putIfAbsent(
                 "collection:$browseId",
