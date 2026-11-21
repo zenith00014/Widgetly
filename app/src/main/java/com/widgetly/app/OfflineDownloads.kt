@@ -228,17 +228,26 @@ class OfflineDownloadWorker(
 ) : CoroutineWorker(context, parameters) {
     override suspend fun doWork(): Result = withContext(Dispatchers.IO) {
         val id = inputData.getString(KEY_ID) ?: return@withContext Result.failure()
-        val url = inputData.getString(KEY_URL) ?: return@withContext Result.failure()
-        val extension = inputData.getString(KEY_EXTENSION)?.takeIf { it.matches(Regex("[A-Za-z0-9]{1,8}")) }
+        val inputUrl = inputData.getString(KEY_URL) ?: return@withContext Result.failure()
+        val inputExtension = inputData.getString(KEY_EXTENSION)?.takeIf { it.matches(Regex("[A-Za-z0-9]{1,8}")) }
             ?: return@withContext Result.failure()
         val transcodeToMp3 = inputData.getBoolean(KEY_TRANSCODE_MP3, false)
         val title = inputData.getString(KEY_TITLE).orEmpty().ifBlank { "Media file" }
 
         setForeground(createForegroundInfo(applicationContext, id, title, 0, false))
         val directory = File(applicationContext.filesDir, "offline-media").apply { mkdirs() }
+        val metadata = File(directory, "$id.json")
+        val metadataDetails = runCatching { JSONObject(metadata.readText()) }.getOrNull()
+        val url = metadataDetails?.optString("sourceUrl")?.takeIf { it.isNotBlank() } ?: inputUrl
+        val extension = metadataDetails?.optString("extension")
+            ?.takeIf { it.matches(Regex("[A-Za-z0-9]{1,8}")) } ?: inputExtension
         val partial = File(directory, "$id.$extension.part")
         val destination = File(directory, "$id.$extension")
-        val metadata = File(directory, "$id.json")
+        if (url.startsWith("rush-sabr://")) {
+            if (!downloadSabrAudio(id, title, extension, metadata, partial, destination)) {
+                return@withContext Result.retry()
+            }
+        } else {
         val existingBytes = partial.length()
         fun requestFor(streamUrl: String): Request = Request.Builder()
             .url(streamUrl)
@@ -332,6 +341,7 @@ class OfflineDownloadWorker(
                     partial.delete()
                 }
             }
+        }
 
             var completedFile = destination
             var completedExtension = extension
@@ -378,6 +388,101 @@ class OfflineDownloadWorker(
         } finally {
             cancellationHandle?.dispose()
         }
+    }
+
+    private suspend fun downloadSabrAudio(
+        id: String,
+        title: String,
+        extension: String,
+        metadata: File,
+        partial: File,
+        destination: File
+    ): Boolean {
+        val details = runCatching { JSONObject(metadata.readText()) }.getOrElse { JSONObject() }
+        val sourceId = details.optString("sourceId").ifBlank { throw IOException("Missing source ID for adaptive audio download.") }
+        val maxBitrate = details.optInt("maxAudioBitrate", 0).takeIf { it > 0 }
+        val videoId = android.net.Uri.parse(details.optString("sourceUrl")).lastPathSegment
+            ?.takeIf { it.isNotBlank() }
+            ?: sourceId
+        var manifest = com.github.libretube.player.manifest.SabrManifestStore.get(videoId)
+        if (manifest == null) {
+            val refreshed = LibreTubePlayback.resolveMedia(sourceId, true, maxAudioBitrate = maxBitrate)
+            if (!refreshed.url.startsWith("rush-sabr://")) {
+                details.put("sourceUrl", refreshed.url)
+                    .put("extension", refreshed.extension)
+                    .put("file", "$id.${refreshed.extension}")
+                    .put("quality", refreshed.qualityLabel)
+                metadata.writeText(details.toString())
+                partial.delete()
+                return false
+            }
+            manifest = com.github.libretube.player.manifest.SabrManifestStore.get(videoId)
+                ?: throw IOException("Could not rebuild the adaptive audio manifest.")
+        }
+
+        val audioSet = manifest.adaptationSets.firstOrNull { it.type == androidx.media3.common.C.TRACK_TYPE_AUDIO }
+            ?: throw IOException("The adaptive stream has no audio track.")
+        val candidates = audioSet.representations.filterNotNull()
+        val representation = if (maxBitrate == null) {
+            candidates.maxByOrNull { it.format.averageBitrate }
+        } else {
+            candidates.filter { it.format.averageBitrate <= maxBitrate * 1000 }
+                .maxByOrNull { it.format.averageBitrate }
+                ?: candidates.minByOrNull { kotlin.math.abs(it.format.averageBitrate / 1000 - maxBitrate) }
+        } ?: throw IOException("No adaptive audio representation is available.")
+
+        val client = com.github.libretube.player.parser.SabrClient(manifest)
+        val formatId = representation.formatId()
+        client.selectFormat(representation)
+        val init = client.getNextSegment(
+            com.github.libretube.player.parser.PlaybackRequest.initRequest(formatId, 0L, 1f)
+        ) ?: throw IOException("The adaptive audio stream returned no initialization segment.")
+        val endSegment = client.getEndSegmentNumber(formatId)
+            ?: throw IOException("The adaptive audio stream did not report its final segment.")
+
+        partial.parentFile?.mkdirs()
+        var positionMs = 0L
+        var nextSegment = init.sequenceNumber + 1L
+        var downloadedBytes = 0L
+        partial.delete()
+        try {
+            FileOutputStream(partial, false).buffered().use { output ->
+                init.data.forEach { bytes -> output.write(bytes); downloadedBytes += bytes.size }
+                while (nextSegment < endSegment) {
+                    coroutineContext.ensureActive()
+                    val segment = client.getNextSegment(
+                        com.github.libretube.player.parser.PlaybackRequest(
+                            formatId,
+                            positionMs,
+                            1f,
+                            nextSegment,
+                            positionMs,
+                            emptyList()
+                        )
+                    ) ?: throw IOException("The adaptive audio stream ended before all segments arrived.")
+                    segment.data.forEach { bytes -> output.write(bytes); downloadedBytes += bytes.size }
+                    positionMs += segment.duration
+                    nextSegment = segment.sequenceNumber + 1L
+                    val percent = if (manifest.durationMs > 0L)
+                        (positionMs * 100L / manifest.durationMs).toInt().coerceIn(0, 99) else 0
+                    setProgress(Data.Builder().putInt("progress", percent).putLong("bytes", downloadedBytes).build())
+                    setForeground(createForegroundInfo(applicationContext, id, title, percent, false))
+                }
+                output.flush()
+            }
+        } catch (cancelled: kotlinx.coroutines.CancellationException) {
+            throw cancelled
+        } catch (error: Exception) {
+            throw if (error is IOException) error else IOException("Adaptive audio download failed.", error)
+        }
+
+        if (!partial.exists() || partial.length() == 0L) throw IOException("Adaptive audio download was empty.")
+        destination.delete()
+        if (!partial.renameTo(destination)) {
+            partial.copyTo(destination, overwrite = true)
+            partial.delete()
+        }
+        return true
     }
 
     companion object {
