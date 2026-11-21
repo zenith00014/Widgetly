@@ -29,26 +29,26 @@ fun YouTubeThumbnail(
         ?: videoId.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) }
             ?.let { "https://i.ytimg.com/vi/$it/hqdefault.jpg" }
 
-    @Composable
-    fun Fallback() {
-        Box(
-            Modifier.fillMaxSize().background(Color(0xFF243447)),
-            contentAlignment = Alignment.Center
-        ) {
-            Text(placeholder, color = Color(0xFF8FE3C0), fontSize = 18.sp)
-        }
-    }
-
     if (url == null) {
-        Box(modifier.clip(RoundedCornerShape(10.dp))) { Fallback() }
+        Box(modifier.clip(RoundedCornerShape(10.dp))) { ThumbnailFallback(placeholder) }
     } else {
         SubcomposeAsyncImage(
             model = ImageRequest.Builder(context).data(url).crossfade(true).build(),
             contentDescription = null,
             contentScale = ContentScale.Crop,
             modifier = modifier.clip(RoundedCornerShape(10.dp)),
-            loading = { Fallback() },
-            error = { Fallback() }
+            loading = { ThumbnailFallback(placeholder) },
+            error = { ThumbnailFallback(placeholder) }
         )
+    }
+}
+
+@Composable
+private fun ThumbnailFallback(placeholder: String) {
+    Box(
+        Modifier.fillMaxSize().background(Color(0xFF243447)),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(placeholder, color = Color(0xFF8FE3C0), fontSize = 18.sp)
     }
 }
