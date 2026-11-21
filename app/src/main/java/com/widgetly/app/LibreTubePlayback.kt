@@ -199,22 +199,22 @@ object LibreTubePlayback {
     private fun mapSubtitles(info: StreamInfo): List<ResolvedSubtitle> {
         val tracks = LinkedHashMap<String, ResolvedSubtitle>()
         info.subtitles.filter { it.isUrl && it.content.isNotBlank() }.forEach { subtitle ->
-            val sourceLanguage = subtitle.languageTag.ifBlank { "und" }
+            val sourceLanguage = subtitle.languageTag.trim()
             val mimeType = subtitle.format?.mimeType?.takeIf { it.isNotBlank() } ?: "text/vtt"
-            tracks.putIfAbsent(subtitle.content, ResolvedSubtitle(
-                subtitle.content, sourceLanguage,
-                subtitle.displayLanguageName.ifBlank { sourceLanguage }, mimeType
-            ))
-            listOf("en" to "English", "bn" to "বাংলা (Bangla)").forEach { (language, label) ->
-                if (!sourceLanguage.equals(language, ignoreCase = true)) {
-                    val translatedUrl = runCatching {
-                        android.net.Uri.parse(subtitle.content).buildUpon()
-                            .appendQueryParameter("tlang", language).build().toString()
-                    }.getOrDefault("")
-                    if (translatedUrl.isNotBlank()) tracks.putIfAbsent(translatedUrl, ResolvedSubtitle(
-                        translatedUrl, language, "$label · auto-translated", mimeType
-                    ))
-                }
+            if (sourceLanguage.equals("en", ignoreCase = true) ||
+                sourceLanguage.startsWith("en-", ignoreCase = true)
+            ) {
+                tracks.putIfAbsent(subtitle.content, ResolvedSubtitle(
+                    subtitle.content, "en", "English", mimeType
+                ))
+            } else if (sourceLanguage.isNotBlank()) {
+                val translatedUrl = runCatching {
+                    android.net.Uri.parse(subtitle.content).buildUpon()
+                        .appendQueryParameter("tlang", "en").build().toString()
+                }.getOrDefault("")
+                if (translatedUrl.isNotBlank()) tracks.putIfAbsent(translatedUrl, ResolvedSubtitle(
+                    translatedUrl, "en", "English · auto-translated", mimeType
+                ))
             }
         }
         return tracks.values.toList()
