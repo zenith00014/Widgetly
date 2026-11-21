@@ -243,6 +243,7 @@ class OfflineDownloadWorker(
             ?.takeIf { it.matches(Regex("[A-Za-z0-9]{1,8}")) } ?: inputExtension
         val partial = File(directory, "$id.$extension.part")
         val destination = File(directory, "$id.$extension")
+        var cancellationHandle: kotlinx.coroutines.DisposableHandle? = null
         if (url.startsWith("rush-sabr://")) {
             if (!downloadSabrAudio(id, title, extension, metadata, partial, destination)) {
                 return@withContext Result.retry()
@@ -260,7 +261,7 @@ class OfflineDownloadWorker(
             .build()
 
         var activeCall: okhttp3.Call? = null
-        val cancellationHandle = coroutineContext[Job]?.invokeOnCompletion { cause ->
+        cancellationHandle = coroutineContext[Job]?.invokeOnCompletion { cause ->
             if (cause != null) activeCall?.cancel()
         }
         try {
