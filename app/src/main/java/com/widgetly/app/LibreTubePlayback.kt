@@ -192,15 +192,29 @@ object LibreTubePlayback {
         }
     }
 
-    private fun mapSubtitles(info: StreamInfo): List<ResolvedSubtitle> =
-        info.subtitles.filter { it.isUrl && it.content.isNotBlank() }.map {
-            ResolvedSubtitle(
-                it.content,
-                it.languageTag.ifBlank { "und" },
-                it.displayLanguageName.ifBlank { it.languageTag },
-                it.format?.mimeType?.takeIf { mime -> mime.isNotBlank() } ?: "text/vtt"
-            )
+    private fun mapSubtitles(info: StreamInfo): List<ResolvedSubtitle> {
+        val tracks = LinkedHashMap<String, ResolvedSubtitle>()
+        info.subtitles.filter { it.isUrl && it.content.isNotBlank() }.forEach { subtitle ->
+            val sourceLanguage = subtitle.languageTag.ifBlank { "und" }
+            val mimeType = subtitle.format?.mimeType?.takeIf { it.isNotBlank() } ?: "text/vtt"
+            tracks.putIfAbsent(subtitle.content, ResolvedSubtitle(
+                subtitle.content, sourceLanguage,
+                subtitle.displayLanguageName.ifBlank { sourceLanguage }, mimeType
+            ))
+            listOf("en" to "English", "bn" to "বাংলা (Bangla)").forEach { (language, label) ->
+                if (!sourceLanguage.equals(language, ignoreCase = true)) {
+                    val translatedUrl = runCatching {
+                        android.net.Uri.parse(subtitle.content).buildUpon()
+                            .appendQueryParameter("tlang", language).build().toString()
+                    }.getOrDefault("")
+                    if (translatedUrl.isNotBlank()) tracks.putIfAbsent(translatedUrl, ResolvedSubtitle(
+                        translatedUrl, language, "$label · auto-translated", mimeType
+                    ))
+                }
+            }
         }
+        return tracks.values.toList()
+    }
 
     private fun extractVideoId(input: String): String {
         val value = input.trim()
