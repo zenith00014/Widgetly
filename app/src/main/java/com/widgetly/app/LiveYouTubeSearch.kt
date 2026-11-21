@@ -1,7 +1,6 @@
 package com.widgetly.app
 
 import okhttp3.MediaType.Companion.toMediaType
-import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.json.JSONArray
@@ -38,7 +37,7 @@ data class YouTubeSearchResult(
 )
 
 object LiveYouTubeSearch {
-    private val client = OkHttpClient.Builder()
+    private val client = WidgetlyNetwork.newBuilder()
         .callTimeout(25, TimeUnit.SECONDS)
         .build()
     private val jsonType = "application/json; charset=utf-8".toMediaType()
