@@ -391,8 +391,8 @@ private suspend fun queueVideoDownloads(context:Context,tracks:List<YouTubeSearc
  var queued=0
  for(track in tracks){
   try{
-   val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.videoId,false,preferMp4=true)}
-   withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,track.videoId,track.title,track.creator,false,media,preferMp4=true)}
+   val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.videoId,false)}
+   withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,track.videoId,track.title,track.creator,false,media)}
    queued++
   }catch(_:Exception){}
  }
@@ -671,7 +671,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
        var queued=0
        for(track in tracks){
         try{
-         val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.id,track.music,preferMp4=!track.music)}
+         val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.id,track.music)}
          withContext(Dispatchers.IO){OfflineDownloads.enqueue(context=context,id=track.id,title=track.title,creator=track.creator,isAudio=track.music,media=resolved,preferMp4=!track.music)}
          queued++
         }catch(_:Exception){}
