@@ -141,6 +141,12 @@ class MainActivity:ComponentActivity(){
  }
 }
 private fun toggle(s:Set<String>,id:String)=if(id in s)s-id else s+id
+private fun Pick.toMediaMetadata():androidx.media3.common.MediaMetadata{
+ val builder=androidx.media3.common.MediaMetadata.Builder().setTitle(title).setArtist(creator)
+ val videoId=(sourceId?:id).takeIf{it.matches(Regex("[A-Za-z0-9_-]{11}"))}
+ if(videoId!=null)builder.setArtworkUri(android.net.Uri.parse("https://i.ytimg.com/vi/$videoId/hqdefault.jpg"))
+ return builder.build()
+}
 private fun YouTubeSearchResult.toPick()=Pick(
  videoId,
  title,
@@ -831,7 +837,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
         .setMediaId(mediaId)
         .setUri(resolved.url)
         .setMimeType(resolved.mimeType)
-        .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(source.title).setArtist(source.creator).build())
+        .setMediaMetadata(source.toMediaMetadata())
         .setSubtitleConfigurations(subtitleConfigs)
         .build()
       }
@@ -864,7 +870,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     val localFile=playingPick.localPath?.let{java.io.File(it)}?.takeIf{it.isFile}
     if(localFile!=null){
      androidx.media3.common.MediaItem.Builder().setMediaId(playingPick.id).setUri(localFile.toURI().toString())
-      .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(playingPick.title).setArtist(playingPick.creator).build()).build()
+      .setMediaMetadata(playingPick.toMediaMetadata()).build()
     }else{
      val source=url.ifBlank{playingPick.sourceId?:playingPick.id}
      val resolved=LibreTubePlayback.resolveMedia(source,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,!audio&&!mp4Format,!audio&&!mp4Format)
@@ -876,7 +882,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
        .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT).setLabel(subtitle.label).build()
      }
      androidx.media3.common.MediaItem.Builder().setMediaId(playingPick.id).setUri(resolved.url).setMimeType(resolved.mimeType)
-      .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(playingPick.title).setArtist(playingPick.creator).build())
+      .setMediaMetadata(playingPick.toMediaMetadata())
       .setSubtitleConfigurations(configs).build()
     }
    }
@@ -928,7 +934,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      val localFile=queued.localPath?.let{java.io.File(it)}?.takeIf{it.isFile}
      val resolved=if(localFile==null)LibreTubePlayback.resolveMedia(queued.sourceId?:queued.id,queued.music,preferDash=!queued.music,allowDashFallback=!queued.music) else null
      val uri=localFile?.toURI()?.toString()?:resolved!!.url
-     val metadata=androidx.media3.common.MediaMetadata.Builder().setTitle(queued.title).setArtist(queued.creator).build()
+     val metadata=queued.toMediaMetadata()
      val subtitleConfigs=resolved?.subtitles.orEmpty().map{subtitle->
       androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
        .setMimeType(subtitle.mimeType)
@@ -1020,7 +1026,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     try{
      var resolvedQuality=""
      val mediaItem=if(localFileAvailable){
-      androidx.media3.common.MediaItem.Builder().setMediaId(playingPick.id).setUri(java.io.File(playingPick.localPath!!).toURI().toString()).setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(playingPick.title).setArtist(playingPick.creator).build()).build()
+      androidx.media3.common.MediaItem.Builder().setMediaId(playingPick.id).setUri(java.io.File(playingPick.localPath!!).toURI().toString()).setMediaMetadata(playingPick.toMediaMetadata()).build()
      }else{
       val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,!audio&&!mp4Format,!audio&&!mp4Format)}
       resolvedQuality=resolved.qualityLabel
@@ -1033,7 +1039,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
         .setLabel(subtitle.label)
         .build()
       }
-      androidx.media3.common.MediaItem.Builder().setMediaId(playingPick.id).setUri(resolved.url).setMimeType(resolved.mimeType).setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(playingPick.title).setArtist(playingPick.creator).build()).setSubtitleConfigurations(subtitleConfigs).build()
+      androidx.media3.common.MediaItem.Builder().setMediaId(playingPick.id).setUri(resolved.url).setMimeType(resolved.mimeType).setMediaMetadata(playingPick.toMediaMetadata()).setSubtitleConfigurations(subtitleConfigs).build()
      }
      activePlayer.setMediaItem(mediaItem)
      val savedPosition=PlaybackProgress.resumePositionMs(context,playingPick.id)
