@@ -24,6 +24,8 @@ class RushPlaybackService : MediaSessionService() {
     private var mediaSession: MediaSession? = null
     private var streamCache: SimpleCache? = null
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+    private val recoveryAttempts = mutableMapOf<String, Int>()
+    private var recoveryInProgress: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -78,6 +80,31 @@ class RushPlaybackService : MediaSessionService() {
             .setLoadControl(loadControl)
             .setWakeMode(androidx.media3.common.C.WAKE_MODE_LOCAL)
             .build()
+        player.addListener(object : androidx.media3.common.Player.Listener {
+            override fun onMediaItemTransition(
+                mediaItem: androidx.media3.common.MediaItem?,
+                reason: Int
+            ) {
+                val mediaId = mediaItem?.mediaId.orEmpty()
+                recoveryAttempts.clear()
+                if (recoveryInProgress != mediaId) recoveryInProgress = null
+                if (PlaybackRecoveryStatus.current.value?.mediaId != mediaId) {
+                    PlaybackRecoveryStatus.current.value = null
+                }
+            }
+
+            override fun onPlaybackStateChanged(playbackState: Int) {
+                if (playbackState == androidx.media3.common.Player.STATE_READY) {
+                    val mediaId = player.currentMediaItem?.mediaId.orEmpty()
+                    recoveryAttempts.remove(mediaId)
+                    if (recoveryInProgress == mediaId) recoveryInProgress = null
+                }
+            }
+
+            override fun onPlayerError(error: androidx.media3.common.PlaybackException) {
+                recoverPlayback(player, error)
+            }
+        })
         player.setAudioAttributes(androidx.media3.common.AudioAttributes.DEFAULT, true)
         player.setHandleAudioBecomingNoisy(true)
         val sessionActivity = android.app.PendingIntent.getActivity(
@@ -105,6 +132,124 @@ class RushPlaybackService : MediaSessionService() {
                     )
                 }
                 delay(5_000)
+            }
+        }
+    }
+
+    private fun recoverPlayback(
+        player: ExoPlayer,
+        playbackError: androidx.media3.common.PlaybackException
+    ) {
+        val item = player.currentMediaItem ?: return
+        val mediaId = item.mediaId
+        if (mediaId.isBlank() || recoveryInProgress == mediaId) return
+
+        val currentUri = item.localConfiguration?.uri
+        if (currentUri?.scheme in setOf("file", "content", "android.resource")) return
+
+        val extras = item.mediaMetadata.extras
+        val fallbackId = mediaId.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) }
+        val source = extras?.getString(PlaybackMetadata.SOURCE).orEmpty()
+            .ifBlank { fallbackId.orEmpty() }
+        if (source.isBlank()) return
+
+        val attempt = (recoveryAttempts[mediaId] ?: 0) + 1
+        if (attempt > 2) {
+            PlaybackRecoveryStatus.current.value = PlaybackRecoveryMessage(
+                mediaId,
+                "Playback could not recover. Tap Load and play to retry."
+            )
+            return
+        }
+
+        val audioOnly = extras?.getBoolean(PlaybackMetadata.AUDIO_ONLY, false)
+            ?: item.localConfiguration?.mimeType.orEmpty().startsWith("audio/")
+        val preferences = getSharedPreferences("rush_prefs", MODE_PRIVATE)
+        val savedQuality = extras?.getInt(PlaybackMetadata.QUALITY, 0) ?: 0
+        val quality = preferences.getInt(
+            if (audioOnly) "audio_quality" else "video_quality",
+            savedQuality
+        ).takeIf { it > 0 }
+        val savedMp4 = extras?.getBoolean(PlaybackMetadata.PREFER_MP4, false) ?: false
+        val preferMp4 = !audioOnly && preferences.getBoolean("download_mp4", savedMp4)
+        val startPosition = player.currentPosition.coerceAtLeast(0L)
+
+        recoveryInProgress = mediaId
+        serviceScope.launch {
+            var lastError: Exception = IOException(
+                playbackError.message ?: playbackError.errorCodeName
+            )
+            try {
+                for (retry in attempt..2) {
+                    recoveryAttempts[mediaId] = retry
+                    PlaybackRecoveryStatus.current.value = PlaybackRecoveryMessage(
+                        mediaId,
+                        "Refreshing stream · attempt $retry of 2…"
+                    )
+                    delay(if (retry == 1) 600L else 1_400L)
+                    if (player.currentMediaItem?.mediaId != mediaId) return@launch
+
+                    try {
+                        val preferDash = !audioOnly && !preferMp4 && retry == 1
+                        val resolved = withContext(Dispatchers.IO) {
+                            LibreTubePlayback.resolveMedia(
+                                source,
+                                audioOnly,
+                                if (audioOnly) null else quality,
+                                if (audioOnly) quality else null,
+                                preferMp4,
+                                preferDash,
+                                !audioOnly && !preferMp4,
+                                forceRefresh = true
+                            )
+                        }
+                        val subtitleConfigs = if (audioOnly) emptyList() else resolved.subtitles.map { subtitle ->
+                            androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(
+                                android.net.Uri.parse(subtitle.url)
+                            )
+                                .setMimeType(subtitle.mimeType)
+                                .setLanguage(subtitle.languageTag)
+                                .setLabel(subtitle.label)
+                                .build()
+                        }
+                        val refreshed = androidx.media3.common.MediaItem.Builder()
+                            .setMediaId(mediaId)
+                            .setUri(resolved.url)
+                            .setMimeType(resolved.mimeType)
+                            .setMediaMetadata(item.mediaMetadata)
+                            .setSubtitleConfigurations(subtitleConfigs)
+                            .build()
+
+                        val currentIndex = player.currentMediaItemIndex
+                        if (currentIndex < 0 || player.currentMediaItem?.mediaId != mediaId) {
+                            return@launch
+                        }
+                        player.replaceMediaItem(currentIndex, refreshed)
+                        player.seekTo(currentIndex, startPosition)
+                        player.prepare()
+                        player.play()
+                        PlaybackRecoveryStatus.current.value = PlaybackRecoveryMessage(
+                            mediaId,
+                            "Stream refreshed. Resuming playback…"
+                        )
+                        return@launch
+                    } catch (cancelled: kotlinx.coroutines.CancellationException) {
+                        throw cancelled
+                    } catch (refreshError: Exception) {
+                        lastError = refreshError
+                        android.util.Log.w(
+                            "RushPlayback",
+                            "Stream recovery attempt $retry failed for $mediaId",
+                            refreshError
+                        )
+                    }
+                }
+                PlaybackRecoveryStatus.current.value = PlaybackRecoveryMessage(
+                    mediaId,
+                    "Playback recovery failed: ${lastError.localizedMessage ?: "network or stream error"}. Tap Load and play to retry."
+                )
+            } finally {
+                if (recoveryInProgress == mediaId) recoveryInProgress = null
             }
         }
     }
