@@ -424,12 +424,17 @@ class OfflineDownloadWorker(
         val audioSet = manifest.adaptationSets.firstOrNull { it.type == androidx.media3.common.C.TRACK_TYPE_AUDIO }
             ?: throw IOException("The adaptive stream has no audio track.")
         val candidates = audioSet.representations.filterNotNull()
+        val containerMatches = when (extension.lowercase()) {
+            "m4a", "mp4" -> candidates.filter { it.format.containerMimeType.equals("audio/mp4", true) }
+            "webm" -> candidates.filter { it.format.containerMimeType.equals("audio/webm", true) }
+            else -> candidates
+        }.ifEmpty { candidates }
         val representation = if (maxBitrate == null) {
-            candidates.maxByOrNull { it.format.averageBitrate }
+            containerMatches.maxByOrNull { it.format.averageBitrate }
         } else {
-            candidates.filter { it.format.averageBitrate <= maxBitrate * 1000 }
+            containerMatches.filter { it.format.averageBitrate <= maxBitrate * 1000 }
                 .maxByOrNull { it.format.averageBitrate }
-                ?: candidates.minByOrNull { kotlin.math.abs(it.format.averageBitrate / 1000 - maxBitrate) }
+                ?: containerMatches.minByOrNull { kotlin.math.abs(it.format.averageBitrate / 1000 - maxBitrate) }
         } ?: throw IOException("No adaptive audio representation is available.")
 
         val client = com.github.libretube.player.parser.SabrClient(manifest)
