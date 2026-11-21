@@ -32,11 +32,12 @@ class RushPlaybackService : MediaSessionService() {
 
     override fun onCreate() {
         super.onCreate()
-        val httpFactory = androidx.media3.datasource.DefaultHttpDataSource.Factory()
+        val streamClient = WidgetlyNetwork.newBuilder()
+            .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+            .readTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+        val httpFactory = androidx.media3.datasource.okhttp.OkHttpDataSource.Factory(streamClient)
             .setUserAgent(STREAM_USER_AGENT)
-            .setConnectTimeoutMs(30_000)
-            .setReadTimeoutMs(60_000)
-            .setAllowCrossProtocolRedirects(true)
             .setDefaultRequestProperties(
                 mapOf(
                     "Referer" to "https://www.youtube.com/",
@@ -58,10 +59,10 @@ class RushPlaybackService : MediaSessionService() {
         val mediaSourceFactory = RushMediaSourceFactory(cachedDataSourceFactory)
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                8_000,
-                30_000,
-                500,
-                1_500
+                15_000,
+                60_000,
+                2_000,
+                4_000
             )
             .setBackBuffer(15_000, true)
             .setPrioritizeTimeOverSizeThresholds(true)
@@ -276,7 +277,7 @@ class RushPlaybackService : MediaSessionService() {
                 }
                 PlaybackRecoveryStatus.current.value = PlaybackRecoveryMessage(
                     mediaId,
-                    "Playback recovery failed: ${lastError.localizedMessage ?: "network or stream error"}. Tap Load and play to retry."
+                    "Playback recovery failed: ${playbackErrorMessage(lastError, "network or stream error")}. Tap Load and play to retry."
                 )
             } finally {
                 if (recoveryInProgress == mediaId) recoveryInProgress = null
