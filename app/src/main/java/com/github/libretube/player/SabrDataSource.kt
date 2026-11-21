@@ -26,21 +26,27 @@ class SabrDataSource(
     }
 
     override fun open(dataSpec: DataSpec): Long {
-        val playbackRequest = dataSpec.customData as PlaybackRequest?
+        val playbackRequest = dataSpec.customData as? PlaybackRequest
+            ?: throw IOException("SABR playback request metadata is missing.")
 
         transferInitializing(dataSpec)
-        transferStarted(dataSpec)
         val segment = try {
-            sabrClient.getNextSegment(playbackRequest!!)!!
+            sabrClient.getNextSegment(playbackRequest)
+                ?: throw IOException("SABR returned no data for segment ${playbackRequest.segment}.")
         } catch (e: Exception) {
             Log.e(
                 SabrClient::class.java.name,
-                "open: failed to get segment ${playbackRequest!!.segment} for ${playbackRequest.format.itag}: $e"
+                "open: failed to get segment ${playbackRequest.segment} for ${playbackRequest.format.itag}",
+                e
             )
-            throw IOException()
+            throw IOException(
+                "Failed to load SABR segment ${playbackRequest.segment} (format ${playbackRequest.format.itag}).",
+                e
+            )
         }
 
         data = CompositeBuffer(segment.data)
+        transferStarted(dataSpec)
         return data!!.remaining().toLong()
     }
 
