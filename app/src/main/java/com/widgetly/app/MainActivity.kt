@@ -843,6 +843,44 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   isPlaying=controller?.isPlaying==true
   onDispose{controller?.removeListener(listener);isPlaying=false}
  }
+ var autoStartAttempted by remember(item.id){mutableStateOf(false)}
+ LaunchedEffect(controller,playingPick.id,queue.isEmpty(),localFileAvailable){
+  val activePlayer=controller?:return@LaunchedEffect
+  if(queue.isNotEmpty()||autoStartAttempted)return@LaunchedEffect
+  autoStartAttempted=true
+  status="Loading media…"
+  try{
+   var resolvedQuality=""
+   val mediaItem=withContext(Dispatchers.IO){
+    val localFile=playingPick.localPath?.let{java.io.File(it)}?.takeIf{it.isFile}
+    if(localFile!=null){
+     androidx.media3.common.MediaItem.Builder().setMediaId(playingPick.id).setUri(localFile.toURI().toString())
+      .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(playingPick.title).setArtist(playingPick.creator).build()).build()
+    }else{
+     val source=url.ifBlank{playingPick.sourceId?:playingPick.id}
+     val resolved=LibreTubePlayback.resolveMedia(source,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,false,!audio&&!mp4Format)
+     resolvedQuality=resolved.qualityLabel
+     val subtitles=if(audio)emptyList() else resolved.subtitles
+     val configs=subtitles.map{subtitle->
+      androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
+       .setMimeType(subtitle.mimeType).setLanguage(subtitle.languageTag)
+       .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT).setLabel(subtitle.label).build()
+     }
+     androidx.media3.common.MediaItem.Builder().setMediaId(playingPick.id).setUri(resolved.url).setMimeType(resolved.mimeType)
+      .setMediaMetadata(androidx.media3.common.MediaMetadata.Builder().setTitle(playingPick.title).setArtist(playingPick.creator).build())
+      .setSubtitleConfigurations(configs).build()
+    }
+   }
+   activePlayer.setMediaItem(mediaItem)
+   val resumeAt=PlaybackProgress.resumePositionMs(context,playingPick.id)
+   if(resumeAt>0)activePlayer.seekTo(resumeAt)
+   activePlayer.prepare()
+   activePlayer.play()
+   status=if(localFileAvailable)"Playing offline" else "Playing · $resolvedQuality"
+  }catch(e:Exception){
+   status=e.localizedMessage?:"Could not start playback automatically. Use Load and play to retry."
+  }
+ }
  var shuffleEnabled by remember(item.id){mutableStateOf(playerPrefs.getBoolean("shuffle_enabled",false))}
  var repeatMode by remember(item.id){mutableIntStateOf(playerPrefs.getInt("repeat_mode",androidx.media3.common.Player.REPEAT_MODE_OFF))}
  LaunchedEffect(controller,shuffleEnabled,repeatMode,speed,captionsEnabled,quality,audio){
@@ -920,7 +958,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    if(!audio&&isPlaying&&android.os.Build.VERSION.SDK_INT>=26)TextButton(onClick={(context.activityOrNull() as? MainActivity)?.enterPlayerPip()}){Text("PiP",color=magenta)}
   }
   Spacer(Modifier.weight(.2f))
-  if(audio)Disc(playingPick,Modifier.size(240.dp))else Cover(playingPick,Modifier.fillMaxWidth().height(190.dp))
+  androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).apply{player=controller;useController=true}},update={it.player=controller},modifier=Modifier.fillMaxWidth().height(if(audio)96.dp else 220.dp))
   Text(playingTitle,color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold);Text(playingCreator,color=muted)
   if(!localFileAvailable) {
    Row(horizontalArrangement=Arrangement.spacedBy(8.dp)){FilterChip(selected=audio,onClick={audio=true;quality=playerPrefs.getInt("audio_quality",0)},label={Text("Audio only")});FilterChip(selected=!audio,onClick={audio=false;quality=playerPrefs.getInt("video_quality",0)},label={Text("Video")})}
@@ -997,7 +1035,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     status="Download queued · ${media.qualityLabel} · .${media.extension}"
    }catch(e:Exception){status=e.localizedMessage?:"Could not start download."}
   }},modifier=Modifier.fillMaxWidth(),colors=ButtonDefaults.buttonColors(containerColor=raised)){Text(when{audio&&mp3Format->"Download MP3";!audio&&mp4Format->"Download MP4";else->"Download offline"},color=ink)}
-  androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).apply{this.player=controller;useController=true}},update={it.player=controller},modifier=Modifier.fillMaxWidth().height(if(audio)96.dp else 180.dp))
+
   Text(status,color=muted,fontSize=11.sp);Text("Use offline downloads only where permitted. Formats and quality depend on the source.",color=muted,fontSize=10.sp)
   Spacer(Modifier.weight(.5f))
  }
