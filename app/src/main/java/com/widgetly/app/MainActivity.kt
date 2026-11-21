@@ -861,9 +861,13 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     isPlaying=controller?.isPlaying==true
     mediaId.takeIf{it.isNotBlank()}?.let(latestOnTrackChanged)
    }
-   override fun onIsPlayingChanged(isPlayingNow:Boolean){isPlaying=isPlayingNow}
+   override fun onIsPlayingChanged(isPlayingNow:Boolean){
+    isPlaying=isPlayingNow
+    if(isPlayingNow)status="Playing"
+   }
    override fun onPlaybackStateChanged(playbackState:Int){
     isBuffering=playbackState==androidx.media3.common.Player.STATE_BUFFERING
+    if(playbackState==androidx.media3.common.Player.STATE_READY&&controller?.isPlaying!=true)status="Ready to play"
    }
    override fun onVideoSizeChanged(videoSize:androidx.media3.common.VideoSize){
     (context.activityOrNull() as? MainActivity)?.updatePipAspectRatio(videoSize.width,videoSize.height)
