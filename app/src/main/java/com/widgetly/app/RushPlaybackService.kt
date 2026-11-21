@@ -42,7 +42,7 @@ class RushPlaybackService : MediaSessionService() {
         val dataSourceFactory = androidx.media3.datasource.DefaultDataSource.Factory(this, httpFactory)
         val cache = SimpleCache(
             File(cacheDir, "media3-stream-cache"),
-            LeastRecentlyUsedCacheEvictor(256L * 1024L * 1024L),
+            LeastRecentlyUsedCacheEvictor(512L * 1024L * 1024L),
             StandaloneDatabaseProvider(this)
         )
         streamCache = cache
@@ -53,16 +53,28 @@ class RushPlaybackService : MediaSessionService() {
         val mediaSourceFactory = RushMediaSourceFactory(cachedDataSourceFactory)
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                15_000,
-                50_000,
-                1_000,
-                1_500
+                25_000,
+                90_000,
+                1_800,
+                4_000
             )
-            .setBackBuffer(30_000, true)
+            .setBackBuffer(10_000, false)
             .setPrioritizeTimeOverSizeThresholds(true)
             .build()
+        val trackSelector = androidx.media3.exoplayer.trackselection.DefaultTrackSelector(
+            this,
+            androidx.media3.exoplayer.trackselection.AdaptiveTrackSelection.Factory(
+                12_000,
+                6_000,
+                12_000,
+                0.65f
+            )
+        ).apply {
+            setParameters(buildUponParameters().setForceHighestSupportedBitrate(false))
+        }
         val player = ExoPlayer.Builder(this)
             .setMediaSourceFactory(mediaSourceFactory)
+            .setTrackSelector(trackSelector)
             .setLoadControl(loadControl)
             .setWakeMode(androidx.media3.common.C.WAKE_MODE_LOCAL)
             .build()
