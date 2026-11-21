@@ -1,10 +1,11 @@
 package com.widgetly.app
 
 import android.os.Bundle
+import androidx.compose.runtime.mutableStateOf
 
 /**
- * Playback options copied with MediaItems so the playback service can recover
- * streams even after the player screen has been closed.
+ * Playback settings travel with each MediaItem so service-side recovery still
+ * has the original source and user-selected format after the player screen closes.
  */
 object PlaybackMetadata {
     const val SOURCE = "com.widgetly.app.playback.SOURCE"
@@ -23,4 +24,10 @@ object PlaybackMetadata {
         putInt(QUALITY, quality)
         putBoolean(PREFER_MP4, preferMp4)
     }
+}
+
+data class PlaybackRecoveryMessage(val mediaId: String, val message: String)
+
+object PlaybackRecoveryStatus {
+    val current = mutableStateOf<PlaybackRecoveryMessage?>(null)
 }
