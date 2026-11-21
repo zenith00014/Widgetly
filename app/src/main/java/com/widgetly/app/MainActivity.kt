@@ -811,6 +811,21 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
  var mp3Format by remember(item.id){mutableStateOf(playerPrefs.getBoolean("download_mp3",false))}
  var mp4Format by remember(item.id){mutableStateOf(playerPrefs.getBoolean("download_mp4",false))}
  var speed by remember(item.id){mutableFloatStateOf(playerPrefs.getFloat("playback_speed",1f))}
+ val audioManager=remember(context){context.getSystemService(Context.AUDIO_SERVICE) as android.media.AudioManager}
+ val maxVolume=remember(audioManager){audioManager.getStreamMaxVolume(android.media.AudioManager.STREAM_MUSIC).coerceAtLeast(1)}
+ var volumeLevel by remember(item.id){mutableFloatStateOf(audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC).toFloat()/maxVolume)}
+ val playerActivity=context.activityOrNull()
+ val originalBrightness=remember(playerActivity){playerActivity?.window?.attributes?.screenBrightness?:-1f}
+ var brightnessLevel by remember(item.id){mutableFloatStateOf(originalBrightness.takeIf{it>=0f}?:0.5f)}
+ var landscape by remember(item.id){mutableStateOf(false)}
+ DisposableEffect(playerActivity){
+  onDispose{
+   playerActivity?.requestedOrientation=android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+   playerActivity?.window?.let{window->
+    window.attributes=window.attributes.apply{screenBrightness=originalBrightness}
+   }
+  }
+ }
  var captionsEnabled by remember(item.id){mutableStateOf(playerPrefs.getBoolean("captions_enabled",true))}
  var status by remember(item.id){mutableStateOf(if(localFileAvailable)"Downloaded file ready." else "Paste a YouTube link or video ID to play.")}
  var isPlaying by remember(item.id){mutableStateOf(false)}
@@ -1078,6 +1093,32 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    listOf(0.75f,1f,1.25f,1.5f,2f).forEach{value->
     FilterChip(selected=speed==value,onClick={speed=value;playerPrefs.edit().putFloat("playback_speed",value).apply()},label={Text("${value}x",fontSize=10.sp)})
    }
+  }
+  Column(Modifier.fillMaxWidth(),verticalArrangement=Arrangement.spacedBy(4.dp)){
+   Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+    Text("Volume",color=muted,fontSize=11.sp,modifier=Modifier.width(66.dp))
+    Slider(value=volumeLevel,onValueChange={value->
+     volumeLevel=value
+     audioManager.setStreamVolume(android.media.AudioManager.STREAM_MUSIC,(value*maxVolume).toInt().coerceIn(0,maxVolume),0)
+    },modifier=Modifier.weight(1f))
+    Text("${(volumeLevel*100).toInt()}%",color=muted,fontSize=10.sp,modifier=Modifier.width(38.dp))
+   }
+   Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
+    Text("Brightness",color=muted,fontSize=11.sp,modifier=Modifier.width(66.dp))
+    Slider(value=brightnessLevel.coerceIn(0.01f,1f),onValueChange={value->
+     brightnessLevel=value
+     playerActivity?.window?.let{window->
+      window.attributes=window.attributes.apply{screenBrightness=value}
+     }
+    },modifier=Modifier.weight(1f))
+    Text("${(brightnessLevel*100).toInt()}%",color=muted,fontSize=10.sp,modifier=Modifier.width(38.dp))
+   }
+  }
+  Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.End){
+   FilterChip(selected=landscape,onClick={
+    landscape=!landscape
+    playerActivity?.requestedOrientation=if(landscape)android.content.pm.ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE else android.content.pm.ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+   },label={Text(if(landscape)"Landscape" else "Portrait")})
   }
   Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
    FilterChip(selected=captionsEnabled,onClick={
