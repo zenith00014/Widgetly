@@ -184,7 +184,9 @@ class RushPlaybackService : MediaSessionService() {
         ).takeIf { it > 0 }
         val savedMp4 = extras?.getBoolean(PlaybackMetadata.PREFER_MP4, false) ?: false
         val preferMp4 = !audioOnly && preferences.getBoolean("download_mp4", savedMp4)
-        val startPosition = player.currentPosition.coerceAtLeast(0L)
+        val currentPosition = player.currentPosition.coerceAtLeast(0L)
+        val savedPosition = PlaybackProgress.resumePositionMs(this, mediaId)
+        val startPosition = maxOf(currentPosition, savedPosition)
 
         recoveryInProgress = mediaId
         serviceScope.launch {
