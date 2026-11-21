@@ -672,7 +672,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
        for(track in tracks){
         try{
          val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.id,track.music)}
-         withContext(Dispatchers.IO){OfflineDownloads.enqueue(context=context,id=track.id,title=track.title,creator=track.creator,isAudio=track.music,media=resolved,preferMp4=!track.music)}
+         withContext(Dispatchers.IO){OfflineDownloads.enqueue(context=context,id=track.id,title=track.title,creator=track.creator,isAudio=track.music,media=resolved)}
          queued++
         }catch(_:Exception){}
        }
