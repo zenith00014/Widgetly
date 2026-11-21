@@ -9,6 +9,7 @@ import androidx.media3.datasource.cache.LeastRecentlyUsedCacheEvictor
 import androidx.media3.datasource.cache.SimpleCache
 import androidx.media3.database.StandaloneDatabaseProvider
 import java.io.File
+import java.io.IOException
 import androidx.media3.session.MediaSession
 import androidx.media3.session.MediaSessionService
 import kotlinx.coroutines.CoroutineScope
@@ -18,6 +19,7 @@ import kotlinx.coroutines.cancel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class RushPlaybackService : MediaSessionService() {
     private val STREAM_USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0"
@@ -26,6 +28,7 @@ class RushPlaybackService : MediaSessionService() {
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
     private val recoveryAttempts = mutableMapOf<String, Int>()
     private var recoveryInProgress: String? = null
+    private var activeMediaId: String? = null
 
     override fun onCreate() {
         super.onCreate()
@@ -86,10 +89,13 @@ class RushPlaybackService : MediaSessionService() {
                 reason: Int
             ) {
                 val mediaId = mediaItem?.mediaId.orEmpty()
-                recoveryAttempts.clear()
-                if (recoveryInProgress != mediaId) recoveryInProgress = null
-                if (PlaybackRecoveryStatus.current.value?.mediaId != mediaId) {
-                    PlaybackRecoveryStatus.current.value = null
+                if (activeMediaId != mediaId) {
+                    activeMediaId = mediaId
+                    recoveryAttempts.clear()
+                    if (recoveryInProgress != mediaId) recoveryInProgress = null
+                    if (PlaybackRecoveryStatus.current.value?.mediaId != mediaId) {
+                        PlaybackRecoveryStatus.current.value = null
+                    }
                 }
             }
 
@@ -145,7 +151,10 @@ class RushPlaybackService : MediaSessionService() {
         if (mediaId.isBlank() || recoveryInProgress == mediaId) return
 
         val currentUri = item.localConfiguration?.uri
-        if (currentUri?.scheme in setOf("file", "content", "android.resource")) return
+        if (currentUri?.scheme == "file" ||
+            currentUri?.scheme == "content" ||
+            currentUri?.scheme == "android.resource"
+        ) return
 
         val extras = item.mediaMetadata.extras
         val fallbackId = mediaId.takeIf { it.matches(Regex("[A-Za-z0-9_-]{11}")) }
@@ -177,7 +186,7 @@ class RushPlaybackService : MediaSessionService() {
         recoveryInProgress = mediaId
         serviceScope.launch {
             var lastError: Exception = IOException(
-                playbackError.message ?: playbackError.errorCodeName
+                playbackError.message ?: "Playback error ${playbackError.errorCode}"
             )
             try {
                 for (retry in attempt..2) {
