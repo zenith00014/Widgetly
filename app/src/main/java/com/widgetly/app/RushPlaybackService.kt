@@ -104,6 +104,9 @@ class RushPlaybackService : MediaSessionService() {
                     val mediaId = player.currentMediaItem?.mediaId.orEmpty()
                     recoveryAttempts.remove(mediaId)
                     if (recoveryInProgress == mediaId) recoveryInProgress = null
+                    if (PlaybackRecoveryStatus.current.value?.mediaId == mediaId) {
+                        PlaybackRecoveryStatus.current.value = null
+                    }
                 }
             }
 
@@ -235,12 +238,12 @@ class RushPlaybackService : MediaSessionService() {
                         }
                         player.replaceMediaItem(currentIndex, refreshed)
                         player.seekTo(currentIndex, startPosition)
-                        player.prepare()
-                        player.play()
                         PlaybackRecoveryStatus.current.value = PlaybackRecoveryMessage(
                             mediaId,
                             "Stream refreshed. Resuming playback…"
                         )
+                        player.prepare()
+                        player.play()
                         return@launch
                     } catch (cancelled: kotlinx.coroutines.CancellationException) {
                         throw cancelled
