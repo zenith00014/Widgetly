@@ -78,10 +78,10 @@ object LibreTubePlayback {
     fun resolve(input: String, audioOnly: Boolean): String =
         resolveMedia(input, audioOnly).url
 
-    fun resolveMedia(input: String, audioOnly: Boolean, maxHeight: Int? = null, maxAudioBitrate: Int? = null, preferMp4: Boolean = false, preferDash: Boolean = false, allowDashFallback: Boolean = false): ResolvedMedia {
+    fun resolveMedia(input: String, audioOnly: Boolean, maxHeight: Int? = null, maxAudioBitrate: Int? = null, preferMp4: Boolean = false, preferDash: Boolean = false, allowDashFallback: Boolean = false, forceRefresh: Boolean = false): ResolvedMedia {
         initialize()
         val videoId = extractVideoId(input)
-        val info = getStreamInfo(videoId)
+        val info = getStreamInfo(videoId, forceRefresh)
         if (audioOnly) {
             val audioCandidates = if (maxAudioBitrate == null) info.audioStreams
                 else info.audioStreams.filter { it.averageBitrate / 1000 <= maxAudioBitrate }
@@ -166,16 +166,19 @@ object LibreTubePlayback {
         return mapSubtitles(getStreamInfo(videoId))
     }
 
-    private fun getStreamInfo(videoId: String): StreamInfo {
+    private fun getStreamInfo(videoId: String, forceRefresh: Boolean = false): StreamInfo {
         val now = System.currentTimeMillis()
-        streamInfoCache[videoId]?.takeIf { now - it.fetchedAtMs < streamInfoTtlMs }?.let { return it.info }
+        if (!forceRefresh) {
+            streamInfoCache[videoId]?.takeIf { now - it.fetchedAtMs < streamInfoTtlMs }?.let { return it.info }
+        }
         val lock = streamInfoLocks[(videoId.hashCode() and Int.MAX_VALUE) % streamInfoLocks.size]
         return synchronized(lock) {
             val checkedAt = System.currentTimeMillis()
-            streamInfoCache[videoId]?.takeIf { checkedAt - it.fetchedAtMs < streamInfoTtlMs }?.info
-                ?: StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId").also {
-                    cacheStreamInfo(videoId, it)
-                }
+            if (!forceRefresh) {
+                streamInfoCache[videoId]?.takeIf { checkedAt - it.fetchedAtMs < streamInfoTtlMs }?.info
+            } else null ?: StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId").also {
+                cacheStreamInfo(videoId, it)
+            }
         }
     }
 
