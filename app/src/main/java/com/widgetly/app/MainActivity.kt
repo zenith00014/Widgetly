@@ -827,9 +827,9 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     val maxBitrate=if(isCurrentItem&&audioOnly)latestQuality.takeIf{it>0} else null
     val preferMp4=if(isCurrentItem)!audioOnly&&latestMp4Format else false
     val currentMime=current.localConfiguration?.mimeType.orEmpty()
-    val retryPreferDash=!audioOnly&&!preferMp4&&(
-     currentMime.equals("video/mp4",true)||currentMime.equals("video/webm",true)
-    )
+    val adaptiveManifest=currentMime.equals("application/dash+xml",true)||
+     currentMime.equals("application/x-mpegURL",true)
+    val retryPreferDash=!audioOnly&&!preferMp4&&!adaptiveManifest
     val startPosition=player.currentPosition.coerceAtLeast(0L)
     status="Refreshing stream after playback error…"
     scope.launch{
