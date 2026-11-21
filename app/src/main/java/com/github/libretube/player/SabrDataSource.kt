@@ -18,6 +18,7 @@ class SabrDataSource(
     private val sabrClient: SabrClient,
 ) : BaseDataSource(true) {
     private var data: CompositeBuffer? = null
+    private var transferIsStarted = false
 
     class Factory(
         private val sabrClient: SabrClient
@@ -30,6 +31,7 @@ class SabrDataSource(
             ?: throw IOException("SABR playback request metadata is missing.")
 
         transferInitializing(dataSpec)
+        transferIsStarted = false
         val segment = try {
             sabrClient.getNextSegment(playbackRequest)
                 ?: throw IOException("SABR returned no data for segment ${playbackRequest.segment}.")
@@ -47,6 +49,7 @@ class SabrDataSource(
 
         data = CompositeBuffer(segment.data)
         transferStarted(dataSpec)
+        transferIsStarted = true
         return data!!.remaining().toLong()
     }
 
@@ -59,7 +62,10 @@ class SabrDataSource(
     }
 
     override fun close() {
-        transferEnded()
+        if (transferIsStarted) {
+            transferEnded()
+            transferIsStarted = false
+        }
         data = null
     }
 
