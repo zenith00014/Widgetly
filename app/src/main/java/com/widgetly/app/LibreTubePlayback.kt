@@ -28,7 +28,7 @@ object LibreTubePlayback {
     @Volatile private var initialized = false
     private data class CachedStreamInfo(val fetchedAtMs: Long, val info: StreamInfo)
     private val streamInfoCache = ConcurrentHashMap<String, CachedStreamInfo>()
-    private val streamInfoLocks = ConcurrentHashMap<String, Any>()
+    private val streamInfoLocks = Array(64) { Any() }
     private val streamInfoTtlMs = 180_000L
     private val client = OkHttpClient.Builder()
         .connectTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
@@ -167,7 +167,7 @@ object LibreTubePlayback {
     private fun getStreamInfo(videoId: String): StreamInfo {
         val now = System.currentTimeMillis()
         streamInfoCache[videoId]?.takeIf { now - it.fetchedAtMs < streamInfoTtlMs }?.let { return it.info }
-        val lock = streamInfoLocks.computeIfAbsent(videoId) { Any() }
+        val lock = streamInfoLocks[(videoId.hashCode() and Int.MAX_VALUE) % streamInfoLocks.size]
         return synchronized(lock) {
             val checkedAt = System.currentTimeMillis()
             streamInfoCache[videoId]?.takeIf { checkedAt - it.fetchedAtMs < streamInfoTtlMs }?.info
