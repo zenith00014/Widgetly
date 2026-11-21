@@ -351,7 +351,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
        scope.launch{
         status="Preparing download…"
         try{
-         val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(result.videoId,result.isMusic)}
+         val resolved=withContext(Dispatchers.IO){resolvePlaybackMedia(result.videoId,result.isMusic)}
          withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,result.videoId,result.title,result.creator,result.isMusic,resolved)}
          status="Download queued: "+result.title
         }catch(e:Exception){status=e.localizedMessage?:"Could not queue this download."}
@@ -450,7 +450,7 @@ private suspend fun queueVideoDownloads(context:Context,tracks:List<YouTubeSearc
  var queued=0
  for(track in tracks){
   try{
-   val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.videoId,false)}
+   val media=withContext(Dispatchers.IO){resolvePlaybackMedia(track.videoId,false)}
    withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,track.videoId,track.title,track.creator,false,media)}
    queued++
   }catch(_:Exception){}
@@ -462,7 +462,7 @@ private suspend fun queueMusicDownloads(context:Context,tracks:List<YouTubeSearc
  var queued=0
  for(track in tracks){
   try{
-   val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.videoId,true)}
+   val media=withContext(Dispatchers.IO){resolvePlaybackMedia(track.videoId,true)}
    withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,track.videoId,track.title,track.creator,true,media,transcodeToMp3=mp3)}
    queued++
   }catch(_:Exception){}
@@ -474,7 +474,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
  var queued=0
  for(track in tracks){
   try{
-   val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.id,true)}
+   val media=withContext(Dispatchers.IO){resolvePlaybackMedia(track.id,true)}
    withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,track.id,track.title,track.creator,true,media,transcodeToMp3=true)}
    queued++
   }catch(_:Exception){}
@@ -730,7 +730,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
        var queued=0
        for(track in tracks){
         try{
-         val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.id,track.music)}
+         val resolved=withContext(Dispatchers.IO){resolvePlaybackMedia(track.id,track.music)}
          withContext(Dispatchers.IO){OfflineDownloads.enqueue(context=context,id=track.id,title=track.title,creator=track.creator,isAudio=track.music,media=resolved)}
          queued++
         }catch(_:Exception){}
@@ -744,7 +744,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
        var queuedMp3=0
        for(track in tracks.filter{it.music}){
         try{
-         val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(track.id,true)}
+         val resolved=withContext(Dispatchers.IO){resolvePlaybackMedia(track.id,true)}
          withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,track.id,track.title,track.creator,true,resolved,transcodeToMp3=true)}
          queuedMp3++
         }catch(_:Exception){}
@@ -876,7 +876,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
       .setMediaMetadata(playingPick.toMediaMetadata()).build()
     }else{
      val source=url.ifBlank{playingPick.sourceId?:playingPick.id}
-     val resolved=LibreTubePlayback.resolveMedia(source,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,!audio&&!mp4Format,!audio&&!mp4Format)
+     val resolved=resolvePlaybackMedia(source,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,!audio&&!mp4Format,!audio&&!mp4Format)
      resolvedQuality=resolved.qualityLabel
      val subtitles=if(audio)emptyList() else resolved.subtitles
      val configs=subtitles.map{subtitle->
@@ -937,7 +937,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   status=if(sourceSelectionChanged)"Changing playback format…" else "Changing video quality…"
   try{
    val resolved=withContext(Dispatchers.IO){
-    LibreTubePlayback.resolveMedia(
+    resolvePlaybackMedia(
      source,audio,
      if(audio)null else quality.takeIf{it>0},
      if(audio)quality.takeIf{it>0} else null,
@@ -1001,7 +1001,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      val queuedQuality=playerPrefs.getInt(if(queued.music)"audio_quality" else "video_quality",0)
      val queuedMp4=!queued.music&&playerPrefs.getBoolean("download_mp4",false)
      val queuedSource=queued.sourceId?:queued.id
-     val resolved=if(localFile==null)LibreTubePlayback.resolveMedia(
+     val resolved=if(localFile==null)resolvePlaybackMedia(
       queuedSource,queued.music,
       if(queued.music)null else queuedQuality.takeIf{it>0},
       if(queued.music)queuedQuality.takeIf{it>0} else null,
@@ -1109,7 +1109,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      val mediaItem=if(localFileAvailable){
       androidx.media3.common.MediaItem.Builder().setMediaId(playingPick.id).setUri(java.io.File(playingPick.localPath!!).toURI().toString()).setMediaMetadata(playingPick.toMediaMetadata()).build()
      }else{
-      val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,!audio&&!mp4Format,!audio&&!mp4Format,forceRefresh=true)}
+      val resolved=withContext(Dispatchers.IO){resolvePlaybackMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,!audio&&!mp4Format,!audio&&!mp4Format,forceRefresh=true)}
       resolvedQuality=resolved.qualityLabel
       val captions=if(audio)emptyList() else resolved.subtitles
       val subtitleConfigs=captions.map{subtitle->
@@ -1142,7 +1142,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    scope.launch{
    status="Preparing offline download…"
    try{
-    val media=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format)}
+    val media=withContext(Dispatchers.IO){resolvePlaybackMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format)}
     withContext(Dispatchers.IO){OfflineDownloads.enqueue(context,playingPick.id,playingPick.title,playingPick.creator,audio,media,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,audio&&mp3Format,!audio&&mp4Format)}
     status="Download queued · ${media.qualityLabel} · .${media.extension}"
    }catch(e:Exception){status=e.localizedMessage?:"Could not start download."}
