@@ -891,7 +891,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      val configs=subtitles.map{subtitle->
       androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
        .setMimeType(subtitle.mimeType).setLanguage(subtitle.languageTag)
-       .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT).setLabel(subtitle.label).build()
+       .setLabel(subtitle.label).build()
      }
      androidx.media3.common.MediaItem.Builder().setMediaId(playingPick.id).setUri(resolved.url).setMimeType(resolved.mimeType)
       .setMediaMetadata(playingPick.toMediaMetadata())
@@ -952,7 +952,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
       androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
        .setMimeType(subtitle.mimeType)
        .setLanguage(subtitle.languageTag)
-       .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT)
+       
        .setLabel(subtitle.label)
        .build()
      }
@@ -1055,7 +1055,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
        androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
         .setMimeType(subtitle.mimeType)
         .setLanguage(subtitle.languageTag)
-        .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT)
+        
         .setLabel(subtitle.label)
         .build()
       }
