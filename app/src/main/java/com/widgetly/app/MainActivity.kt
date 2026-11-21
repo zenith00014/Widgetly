@@ -818,6 +818,8 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
  val systemBrightness=remember(context){runCatching{android.provider.Settings.System.getInt(context.contentResolver,android.provider.Settings.System.SCREEN_BRIGHTNESS,128)/255f}.getOrDefault(0.5f)}
  var brightnessLevel by remember(item.id){mutableFloatStateOf(originalBrightness.takeIf{it>=0f}?:systemBrightness.coerceIn(0.01f,1f))}
  var landscape by remember(item.id){mutableStateOf(false)}
+ val screenHeightDp=androidx.compose.ui.platform.LocalConfiguration.current.screenHeightDp
+ val videoPlayerHeight=if(audio)96.dp else if(landscape)(screenHeightDp*0.72f).dp else 220.dp
  DisposableEffect(playerActivity){
   onDispose{
    playerActivity?.requestedOrientation=android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
@@ -1085,7 +1087,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    if(!audio&&controller?.currentMediaItem!=null&&android.os.Build.VERSION.SDK_INT>=26)TextButton(onClick={(context.activityOrNull() as? MainActivity)?.enterPlayerPip()}){Text("Picture-in-Picture",color=magenta)}
   }
   Spacer(Modifier.height(8.dp))
-  androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).prepareForPlayback(controller,isPlaying&&!audio)},update={it.prepareForPlayback(controller,isPlaying&&!audio)},modifier=Modifier.fillMaxWidth().height(if(audio)96.dp else 220.dp))
+  androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).prepareForPlayback(controller,isPlaying&&!audio)},update={it.prepareForPlayback(controller,isPlaying&&!audio)},modifier=Modifier.fillMaxWidth().height(videoPlayerHeight))
   Text(if(isBuffering)"Buffering…" else recoveryMessage?:status,color=muted,fontSize=11.sp)
   Text(playingTitle,color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold);Text(playingCreator,color=muted)
   if(!localFileAvailable) {
