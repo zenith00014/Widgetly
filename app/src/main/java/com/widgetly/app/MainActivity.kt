@@ -826,12 +826,16 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     val maxHeight=if(isCurrentItem&&!audioOnly)latestQuality.takeIf{it>0} else null
     val maxBitrate=if(isCurrentItem&&audioOnly)latestQuality.takeIf{it>0} else null
     val preferMp4=if(isCurrentItem)!audioOnly&&latestMp4Format else false
+    val currentMime=current.localConfiguration?.mimeType.orEmpty()
+    val retryPreferDash=!audioOnly&&!preferMp4&&(
+     currentMime.equals("video/mp4",true)||currentMime.equals("video/webm",true)
+    )
     val startPosition=player.currentPosition.coerceAtLeast(0L)
     status="Refreshing stream after playback error…"
     scope.launch{
      try{
       val refreshed=withContext(Dispatchers.IO){
-       val resolved=LibreTubePlayback.resolveMedia(input,audioOnly,maxHeight,maxBitrate,preferMp4,!audioOnly&&!preferMp4,!audioOnly&&!preferMp4)
+       val resolved=LibreTubePlayback.resolveMedia(input,audioOnly,maxHeight,maxBitrate,preferMp4,retryPreferDash,!audioOnly&&!preferMp4)
        val captions=if(audioOnly)emptyList() else resolved.subtitles
        val subtitleConfigs=captions.map{subtitle->
         androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
