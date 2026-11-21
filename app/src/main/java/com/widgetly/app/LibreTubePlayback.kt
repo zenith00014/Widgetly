@@ -145,7 +145,7 @@ object LibreTubePlayback {
         val stream = if (maxHeight == null) {
             formatStreams.maxByOrNull { it.height }
         } else {
-            formatStreams.filter { it.height == maxHeight }.maxByOrNull { it.averageBitrate }
+            formatStreams.filter { it.height == maxHeight }.maxByOrNull { it.bitrate }
                 ?: throw IOException("The selected ${maxHeight}p quality is not available for this video. Choose Auto or another quality.")
         } ?: throw IOException("No playable video stream was found.")
         if (!stream.isUrl || stream.content.isBlank()) throw IOException("The extractor did not return a direct stream URL.")
