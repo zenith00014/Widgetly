@@ -40,7 +40,15 @@ class MainActivity:ComponentActivity(){
  private val openDownloadsRequest=androidx.compose.runtime.mutableIntStateOf(0)
  private val pipModeState=androidx.compose.runtime.mutableStateOf(false)
  private val pipEligible=androidx.compose.runtime.mutableStateOf(false)
- fun setPipEligible(eligible:Boolean){pipEligible.value=eligible}
+ fun setPipEligible(eligible:Boolean){
+  pipEligible.value=eligible
+  if(android.os.Build.VERSION.SDK_INT>=26){
+   val builder=android.app.PictureInPictureParams.Builder()
+    .setAspectRatio(android.util.Rational(16,9))
+   if(android.os.Build.VERSION.SDK_INT>=31)builder.setAutoEnterEnabled(eligible)
+   setPictureInPictureParams(builder.build())
+  }
+ }
  fun enterPlayerPip(){
   if(android.os.Build.VERSION.SDK_INT>=26&&pipEligible.value){
    val builder=android.app.PictureInPictureParams.Builder()
@@ -823,7 +831,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     scope.launch{
      try{
       val refreshed=withContext(Dispatchers.IO){
-       val resolved=LibreTubePlayback.resolveMedia(input,audioOnly,maxHeight,maxBitrate,preferMp4,!audioOnly&&!preferMp4,!audioOnly&&!preferMp4)
+       val resolved=LibreTubePlayback.resolveMedia(input,audioOnly,maxHeight,maxBitrate,preferMp4,false,!audioOnly&&!preferMp4)
        val captions=if(audioOnly)emptyList() else resolved.subtitles
        val subtitleConfigs=captions.map{subtitle->
         androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
@@ -873,7 +881,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
       .setMediaMetadata(playingPick.toMediaMetadata()).build()
     }else{
      val source=url.ifBlank{playingPick.sourceId?:playingPick.id}
-     val resolved=LibreTubePlayback.resolveMedia(source,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,!audio&&!mp4Format,!audio&&!mp4Format)
+     val resolved=LibreTubePlayback.resolveMedia(source,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,!audio&&!mp4Format,false,!audio&&!mp4Format)
      resolvedQuality=resolved.qualityLabel
      val subtitles=if(audio)emptyList() else resolved.subtitles
      val configs=subtitles.map{subtitle->
@@ -932,7 +940,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    try{
     suspend fun prepareQueueItem(queued:Pick):androidx.media3.common.MediaItem=withContext(Dispatchers.IO){
      val localFile=queued.localPath?.let{java.io.File(it)}?.takeIf{it.isFile}
-     val resolved=if(localFile==null)LibreTubePlayback.resolveMedia(queued.sourceId?:queued.id,queued.music,preferDash=!queued.music,allowDashFallback=!queued.music) else null
+     val resolved=if(localFile==null)LibreTubePlayback.resolveMedia(queued.sourceId?:queued.id,queued.music,preferDash=false,allowDashFallback=!queued.music) else null
      val uri=localFile?.toURI()?.toString()?:resolved!!.url
      val metadata=queued.toMediaMetadata()
      val subtitleConfigs=resolved?.subtitles.orEmpty().map{subtitle->
@@ -1004,11 +1012,18 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     FilterChip(selected=speed==value,onClick={speed=value;playerPrefs.edit().putFloat("playback_speed",value).apply()},label={Text("${value}x",fontSize=10.sp)})
    }
   }
-  FilterChip(selected=captionsEnabled,onClick={
-   captionsEnabled=!captionsEnabled
-   playerPrefs.edit().putBoolean("captions_enabled",captionsEnabled).apply()
-   controller?.let{it.trackSelectionParameters=it.trackSelectionParameters.buildUpon().setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT,!captionsEnabled).build()}
-  },label={Text(if(captionsEnabled)"Captions enabled when available" else "Captions off")})
+  Row(horizontalArrangement=Arrangement.spacedBy(8.dp),verticalAlignment=Alignment.CenterVertically){
+   FilterChip(selected=captionsEnabled,onClick={
+    captionsEnabled=!captionsEnabled
+    playerPrefs.edit().putBoolean("captions_enabled",captionsEnabled).apply()
+    controller?.let{it.trackSelectionParameters=it.trackSelectionParameters.buildUpon().setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT,!captionsEnabled).build()}
+   },label={Text(if(captionsEnabled)"Captions on" else "Captions off")})
+   TextButton(onClick={
+    controller?.let{player->
+     androidx.media3.ui.TrackSelectionDialogBuilder(context,"Select captions",player,androidx.media3.common.C.TRACK_TYPE_TEXT).build().show()
+    }
+   }){Text("CC · Select language",color=magenta)}
+  }
   Row(horizontalArrangement=Arrangement.spacedBy(7.dp),verticalAlignment=Alignment.CenterVertically){
    FilterChip(selected=shuffleEnabled,onClick={shuffleEnabled=!shuffleEnabled;playerPrefs.edit().putBoolean("shuffle_enabled",shuffleEnabled).apply();controller?.setShuffleModeEnabled(shuffleEnabled)},label={Text("Shuffle")})
    FilterChip(selected=repeatMode!=androidx.media3.common.Player.REPEAT_MODE_OFF,onClick={
