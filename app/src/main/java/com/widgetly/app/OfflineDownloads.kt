@@ -240,21 +240,43 @@ class OfflineDownloadWorker(
         val destination = File(directory, "$id.$extension")
         val metadata = File(directory, "$id.json")
         val existingBytes = partial.length()
-        val request = Request.Builder()
-            .url(url)
+        fun requestFor(streamUrl: String): Request = Request.Builder()
+            .url(streamUrl)
             .header("User-Agent", STREAM_USER_AGENT)
             .header("Referer", "https://www.youtube.com/")
             .header("Origin", "https://www.youtube.com/")
             .header("Accept-Language", "en-US,en;q=0.9")
+            .header("Accept-Encoding", "identity")
             .apply { if (existingBytes > 0) header("Range", "bytes=$existingBytes-") }
             .build()
 
-        val call = CLIENT.newCall(request)
+        var activeCall: okhttp3.Call? = null
         val cancellationHandle = coroutineContext[Job]?.invokeOnCompletion { cause ->
-            if (cause != null) call.cancel()
+            if (cause != null) activeCall?.cancel()
         }
         try {
-            call.execute().use { response ->
+            activeCall = CLIENT.newCall(requestFor(url))
+            var response = activeCall!!.execute()
+            if (response.code == 403 || response.code == 410) {
+                response.close()
+                val details = runCatching { JSONObject(metadata.readText()) }.getOrNull()
+                    ?: return@withContext Result.failure()
+                val sourceId = details.optString("sourceId")
+                if (sourceId.isBlank()) return@withContext Result.failure()
+                val refreshed = LibreTubePlayback.resolveMedia(
+                    sourceId,
+                    details.optBoolean("isAudio"),
+                    details.optInt("maxHeight", 0).takeIf { it > 0 },
+                    details.optInt("maxAudioBitrate", 0).takeIf { it > 0 },
+                    details.optBoolean("preferMp4")
+                )
+                if (refreshed.extension != extension) return@withContext Result.failure()
+                details.put("sourceUrl", refreshed.url).put("quality", refreshed.qualityLabel)
+                metadata.writeText(details.toString())
+                activeCall = CLIENT.newCall(requestFor(refreshed.url))
+                response = activeCall!!.execute()
+            }
+            response.use { response ->
                 if (!response.isSuccessful) {
                     return@withContext if (response.code >= 500 || response.code == 429) Result.retry()
                     else Result.failure()
