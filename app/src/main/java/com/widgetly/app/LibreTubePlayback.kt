@@ -6,7 +6,6 @@
  */
 package com.widgetly.app
 
-import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.downloader.Downloader
@@ -30,7 +29,7 @@ object LibreTubePlayback {
     private val streamInfoCache = ConcurrentHashMap<String, CachedStreamInfo>()
     private val streamInfoLocks = Array(64) { Any() }
     private val streamInfoTtlMs = 180_000L
-    private val client = OkHttpClient.Builder()
+    private val client = WidgetlyNetwork.newBuilder()
         .connectTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
         .readTimeout(45, java.util.concurrent.TimeUnit.SECONDS)
         .callTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
