@@ -841,7 +841,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
         androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
          .setMimeType(subtitle.mimeType)
          .setLanguage(subtitle.languageTag)
-         .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT)
+         
          .setLabel(subtitle.label)
          .build()
        }
