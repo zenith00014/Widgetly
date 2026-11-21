@@ -100,27 +100,31 @@ object LibreTubePlayback {
         }
         val hasProgressiveVideo = info.videoStreams.any { it.isUrl && it.content.isNotBlank() }
         if (!preferMp4 && (preferDash || (allowDashFallback && !hasProgressiveVideo))) {
-            val sabrManifest = com.github.libretube.player.manifest.SabrManifestFactory.from(videoId, info)
-            if (sabrManifest != null) {
-                com.github.libretube.player.manifest.SabrManifestStore.put(videoId, sabrManifest)
-                return ResolvedMedia("rush-sabr://youtube/$videoId", "sabr", "application/x-rush-sabr", "Adaptive SABR")
-            }
-            if (
-                info.dashMpdUrl.isNotBlank() &&
-                info.videoOnlyStreams.any { it.isUrl && it.content.isNotBlank() } &&
-                info.audioStreams.any { it.isUrl && it.content.isNotBlank() }
-            ) {
-                return ResolvedMedia(
-                    info.dashMpdUrl,
+            fun dashFallback(): ResolvedMedia? = info.dashMpdUrl.takeIf { it.isNotBlank() }?.let {
+                ResolvedMedia(
+                    it,
                     "mpd",
                     "application/dash+xml",
                     "Adaptive DASH",
                     runCatching { mapSubtitles(info) }.getOrDefault(emptyList())
                 )
             }
-            if (info.hlsUrl.isNotBlank()) {
-                return ResolvedMedia(info.hlsUrl, "m3u8", "application/x-mpegURL", "Adaptive HLS")
+            fun hlsFallback(): ResolvedMedia? = info.hlsUrl.takeIf { it.isNotBlank() }?.let {
+                ResolvedMedia(it, "m3u8", "application/x-mpegURL", "Adaptive HLS")
             }
+
+            // On the one-time playback retry, try standard DASH/HLS before repeating a failed SABR request.
+            if (preferDash) dashFallback()?.let { return it }
+            if (preferDash) hlsFallback()?.let { return it }
+
+            val sabrManifest = com.github.libretube.player.manifest.SabrManifestFactory.from(videoId, info)
+            if (sabrManifest != null) {
+                com.github.libretube.player.manifest.SabrManifestStore.put(videoId, sabrManifest)
+                return ResolvedMedia("rush-sabr://youtube/$videoId", "sabr", "application/x-rush-sabr", "Adaptive SABR")
+            }
+
+            if (!preferDash) dashFallback()?.let { return it }
+            if (!preferDash) hlsFallback()?.let { return it }
         }
         val formatStreams = if (preferMp4) {
             info.videoStreams.filter { it.format?.suffix.equals("mp4", ignoreCase = true) }
