@@ -815,7 +815,8 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
  var volumeLevel by remember(item.id){mutableFloatStateOf(audioManager.getStreamVolume(android.media.AudioManager.STREAM_MUSIC).toFloat()/maxVolume)}
  val playerActivity=context.activityOrNull()
  val originalBrightness=remember(playerActivity){playerActivity?.window?.attributes?.screenBrightness?:-1f}
- var brightnessLevel by remember(item.id){mutableFloatStateOf(originalBrightness.takeIf{it>=0f}?:0.5f)}
+ val systemBrightness=remember(context){runCatching{android.provider.Settings.System.getInt(context.contentResolver,android.provider.Settings.System.SCREEN_BRIGHTNESS,128)/255f}.getOrDefault(0.5f)}
+ var brightnessLevel by remember(item.id){mutableFloatStateOf(originalBrightness.takeIf{it>=0f}?:systemBrightness.coerceIn(0.01f,1f))}
  var landscape by remember(item.id){mutableStateOf(false)}
  DisposableEffect(playerActivity){
   onDispose{
