@@ -909,6 +909,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     .setTrackTypeDisabled(androidx.media3.common.C.TRACK_TYPE_TEXT,!captionsEnabled)
     .setMinVideoSize(1,if(!audio&&quality>0)quality else 0)
     .setMaxVideoSize(Int.MAX_VALUE,if(!audio&&quality>0)quality else Int.MAX_VALUE)
+    .setMaxAudioBitrate(if(audio&&quality>0)quality*1000 else Int.MAX_VALUE)
     .build()
   }
  }
