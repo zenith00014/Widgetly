@@ -220,7 +220,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   }
   items(uploads,key={it.videoId}){video->
    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(surface).clickable{play(Pick(video.videoId,video.title,video.creator,video.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Latest upload"))}.padding(11.dp),verticalAlignment=Alignment.CenterVertically){
-    Box(Modifier.size(52.dp).clip(RoundedCornerShape(10.dp)).background(raised),contentAlignment=Alignment.Center){Text("▶",color=mint)}
+    YouTubeThumbnail(video.thumbnailUrl,video.videoId,Modifier.size(52.dp),placeholder="▶")
     Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text(video.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2);Text(video.creator+" · "+video.duration,color=muted,fontSize=10.sp,maxLines=1)}
     Text("Play",color=magenta,fontSize=11.sp)
    }
@@ -281,7 +281,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)) {
     items(results,key={when{it.isChannel->"channel:"+it.channelId;it.isCollection->"collection:"+it.collectionId;else->it.videoId}}) { result ->
      Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(surface).clickable{when{result.isChannel->selectedChannel=result;result.isCollection&&result.isMusic->selectedMusicCollection=result;result.isCollection->selectedVideoPlaylist=result;else->play(result)}}.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
-      Box(Modifier.size(48.dp).clip(RoundedCornerShape(10.dp)).background(raised),contentAlignment=Alignment.Center){Text(if(result.isChannel)"◉" else if(result.isCollection)"▤" else if(result.isMusic)"♫" else "▶",color=mint,fontSize=20.sp)}
+      YouTubeThumbnail(result.thumbnailUrl,result.videoId,Modifier.size(72.dp,54.dp),placeholder=if(result.isChannel)"◉" else if(result.isCollection)"▤" else if(result.isMusic)"♫" else "▶")
       Column(Modifier.weight(1f).padding(horizontal=10.dp)) {
        Text(result.title,color=ink,fontSize=14.sp,fontWeight=FontWeight.SemiBold,maxLines=2,overflow=TextOverflow.Ellipsis)
        Text(when{result.isChannel->listOf(result.creator,result.videoCount.takeIf{it.isNotBlank()}).filterNotNull().filter{it.isNotBlank()}.joinToString(" · ").ifBlank{"YouTube channel"};result.isCollection->result.creator.ifBlank{"Artist / album"};else->result.creator + if(result.duration.isNotBlank()) " · ${result.duration}" else ""},color=muted,fontSize=11.sp,maxLines=1)
@@ -379,7 +379,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)) {
    items(uploads,key={it.videoId}) { video ->
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(surface).clickable{play(video)}.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
-     Box(Modifier.size(46.dp).clip(RoundedCornerShape(9.dp)).background(raised),contentAlignment=Alignment.Center){Text("▶",color=mint)}
+     YouTubeThumbnail(video.thumbnailUrl,video.videoId,Modifier.size(46.dp),placeholder="▶")
      Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text(video.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2);Text(video.creator+" · "+video.duration,color=muted,fontSize=10.sp)}
      Text("Play",color=magenta,fontSize=11.sp)
     }
@@ -505,7 +505,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){
    items(tracks,key={it.videoId}){track->
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(surface).clickable{play(track)}.padding(11.dp),verticalAlignment=Alignment.CenterVertically){
-     Box(Modifier.size(42.dp).clip(RoundedCornerShape(9.dp)).background(raised),contentAlignment=Alignment.Center){Text(if(collection.isMusic)"♫" else "▶",color=mint)}
+     YouTubeThumbnail(track.thumbnailUrl,track.videoId,Modifier.size(42.dp),placeholder=if(collection.isMusic)"♫" else "▶")
      Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text(track.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2);Text(track.creator+" · "+track.duration,color=muted,fontSize=10.sp,maxLines=1)}
      Text("Play",color=magenta,fontSize=11.sp)
     }
@@ -551,7 +551,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   if(uploads.isEmpty()&&!loading)item{Text("Upload feed is empty.",color=muted)}
   items(uploads,key={it.videoId}){video->
    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(surface).clickable{play(video)}.padding(11.dp),verticalAlignment=Alignment.CenterVertically){
-    Box(Modifier.size(45.dp).clip(RoundedCornerShape(9.dp)).background(raised),contentAlignment=Alignment.Center){Text("▶",color=mint)}
+    YouTubeThumbnail(video.thumbnailUrl,video.videoId,Modifier.size(45.dp),placeholder="▶")
     Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text(video.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2);Text(video.creator+" · "+video.duration,color=muted,fontSize=10.sp,maxLines=1)}
     Text("Play",color=magenta,fontSize=11.sp)
    }
