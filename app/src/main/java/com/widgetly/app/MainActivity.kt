@@ -912,6 +912,68 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     .build()
   }
  }
+ LaunchedEffect(controller,quality,audio,mp4Format,playingPick.id){
+  val player=controller?:return@LaunchedEffect
+  val current=player.currentMediaItem?:return@LaunchedEffect
+  val currentUri=current.localConfiguration?.uri?:return@LaunchedEffect
+  if(currentUri.scheme=="file"||currentUri.scheme=="content"||currentUri.scheme=="android.resource")return@LaunchedEffect
+
+  val options=current.mediaMetadata.extras?:return@LaunchedEffect
+  val source=options.getString(PlaybackMetadata.SOURCE).orEmpty()
+  if(source.isBlank())return@LaunchedEffect
+  val currentAudio=options.getBoolean(PlaybackMetadata.AUDIO_ONLY,false)
+  val currentQuality=options.getInt(PlaybackMetadata.QUALITY,0)
+  val currentMp4=options.getBoolean(PlaybackMetadata.PREFER_MP4,false)
+  val mime=current.localConfiguration?.mimeType.orEmpty()
+  val isAdaptive=mime.equals("application/dash+xml",true)||
+   mime.equals("application/x-mpegURL",true)||
+   currentUri.scheme=="rush-sabr"
+  val sourceSelectionChanged=currentAudio!=audio||currentMp4!=mp4Format
+  val progressiveQualityChanged=!isAdaptive&&currentQuality!=quality
+  if(!sourceSelectionChanged&&!progressiveQualityChanged)return@LaunchedEffect
+
+  val mediaId=current.mediaId
+  val startPosition=player.currentPosition.coerceAtLeast(0L)
+  status=if(sourceSelectionChanged)"Changing playback format…" else "Changing video quality…"
+  try{
+   val resolved=withContext(Dispatchers.IO){
+    LibreTubePlayback.resolveMedia(
+     source,audio,
+     if(audio)null else quality.takeIf{it>0},
+     if(audio)quality.takeIf{it>0} else null,
+     !audio&&mp4Format,
+     !audio&&!mp4Format,
+     !audio&&!mp4Format,
+     forceRefresh=true
+    )
+   }
+   val subtitleConfigs=if(audio)emptyList() else resolved.subtitles.map{subtitle->
+    androidx.media3.common.MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
+     .setMimeType(subtitle.mimeType)
+     .setLanguage(subtitle.languageTag)
+     .setLabel(subtitle.label)
+     .build()
+   }
+   if(player.currentMediaItem?.mediaId!=mediaId)return@LaunchedEffect
+   val refreshed=androidx.media3.common.MediaItem.Builder()
+    .setMediaId(mediaId)
+    .setUri(resolved.url)
+    .setMimeType(resolved.mimeType)
+    .setMediaMetadata(playingPick.toMediaMetadata(source,audio,quality,mp4Format))
+    .setSubtitleConfigurations(subtitleConfigs)
+    .build()
+   val index=player.currentMediaItemIndex
+   player.replaceMediaItem(index,refreshed)
+   player.seekTo(index,startPosition)
+   player.prepare()
+   player.play()
+   status="Playing · ${resolved.qualityLabel}"
+  }catch(cancelled:kotlinx.coroutines.CancellationException){
+   throw cancelled
+  }catch(e:Exception){
+   status=e.localizedMessage?:"Could not change playback quality."
+  }
+ }
  LaunchedEffect(controller,speed){
   val player=controller?:return@LaunchedEffect
   val startSpeed=player.playbackParameters.speed.coerceIn(0.25f,4f)
