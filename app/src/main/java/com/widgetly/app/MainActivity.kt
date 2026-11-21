@@ -846,7 +846,8 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
  var autoStartAttempted by remember(item.id){mutableStateOf(false)}
  LaunchedEffect(controller,playingPick.id,queue.isEmpty(),localFileAvailable){
   val activePlayer=controller?:return@LaunchedEffect
-  if(queue.isNotEmpty()||autoStartAttempted)return@LaunchedEffect
+  if(queue.isNotEmpty()){autoStartAttempted=true;return@LaunchedEffect}
+  if(autoStartAttempted)return@LaunchedEffect
   autoStartAttempted=true
   status="Loading media…"
   try{
@@ -951,13 +952,13 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    update={it.player=controller},
    modifier=Modifier.fillMaxSize()
   )
- }else Column(Modifier.fillMaxSize().padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){
+ }else Column(Modifier.fillMaxSize().verticalScroll(androidx.compose.foundation.rememberScrollState()).padding(18.dp),horizontalAlignment=Alignment.CenterHorizontally,verticalArrangement=Arrangement.spacedBy(12.dp)){
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
    Text("← Back",color=muted,modifier=Modifier.clickable{back()}.padding(8.dp))
    Text(if(audio)"Music player"else"Video player",color=mint)
    if(!audio&&isPlaying&&android.os.Build.VERSION.SDK_INT>=26)TextButton(onClick={(context.activityOrNull() as? MainActivity)?.enterPlayerPip()}){Text("PiP",color=magenta)}
   }
-  Spacer(Modifier.weight(.2f))
+  Spacer(Modifier.height(8.dp))
   androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).apply{player=controller;useController=true}},update={it.player=controller},modifier=Modifier.fillMaxWidth().height(if(audio)96.dp else 220.dp))
   Text(playingTitle,color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold);Text(playingCreator,color=muted)
   if(!localFileAvailable) {
