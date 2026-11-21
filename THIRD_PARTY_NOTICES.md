@@ -56,4 +56,4 @@ Rush includes a port of the LibreTube SABR / UMP adaptive media source and its p
 - Protocol definitions: `app/src/main/proto/`
 - License: GPL-3.0-or-later; the complete GPL license is included in `LICENSES/LibreTube-GPL-3.0-or-later.txt`.
 
-The app-specific code adapts NewPipeExtractor metadata to the SABR manifest and routes those media items through Media3. Keep these notices and corresponding source available when redistributing.
+The app-specific code adapts NewPipeExtractor metadata to the SABR manifest and routes those media items through Media3. The offline audio segment downloader is adapted from LibreTube's `SabrDownloadProvider.kt` and `DownloadProvider.kt`. Keep these notices and corresponding source available when redistributing.
