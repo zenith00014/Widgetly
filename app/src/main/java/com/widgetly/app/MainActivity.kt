@@ -881,7 +881,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
       .setMediaMetadata(playingPick.toMediaMetadata()).build()
     }else{
      val source=url.ifBlank{playingPick.sourceId?:playingPick.id}
-     val resolved=LibreTubePlayback.resolveMedia(source,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,!audio&&!mp4Format,false,!audio&&!mp4Format)
+     val resolved=LibreTubePlayback.resolveMedia(source,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,false,!audio&&!mp4Format)
      resolvedQuality=resolved.qualityLabel
      val subtitles=if(audio)emptyList() else resolved.subtitles
      val configs=subtitles.map{subtitle->
@@ -1043,7 +1043,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
      val mediaItem=if(localFileAvailable){
       androidx.media3.common.MediaItem.Builder().setMediaId(playingPick.id).setUri(java.io.File(playingPick.localPath!!).toURI().toString()).setMediaMetadata(playingPick.toMediaMetadata()).build()
      }else{
-      val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,!audio&&!mp4Format,!audio&&!mp4Format)}
+      val resolved=withContext(Dispatchers.IO){LibreTubePlayback.resolveMedia(url,audio,if(audio)null else quality.takeIf{it>0},if(audio)quality.takeIf{it>0} else null,!audio&&mp4Format,false,!audio&&!mp4Format)}
       resolvedQuality=resolved.qualityLabel
       val captions=if(audio)emptyList() else resolved.subtitles
       val subtitleConfigs=captions.map{subtitle->
