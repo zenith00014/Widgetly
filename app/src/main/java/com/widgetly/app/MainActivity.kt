@@ -39,13 +39,19 @@ private data class SubscribedChannel(val id:String,val title:String,val subscrib
 class MainActivity:ComponentActivity(){
  private val openDownloadsRequest=androidx.compose.runtime.mutableIntStateOf(0)
  private val pipModeState=androidx.compose.runtime.mutableStateOf(false)
+ private val pipEligible=androidx.compose.runtime.mutableStateOf(false)
+ fun setPipEligible(eligible:Boolean){pipEligible.value=eligible}
  fun enterPlayerPip(){
-  if(android.os.Build.VERSION.SDK_INT>=26){
-   val params=android.app.PictureInPictureParams.Builder()
+  if(android.os.Build.VERSION.SDK_INT>=26&&pipEligible.value){
+   val builder=android.app.PictureInPictureParams.Builder()
     .setAspectRatio(android.util.Rational(16,9))
-    .build()
-   enterPictureInPictureMode(params)
+   if(android.os.Build.VERSION.SDK_INT>=31)builder.setAutoEnterEnabled(true)
+   enterPictureInPictureMode(builder.build())
   }
+ }
+ override fun onUserLeaveHint(){
+  super.onUserLeaveHint()
+  if(android.os.Build.VERSION.SDK_INT>=26&&pipEligible.value)enterPlayerPip()
  }
  override fun onCreate(savedInstanceState:Bundle?){
   super.onCreate(savedInstanceState)
@@ -89,6 +95,7 @@ class MainActivity:ComponentActivity(){
   history=listOf(pick.id)+history.filterNot{x->x==pick.id}
   persistHistory(prefs,history)
  }
+ SideEffect{(androidx.compose.ui.platform.LocalContext.current.activityOrNull() as? MainActivity)?.setPipEligible(active!=null&&active?.music==false)}
  val bg=if(light)lilac else bgDark;val surface=if(light)Color.White else panelDark
  val ink=if(light)Color(0xFF241B32) else paper;val muted=if(light)Color(0xFF70677D) else mutedDark
  MaterialTheme(colorScheme=if(light)lightColorScheme(primary=magenta,background=bg,surface=surface,onSurface=ink)else darkColorScheme(primary=magenta,background=bg,surface=surface,onSurface=ink)){
@@ -971,7 +978,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
    Text("← Back",color=muted,modifier=Modifier.clickable{back()}.padding(8.dp))
    Text(if(audio)"Music player"else"Video player",color=mint)
-   if(!audio&&isPlaying&&android.os.Build.VERSION.SDK_INT>=26)TextButton(onClick={(context.activityOrNull() as? MainActivity)?.enterPlayerPip()}){Text("PiP",color=magenta)}
+   if(!audio&&controller?.currentMediaItem!=null&&android.os.Build.VERSION.SDK_INT>=26)TextButton(onClick={(context.activityOrNull() as? MainActivity)?.enterPlayerPip()}){Text("Picture-in-Picture",color=magenta)}
   }
   Spacer(Modifier.height(8.dp))
   androidx.compose.ui.viewinterop.AndroidView(factory={ctx->androidx.media3.ui.PlayerView(ctx).apply{player=controller;useController=true}},update={it.player=controller},modifier=Modifier.fillMaxWidth().height(if(audio)96.dp else 220.dp))
