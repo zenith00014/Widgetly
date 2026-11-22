@@ -31,19 +31,21 @@ object WidgetlyNetwork {
     }
 
     private val resilientDns: Dns by lazy {
-        Dns { hostname ->
-            try {
-                Dns.SYSTEM.lookup(hostname)
-            } catch (systemError: UnknownHostException) {
+        object : Dns {
+            override fun lookup(hostname: String): List<InetAddress> {
                 try {
-                    dnsOverHttps.lookup(hostname).ifEmpty { throw systemError }
-                } catch (fallbackError: Exception) {
-                    UnknownHostException(
-                        "Unable to resolve host $hostname using system DNS or DNS-over-HTTPS"
-                    ).apply {
-                        initCause(fallbackError)
-                        addSuppressed(systemError)
-                    }.let { throw it }
+                    return Dns.SYSTEM.lookup(hostname)
+                } catch (systemError: UnknownHostException) {
+                    try {
+                        return dnsOverHttps.lookup(hostname).ifEmpty { throw systemError }
+                    } catch (fallbackError: Exception) {
+                        throw UnknownHostException(
+                            "Unable to resolve host $hostname using system DNS or DNS-over-HTTPS"
+                        ).apply {
+                            initCause(fallbackError)
+                            addSuppressed(systemError)
+                        }
+                    }
                 }
             }
         }
