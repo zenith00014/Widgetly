@@ -203,6 +203,11 @@ class RushWebBridge(
     }
 
     @JavascriptInterface
+    fun updateVideoPosition() {
+        activity.updateNativeVideoPosition()
+    }
+
+    @JavascriptInterface
     fun hideVideo() {
         activity.hideNativeVideo()
     }
