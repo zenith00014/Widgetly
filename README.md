@@ -1,27 +1,39 @@
 # Rush
 
-Rush is a mobile-first entertainment app built with Kotlin, Jetpack Compose and AndroidX Media3. It brings curated music, videos, a concise news briefing and a personal library into one calm interface. Movie listings and playback are intentionally excluded until a suitable free source is selected.
+Rush is an Android-only video and music streaming client built with Kotlin, Jetpack Compose and AndroidX Media3.
 
-## Current experience
+## Product scope
 
-- **Home:** a featured pick, music shelf, recent playback and a finite set of recommendations.
-- **Discover:** local catalogue filtering by title and creator, with Music and Videos categories.
-- **News:** expandable fictional briefing cards with publisher, source type, read time and selection rationale.
-- **Library:** locally saved tracks/videos and playback history.
-- **Players:** separate audio-first and video playback modes.
-- Dark and lilac light themes.
+- YouTube video search and playback
+- YouTube Music search and audio playback
+- Channel search, subscriptions and latest uploads
+- Public YouTube video playlist and YouTube Music album browsing, with bulk offline downloads
+- Local video/music playlists and queue playback
+- Watch and listening history
+- Background audio/video playback through a Media3 media session
+- Adaptive DASH video playback where available, source quality/format selection, speed and available captions
+- Picture-in-Picture video playback on supported Android versions
+- App-private offline downloads, offline playback, progress, cancel, resume and storage management
+- MP3 audio export using on-device FFmpeg/LAME conversion, alongside the source-native audio format
 
-All catalogue artwork and editorial content are fictional placeholders. Discover currently filters the bundled sample catalogue; it does not yet perform live YouTube catalogue search.
+Out of scope for this phase: Movies, TV series, Shorts, Trending and custom recommendation algorithms. The interface remains functional and minimal until the streaming system is reliable; visual redesign comes later.
 
-## YouTube playback
+## Current implementation
 
-Rush uses a LibreTube-derived NewPipeExtractor integration to resolve a YouTube URL or 11-character video ID. AndroidX Media3 plays the resolved audio or video stream. This is URL-driven playback, not a complete YouTube search/browse integration. Stream availability depends on YouTube and extractor compatibility and can change without notice.
+The development branch includes live YouTube and YouTube Music search adapters, channel subscriptions and latest-upload feeds, public video playlist and music album browsing, local playlists and reorderable queue, ordered playback history with resume positions, Media3 background playback with wake-lock/audio-focus support, Android Picture-in-Picture video, adaptive DASH playback where the source exposes a manifest, playback controls, caption-track extraction, and a WorkManager-based private download library.
 
-The playback integration adapts the extraction approach used by [LibreTube](https://github.com/Libre-tube/LibreTube), licensed under GPL-3.0-or-later. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and `LICENSES/LibreTube-GPL-3.0-or-later.txt`. Redistributed builds must comply with the GPL, including providing corresponding source.
+Offline downloads use direct source streams and the source's available format and extension (for example, M4A or WebM where supplied); adaptive DASH manifests are used for streaming, not saved as if they were complete media files. Audio downloads can optionally be converted on-device to MP3 using the LGPL FFmpegKit-maintained audio package with LAME. Video formats and selectable qualities depend on what the source exposes. Interrupted transfers resume from partial files where the server supports HTTP range requests; a manual resume re-resolves the source stream because signed URLs may expire.
 
-## Build locally
+Data is currently stored locally using SharedPreferences and app-private files. It is not synced to a YouTube account. Search/extraction relies on unofficial YouTube web endpoints and NewPipeExtractor, so service changes can break compatibility. A successful CI build proves compilation/package creation only; real-device playback, background operation, download reliability and source compatibility still need device testing.
 
-Requirements: JDK 17, Android SDK 35 and Gradle 8.9 (or Android Studio).
+
+### Streaming compatibility
+
+Playback uses the LibreTube-maintained NewPipeExtractor fork and its proof-of-origin token provider. Rush tries progressive media first, then adaptive DASH/HLS, and uses the LibreTube-derived SABR/UMP Media3 source when the source exposes server-adaptive streaming metadata. Stream support remains dependent on YouTube's changing endpoints and actual device playback validation. Offline downloads continue to use complete direct media streams rather than saving adaptive manifests.
+
+## Build
+
+Requirements: JDK 17, Android SDK 35 and Gradle 8.9.
 
 ```bash
 gradle :app:assembleDebug
@@ -29,6 +41,9 @@ gradle :app:assembleDebug
 
 APK output: `app/build/outputs/apk/debug/app-debug.apk`.
 
-## Build on GitHub
+## Third-party code and compatibility
 
-Push to `main` or open the **Actions** tab and run **Build Android APK**. Download the `widgetly-debug-apk` artifact from the completed workflow.
+The playback adapter is derived from LibreTube/NewPipeExtractor work. MP3 conversion uses the community-maintained FFmpegKit audio package under LGPL-3.0. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the included license texts. Check license obligations before distributing builds.
+
+Offline downloads should only be used for content and methods you are permitted to keep offline. Private app storage prevents ordinary sharing by the app; it does not grant download rights or bypass platform terms.
+The SABR adaptive player is validated through CI compilation; real stream negotiation and playback still require Android-device testing.

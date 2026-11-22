@@ -6,7 +6,6 @@
  */
 package com.widgetly.app
 
-import okhttp3.OkHttpClient
 import okhttp3.RequestBody.Companion.toRequestBody
 import org.schabi.newpipe.extractor.NewPipe
 import org.schabi.newpipe.extractor.downloader.Downloader
@@ -15,16 +14,28 @@ import org.schabi.newpipe.extractor.downloader.Response
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException
 import org.schabi.newpipe.extractor.stream.StreamInfo
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Uses the same NewPipe extraction path used by LibreTube to resolve YouTube
  * metadata and selectable audio/video stream URLs.
  */
+data class ResolvedMedia(val url: String, val extension: String, val mimeType: String, val qualityLabel: String, val subtitles: List<ResolvedSubtitle> = emptyList())
+data class ResolvedSubtitle(val url: String, val languageTag: String, val label: String, val mimeType: String)
+
 object LibreTubePlayback {
     @Volatile private var initialized = false
-    private val client = OkHttpClient()
+    private data class CachedStreamInfo(val fetchedAtMs: Long, val info: StreamInfo)
+    private val streamInfoCache = ConcurrentHashMap<String, CachedStreamInfo>()
+    private val streamInfoLocks = Array(64) { Any() }
+    private val streamInfoTtlMs = 180_000L
+    private val client = WidgetlyNetwork.newBuilder()
+        .connectTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+        .readTimeout(45, java.util.concurrent.TimeUnit.SECONDS)
+        .callTimeout(60, java.util.concurrent.TimeUnit.SECONDS)
+        .build()
 
-    private fun initialize() {
+    fun initialize() {
         if (initialized) return
         synchronized(this) {
             if (!initialized) {
@@ -55,22 +66,157 @@ object LibreTubePlayback {
                         }
                     }
                 })
+                org.schabi.newpipe.extractor.services.youtube.extractors.YoutubeStreamExtractor.setPoTokenProvider(
+                    com.widgetly.app.potoken.RushPoTokenProvider.instance
+                )
                 initialized = true
             }
         }
     }
 
-    fun resolve(input: String, audioOnly: Boolean): String {
+    fun resolve(input: String, audioOnly: Boolean): String =
+        resolveMedia(input, audioOnly).url
+
+    fun resolveMedia(input: String, audioOnly: Boolean, maxHeight: Int? = null, maxAudioBitrate: Int? = null, preferMp4: Boolean = false, preferDash: Boolean = false, allowDashFallback: Boolean = false, forceRefresh: Boolean = false): ResolvedMedia {
         initialize()
         val videoId = extractVideoId(input)
-        val info = StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId")
-        val stream = if (audioOnly) {
-            info.audioStreams.maxByOrNull { it.averageBitrate }
-        } else {
-            info.videoStreams.maxByOrNull { it.height }
+        val info = getStreamInfo(videoId, forceRefresh)
+        if (audioOnly) {
+            val audioCandidates = if (maxAudioBitrate == null) info.audioStreams
+                else info.audioStreams.filter { it.averageBitrate / 1000 <= maxAudioBitrate }
+            val stream = audioCandidates.filter { it.isUrl && it.content.isNotBlank() }
+                .maxByOrNull { it.averageBitrate }
+                ?: info.audioStreams.filter { it.isUrl && it.content.isNotBlank() }
+                    .minByOrNull { kotlin.math.abs(it.averageBitrate / 1000 - (maxAudioBitrate ?: 0)) }
+            if (stream == null) {
+                val manifest = com.github.libretube.player.manifest.SabrManifestFactory.from(videoId, info, audioOnly = true)
+                    ?: throw IOException("No playable audio stream was found.")
+                com.github.libretube.player.manifest.SabrManifestStore.put(videoId, manifest)
+                val audioFormat = (audioCandidates.maxByOrNull { it.averageBitrate }
+                    ?: info.audioStreams.maxByOrNull { it.averageBitrate })?.format
+                val extension = audioFormat?.suffix?.takeIf { it.matches(Regex("[A-Za-z0-9]{1,8}")) } ?: "m4a"
+                return ResolvedMedia("rush-sabr://youtube/$videoId", extension, "application/x-rush-sabr", "Adaptive audio")
+            }
+            val format = stream.format
+            return ResolvedMedia(
+                stream.content,
+                format?.suffix?.takeIf { it.isNotBlank() } ?: "m4a",
+                format?.mimeType?.takeIf { it.isNotBlank() } ?: if (format?.suffix.equals("webm", ignoreCase = true)) "audio/webm" else "audio/mp4",
+                "${stream.averageBitrate / 1000} kbps"
+            )
         }
-        return stream?.content?.takeIf { it.isNotBlank() }
-            ?: throw IOException(if (audioOnly) "No playable audio stream was found." else "No playable video stream was found.")
+        val hasProgressiveVideo = info.videoStreams.any { it.isUrl && it.content.isNotBlank() }
+        if (!preferMp4 && (preferDash || (allowDashFallback && !hasProgressiveVideo))) {
+            fun dashFallback(): ResolvedMedia? = info.dashMpdUrl.takeIf { it.isNotBlank() }?.let {
+                ResolvedMedia(
+                    it,
+                    "mpd",
+                    "application/dash+xml",
+                    "Adaptive DASH",
+                    runCatching { mapSubtitles(info) }.getOrDefault(emptyList())
+                )
+            }
+            fun hlsFallback(): ResolvedMedia? = info.hlsUrl.takeIf { it.isNotBlank() }?.let {
+                ResolvedMedia(it, "m3u8", "application/x-mpegURL", "Adaptive HLS", runCatching { mapSubtitles(info) }.getOrDefault(emptyList()))
+            }
+
+            // On the one-time playback retry, try standard DASH/HLS before repeating a failed SABR request.
+            if (preferDash) dashFallback()?.let { return it }
+            if (preferDash) hlsFallback()?.let { return it }
+
+            val sabrManifest = com.github.libretube.player.manifest.SabrManifestFactory.from(videoId, info)
+            if (sabrManifest != null) {
+                com.github.libretube.player.manifest.SabrManifestStore.put(videoId, sabrManifest)
+                return ResolvedMedia("rush-sabr://youtube/$videoId", "sabr", "application/x-rush-sabr", "Adaptive SABR", runCatching { mapSubtitles(info) }.getOrDefault(emptyList()))
+            }
+
+            if (!preferDash) dashFallback()?.let { return it }
+            if (!preferDash) hlsFallback()?.let { return it }
+        }
+        val formatStreams = if (preferMp4) {
+            info.videoStreams.filter { it.format?.suffix.equals("mp4", ignoreCase = true) }
+        } else {
+            info.videoStreams
+        }
+        if (preferMp4 && formatStreams.isEmpty()) {
+            throw IOException("MP4 is not available for this video. Choose Original format instead.")
+        }
+        val stream = if (maxHeight == null) {
+            formatStreams.maxByOrNull { it.height }
+        } else {
+            formatStreams.filter { it.height == maxHeight }.maxByOrNull { it.bitrate }
+                ?: throw IOException("The selected ${maxHeight}p quality is not available for this video. Choose Auto or another quality.")
+        } ?: throw IOException("No playable video stream was found.")
+        if (!stream.isUrl || stream.content.isBlank()) throw IOException("The extractor did not return a direct stream URL.")
+        val format = stream.format
+        val subtitles = runCatching { mapSubtitles(info) }.getOrDefault(emptyList())
+        return ResolvedMedia(
+            stream.content,
+            format?.suffix?.takeIf { it.isNotBlank() } ?: "mp4",
+            format?.mimeType?.takeIf { it.isNotBlank() } ?: if (format?.suffix.equals("webm", ignoreCase = true)) "video/webm" else "video/mp4",
+            "${stream.height}p",
+            subtitles
+        )
+    }
+
+    fun resolveSubtitles(input: String): List<ResolvedSubtitle> {
+        initialize()
+        val videoId = extractVideoId(input)
+        return mapSubtitles(getStreamInfo(videoId))
+    }
+
+    private fun getStreamInfo(videoId: String, forceRefresh: Boolean = false): StreamInfo {
+        val now = System.currentTimeMillis()
+        if (!forceRefresh) {
+            streamInfoCache[videoId]?.takeIf { now - it.fetchedAtMs < streamInfoTtlMs }?.let { return it.info }
+        }
+        val lock = streamInfoLocks[(videoId.hashCode() and Int.MAX_VALUE) % streamInfoLocks.size]
+        return synchronized(lock) {
+            val checkedAt = System.currentTimeMillis()
+            val cached = if (forceRefresh) null else {
+                streamInfoCache[videoId]?.takeIf { checkedAt - it.fetchedAtMs < streamInfoTtlMs }?.info
+            }
+            cached ?: StreamInfo.getInfo("https://www.youtube.com/watch?v=$videoId").also {
+                cacheStreamInfo(videoId, it)
+            }
+        }
+    }
+
+    private fun cacheStreamInfo(videoId: String, info: StreamInfo) {
+        val now = System.currentTimeMillis()
+        streamInfoCache[videoId] = CachedStreamInfo(now, info)
+        streamInfoCache.entries.removeIf { now - it.value.fetchedAtMs >= streamInfoTtlMs }
+        val excess = streamInfoCache.size - MAX_CACHED_STREAMS
+        if (excess > 0) {
+            streamInfoCache.entries
+                .sortedBy { it.value.fetchedAtMs }
+                .take(excess)
+                .forEach { streamInfoCache.remove(it.key, it.value) }
+        }
+    }
+
+    private fun mapSubtitles(info: StreamInfo): List<ResolvedSubtitle> {
+        val tracks = LinkedHashMap<String, ResolvedSubtitle>()
+        info.subtitles.filter { it.isUrl && it.content.isNotBlank() }.forEach { subtitle ->
+            val sourceLanguage = subtitle.languageTag.trim()
+            val mimeType = subtitle.format?.mimeType?.takeIf { it.isNotBlank() } ?: "text/vtt"
+            if (sourceLanguage.equals("en", ignoreCase = true) ||
+                sourceLanguage.startsWith("en-", ignoreCase = true)
+            ) {
+                tracks.putIfAbsent(subtitle.content, ResolvedSubtitle(
+                    subtitle.content, "en", "English", mimeType
+                ))
+            } else if (sourceLanguage.isNotBlank()) {
+                val translatedUrl = runCatching {
+                    android.net.Uri.parse(subtitle.content).buildUpon()
+                        .appendQueryParameter("tlang", "en").build().toString()
+                }.getOrDefault("")
+                if (translatedUrl.isNotBlank()) tracks.putIfAbsent(translatedUrl, ResolvedSubtitle(
+                    translatedUrl, "en", "English · auto-translated", mimeType
+                ))
+            }
+        }
+        return tracks.values.toList()
     }
 
     private fun extractVideoId(input: String): String {
@@ -84,6 +230,7 @@ object LibreTubePlayback {
             ?: throw IllegalArgumentException("Enter a valid YouTube URL or video ID.")
     }
 
+    private const val MAX_CACHED_STREAMS = 64
     private const val USER_AGENT =
-        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:135.0) Gecko/20100101 Firefox/135.0"
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:153.0) Gecko/20100101 Firefox/153.0"
 }
