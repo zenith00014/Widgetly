@@ -35,7 +35,7 @@ class RushWebBridge(
                             .put("title", item.title)
                             .put("artist", item.creator)
                             .put("duration", item.duration)
-                            .put("thumbnail", item.thumbnailUrl))
+                            .put("thumbnail", thumbnailFor(item.videoId, item.thumbnailUrl)))
                     }
                 }
                 publish("rushMusicSearchResults", payload.toString())
@@ -398,6 +398,10 @@ class RushWebBridge(
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controllerFuture = null
     }
+
+    private fun thumbnailFor(videoId: String, candidate: String): String =
+        candidate.takeIf { it.startsWith("https://") }
+            ?: "https://i.ytimg.com/vi/$videoId/hqdefault.jpg"
 
     private fun publish(callback: String, json: String) {
         webView.post {
