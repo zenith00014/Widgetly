@@ -23,14 +23,14 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-private val bgDark=Color(0xFF14101F)
-private val panelDark=Color(0xFF211A30)
-private val raised=Color(0xFF30243F)
-private val magenta=Color(0xFFFF3D81)
-private val mint=Color(0xFF7CF5D0)
-private val paper=Color(0xFFF6F1FB)
-private val lilac=Color(0xFFE9E7F1)
-private val mutedDark=Color(0xFFBDB3CA)
+private val bgDark=Color(0xFF0E0E0E)
+private val panelDark=Color(0xFF181818)
+private val raised=Color(0xFF242424)
+private val magenta=Color(0xFFFF6B3D)
+private val mint=Color(0xFFFF6B3D)
+private val paper=Color(0xFFF2F2EE)
+private val lilac=Color(0xFFCDC6B3)
+private val mutedDark=Color(0xFFA8A8A2)
 
 private fun Context.activityOrNull():android.app.Activity?=when(this){is android.app.Activity->this;is ContextWrapper->baseContext.activityOrNull();else->null}
 
@@ -137,16 +137,27 @@ class MainActivity:ComponentActivity(){
  SideEffect{(activity as? MainActivity)?.setPipEligible(active!=null&&active?.music==false)}
  val bg=if(light)lilac else bgDark;val surface=if(light)Color.White else panelDark
  val ink=if(light)Color(0xFF241B32) else paper;val muted=if(light)Color(0xFF70677D) else mutedDark
- MaterialTheme(colorScheme=if(light)lightColorScheme(primary=magenta,background=bg,surface=surface,onSurface=ink)else darkColorScheme(primary=magenta,background=bg,surface=surface,onSurface=ink)){
+ MaterialTheme(colorScheme=if(light)lightColorScheme(primary=magenta,background=bg,surface=surface,onSurface=ink)else darkColorScheme(primary=magenta,secondary=magenta,background=bg,surface=surface,onSurface=ink,onPrimary=bgDark),shapes=Shapes(extraSmall=RoundedCornerShape(0.dp),small=RoundedCornerShape(0.dp),medium=RoundedCornerShape(0.dp),large=RoundedCornerShape(0.dp),extraLarge=RoundedCornerShape(0.dp))){
   Surface(Modifier.fillMaxSize(),color=bg){Column(Modifier.fillMaxSize()){
    if(active!=null)RushPlayer(active!!,light,{active=null;playbackQueue=emptyList()},playbackQueue,{id->
     history=listOf(id)+history.filterNot{it==id}
     persistHistory(prefs,history)
    },isInPipMode)
    else{
-    Row(Modifier.fillMaxWidth().padding(horizontal=20.dp,vertical=14.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
-     Column{Text("RUSH",color=if(light)magenta else mint,fontSize=12.sp,fontWeight=FontWeight.Bold,letterSpacing=3.sp);Text(when(tab){"Discover"->"Find your next favourite";"Downloads"->"Offline library";"Subscriptions"->"Latest uploads";"Library"->"Your collection";else->"Your daily signal"},color=ink,fontSize=22.sp,fontWeight=FontWeight.Bold)}
-     TextButton(onClick={light=!light;prefs.edit().putBoolean("light",light).apply()}){Text(if(light)"Dark theme" else "Light theme",color=muted)}
+    Row(Modifier.fillMaxWidth().padding(start=18.dp,end=12.dp,top=16.dp,bottom=12.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
+     Column(verticalArrangement=Arrangement.spacedBy(3.dp)){
+      Row(verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.spacedBy(7.dp)){
+       Text("RUSH",color=ink,fontSize=34.sp,fontWeight=FontWeight.Black,letterSpacing=(-1.5).sp,lineHeight=34.sp)
+       Box(Modifier.size(11.dp).background(magenta).border(1.dp,ink))
+      }
+      Text(when(tab){"Discover"->"FIND YOUR NEXT FAVOURITE";"Downloads"->"OFFLINE LIBRARY";"Subscriptions"->"LATEST UPLOADS";"Library"->"YOUR COLLECTION";else->"YOUR DAILY SIGNAL"},color=muted,fontSize=9.sp,letterSpacing=1.2.sp)
+     }
+     TextButton(onClick={light=!light;prefs.edit().putBoolean("light",light).apply()},modifier=Modifier.border(1.dp,ink).background(surface)){
+      Text(if(light)"DARK" else "LIGHT",color=ink,fontSize=10.sp,fontWeight=FontWeight.Bold,letterSpacing=1.sp)
+     }
+    }
+    Row(Modifier.fillMaxWidth().background(if(light)Color(0xFF241B32) else paper).padding(horizontal=16.dp,vertical=6.dp),verticalAlignment=Alignment.CenterVertically){
+     Text("NOW TRENDING  ✦  MONZA LAP RECORD  ✦  CASSETTE REVIVAL  ✦  OFFSIDE RULE  ✦  NIGHT DRIVE TAPES",color=if(light)paper else bgDark,fontSize=9.sp,fontWeight=FontWeight.Bold,letterSpacing=0.8.sp,maxLines=1)
     }
     Box(Modifier.weight(1f)){
      when(tab){
@@ -172,8 +183,8 @@ class MainActivity:ComponentActivity(){
       else->Home(ink,muted,surface,prefs,saved,metadata,history,{pick->persistPickMetadata(prefs,pick);metadata=metadata+(pick.id to pick);active=pick;history=listOf(pick.id)+history.filterNot{x->x==pick.id};persistHistory(prefs,history)},{id->saved=toggle(saved,id);prefs.edit().putStringSet("saved",saved).apply()},{tab="Discover"})
      }
     }
-    history.firstOrNull()?.let{metadata[it]}?.let{recent->Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=5.dp).clip(RoundedCornerShape(15.dp)).background(surface).clickable{active=recent}.padding(9.dp),verticalAlignment=Alignment.CenterVertically){Cover(recent,Modifier.size(40.dp));Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text("PICK UP WHERE YOU LEFT OFF",fontSize=9.sp,color=muted);Text(recent.title,fontSize=13.sp,color=ink)};Text("▶",color=magenta)}}
-    NavigationBar(containerColor=surface){listOf("Home","Discover","Subscriptions","Downloads","Library").forEach{dest->NavigationBarItem(selected=tab==dest,onClick={tab=dest},icon={Text(when(dest){"Home"->"⌂";"Discover"->"⌕";"Downloads"->"⇩";"Subscriptions"->"◉";else->"▣"},fontSize=19.sp)},label={Text(dest,fontSize=10.sp)},colors=NavigationBarItemDefaults.colors(selectedIconColor=magenta,selectedTextColor=magenta,indicatorColor=if(light)Color(0xFFF8DCE8)else raised,unselectedIconColor=muted,unselectedTextColor=muted))}}
+    history.firstOrNull()?.let{metadata[it]}?.let{recent->Row(Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=5.dp).clip(RoundedCornerShape(0.dp)).background(surface).clickable{active=recent}.padding(9.dp),verticalAlignment=Alignment.CenterVertically){Cover(recent,Modifier.size(40.dp));Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text("PICK UP WHERE YOU LEFT OFF",fontSize=9.sp,color=muted);Text(recent.title,fontSize=13.sp,color=ink)};Text("▶",color=magenta)}}
+    NavigationBar(containerColor=if(light)Color.White else bgDark,tonalElevation=0.dp,modifier=Modifier.border(width=1.dp,color=ink.copy(alpha=.24f))){listOf("Home","Discover","Subscriptions","Downloads","Library").forEach{dest->NavigationBarItem(selected=tab==dest,onClick={tab=dest},icon={Text(when(dest){"Home"->"⌂";"Discover"->"⌕";"Downloads"->"⇩";"Subscriptions"->"◉";else->"▣"},fontSize=19.sp,fontWeight=FontWeight.Bold)},label={Text(dest.uppercase(),fontSize=8.sp,fontWeight=FontWeight.Bold,letterSpacing=.4.sp)},colors=NavigationBarItemDefaults.colors(selectedIconColor=bgDark,selectedTextColor=magenta,indicatorColor=magenta,unselectedIconColor=muted,unselectedTextColor=muted))}}
    }
   }}
  }
@@ -270,14 +281,14 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    }
   }
   if(channels.isEmpty())item{
-   Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(16.dp)){
+   Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(0.dp)).background(surface).padding(16.dp)){
     Text("No channels followed yet.",color=ink,fontWeight=FontWeight.SemiBold)
     Text("Search for creators in Discover and subscribe to see their latest uploads here.",color=muted,fontSize=11.sp)
     TextButton(onClick=discover){Text("Find channels",color=magenta)}
    }
   }
   items(uploads,key={it.videoId}){video->
-   Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(surface).clickable{play(Pick(video.videoId,video.title,video.creator,video.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Latest upload"))}.padding(11.dp),verticalAlignment=Alignment.CenterVertically){
+   Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(0.dp)).background(surface).clickable{play(Pick(video.videoId,video.title,video.creator,video.isMusic,listOf(Color(0xFF355C7D),Color(0xFF6C5B7B)),"Latest upload"))}.padding(11.dp),verticalAlignment=Alignment.CenterVertically){
     YouTubeThumbnail(video.thumbnailUrl,video.videoId,Modifier.size(52.dp),placeholder="▶")
     Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text(video.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2);Text(video.creator+" · "+video.duration,color=muted,fontSize=10.sp,maxLines=1)}
     Text("Play",color=magenta,fontSize=11.sp)
@@ -316,7 +327,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    Text("Search YouTube",color=ink,fontSize=20.sp,fontWeight=FontWeight.Bold)
    Spacer(Modifier.height(10.dp))
    Row(verticalAlignment=Alignment.CenterVertically) {
-    BasicTextField(query,{query=it},Modifier.weight(1f).clip(RoundedCornerShape(14.dp)).background(surface).padding(15.dp),textStyle=TextStyle(color=ink,fontSize=15.sp),singleLine=true,decorationBox={inner->if(query.isEmpty())Text("Videos, songs, artists or channels",color=muted);inner()})
+    BasicTextField(query,{query=it},Modifier.weight(1f).clip(RoundedCornerShape(0.dp)).background(surface).padding(15.dp),textStyle=TextStyle(color=ink,fontSize=15.sp),singleLine=true,decorationBox={inner->if(query.isEmpty())Text("Videos, songs, artists or channels",color=muted);inner()})
     Spacer(Modifier.width(8.dp))
     Button(enabled=query.isNotBlank()&&!loading&&!loadingMore,onClick={
      scope.launch {
@@ -338,7 +349,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
    Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(vertical=8.dp))
    LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)) {
     items(results,key={when{it.isChannel->"channel:"+it.channelId;it.isCollection->"collection:"+it.collectionId;else->it.videoId}}) { result ->
-     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(surface).clickable{when{result.isChannel->selectedChannel=result;result.isCollection&&result.isMusic->selectedMusicCollection=result;result.isCollection->selectedVideoPlaylist=result;else->play(result)}}.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
+     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(0.dp)).background(surface).clickable{when{result.isChannel->selectedChannel=result;result.isCollection&&result.isMusic->selectedMusicCollection=result;result.isCollection->selectedVideoPlaylist=result;else->play(result)}}.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
       YouTubeThumbnail(result.thumbnailUrl,result.videoId,Modifier.size(72.dp,54.dp),placeholder=if(result.isChannel)"◉" else if(result.isCollection)"▤" else if(result.isMusic)"♫" else "▶")
       Column(Modifier.weight(1f).padding(horizontal=10.dp)) {
        Text(result.title,color=ink,fontSize=14.sp,fontWeight=FontWeight.SemiBold,maxLines=2,overflow=TextOverflow.Ellipsis)
@@ -436,7 +447,7 @@ private fun persistPickMetadata(prefs:android.content.SharedPreferences,pick:Pic
   Text(status,color=muted,fontSize=11.sp,modifier=Modifier.padding(vertical=10.dp))
   LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)) {
    items(uploads,key={it.videoId}) { video ->
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(surface).clickable{play(video)}.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(0.dp)).background(surface).clickable{play(video)}.padding(12.dp),verticalAlignment=Alignment.CenterVertically) {
      YouTubeThumbnail(video.thumbnailUrl,video.videoId,Modifier.size(46.dp),placeholder="▶")
      Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text(video.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2);Text(video.creator+" · "+video.duration,color=muted,fontSize=10.sp)}
      Text("Play",color=magenta,fontSize=11.sp)
@@ -562,7 +573,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   }
   LazyColumn(verticalArrangement=Arrangement.spacedBy(8.dp)){
    items(tracks,key={it.videoId}){track->
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(surface).clickable{play(track)}.padding(11.dp),verticalAlignment=Alignment.CenterVertically){
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(0.dp)).background(surface).clickable{play(track)}.padding(11.dp),verticalAlignment=Alignment.CenterVertically){
      YouTubeThumbnail(track.thumbnailUrl,track.videoId,Modifier.size(42.dp),placeholder=if(collection.isMusic)"♫" else "▶")
      Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text(track.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2);Text(track.creator+" · "+track.duration,color=muted,fontSize=10.sp,maxLines=1)}
      Text("Play",color=magenta,fontSize=11.sp)
@@ -595,9 +606,9 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
     TextButton(enabled=!loading,onClick={refresh++}){Text("Refresh",color=magenta)}
    }
   }
-  if(channels.isEmpty())item{Text("No subscriptions yet. Search for a channel in Discover and subscribe to it.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(surface).padding(16.dp))}
+  if(channels.isEmpty())item{Text("No subscriptions yet. Search for a channel in Discover and subscribe to it.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(0.dp)).background(surface).padding(16.dp))}
   items(channels,key={it.id}){channel->
-   Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(surface).padding(horizontal=12.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){
+   Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(0.dp)).background(surface).padding(horizontal=12.dp,vertical=8.dp),verticalAlignment=Alignment.CenterVertically){
     Column(Modifier.weight(1f)){Text(channel.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold);if(channel.subscriberCount.isNotBlank())Text(channel.subscriberCount,color=muted,fontSize=10.sp)}
     TextButton(onClick={
      val ids=prefs.getStringSet("subscriptions",emptySet())?.toMutableSet()?:mutableSetOf()
@@ -608,7 +619,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   item{Shelf("Latest uploads","From subscribed channels",ink)}
   if(uploads.isEmpty()&&!loading)item{Text("Upload feed is empty.",color=muted)}
   items(uploads,key={it.videoId}){video->
-   Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(surface).clickable{play(video)}.padding(11.dp),verticalAlignment=Alignment.CenterVertically){
+   Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(0.dp)).background(surface).clickable{play(video)}.padding(11.dp),verticalAlignment=Alignment.CenterVertically){
     YouTubeThumbnail(video.thumbnailUrl,video.videoId,Modifier.size(45.dp),placeholder="▶")
     Column(Modifier.weight(1f).padding(horizontal=10.dp)){Text(video.title,color=ink,fontSize=13.sp,fontWeight=FontWeight.SemiBold,maxLines=2);Text(video.creator+" · "+video.duration,color=muted,fontSize=10.sp,maxLines=1)}
     Text("Play",color=magenta,fontSize=11.sp)
@@ -648,7 +659,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   if(readyAudio.isNotEmpty())item{TextButton(onClick={playAll(readyAudio)}){Text("Play downloaded music · ${readyAudio.size}",color=magenta)}}
   if(readyVideo.isNotEmpty())item{TextButton(onClick={playAll(readyVideo)}){Text("Play downloaded videos · ${readyVideo.size}",color=magenta)}}
   if(downloads.isEmpty()) item {
-   Text("Your offline library is empty. Open a video or music player and choose Download offline.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(18.dp))
+   Text("Your offline library is empty. Open a video or music player and choose Download offline.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(0.dp)).background(surface).padding(18.dp))
   }
   items(downloads,key={it.id}) { media ->
    val work=working[media.id]
@@ -656,7 +667,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    val downloadedBytes=work?.progress?.getLong("bytes",0L)?:0L
    val converting=work?.progress?.getString("stage")=="Converting to MP3"
    val active=work?.state==androidx.work.WorkInfo.State.RUNNING || work?.state==androidx.work.WorkInfo.State.ENQUEUED || work?.state==androidx.work.WorkInfo.State.BLOCKED
-   Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
+   Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(0.dp)).background(surface).padding(12.dp),verticalArrangement=Arrangement.spacedBy(6.dp)){
     Text(media.title,color=ink,fontSize=14.sp,fontWeight=FontWeight.Bold,maxLines=2,overflow=TextOverflow.Ellipsis)
     Text(media.creator+" · "+(if(media.isAudio)"Audio" else "Video")+" · "+media.quality+" · ."+media.extension,color=muted,fontSize=10.sp,maxLines=2)
     Text(when {
@@ -701,7 +712,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   if(queued.isNotEmpty()){
    item{TextButton(onClick={playQueue(queued)}){Text("Play queue · ${queued.size} items",color=magenta)}}
    itemsIndexed(queued){index,track->
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).background(surface).padding(horizontal=10.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically){
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(0.dp)).background(surface).padding(horizontal=10.dp,vertical=5.dp),verticalAlignment=Alignment.CenterVertically){
      Text("${index+1}.",color=muted,fontSize=11.sp)
      Text(track.title,color=ink,fontSize=11.sp,modifier=Modifier.weight(1f).padding(horizontal=8.dp),maxLines=1,overflow=TextOverflow.Ellipsis)
      Text("↑",color=if(index>0)muted else muted.copy(alpha=.3f),modifier=Modifier.clickable(enabled=index>0){updateQueue(QueueStore.move(prefs,index,index-1))}.padding(5.dp))
@@ -719,7 +730,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   }
   if(playlists.isEmpty())item{Text("Create a playlist, then add videos or music from Discover.",color=muted,fontSize=11.sp)}
   items(playlists,key={it.id}){playlist->
-   Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(15.dp)).background(surface).padding(12.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
+   Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(0.dp)).background(surface).padding(12.dp),verticalArrangement=Arrangement.spacedBy(5.dp)){
     val tracks=playlist.itemIds.mapNotNull{all[it]}
     Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically){
      Column(Modifier.weight(1f)){Text(playlist.name,color=ink,fontSize=14.sp,fontWeight=FontWeight.Bold);Text("${playlist.itemIds.size} items",color=muted,fontSize=10.sp)}
@@ -771,7 +782,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
   }
   if(playlistMessage.isNotBlank())item{Text(playlistMessage,color=muted,fontSize=10.sp)}
   item{Shelf("Saved items","Bookmarks",ink)}
-  if(kept.isEmpty())item{Text("Saved videos and music will appear here.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(16.dp)).background(surface).padding(18.dp))}
+  if(kept.isEmpty())item{Text("Saved videos and music will appear here.",color=muted,modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(0.dp)).background(surface).padding(18.dp))}
   items(kept){pick->CardRow(pick,ink,muted,surface,saved,{play(pick.id)},{remove(pick.id)})}
   item{
    Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){
@@ -1102,7 +1113,7 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
    if(!audio) Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Auto",2160 to "2160p",1440 to "1440p",1080 to "1080p",720 to "720p",480 to "480p",360 to "360p").forEach{(height,label)->FilterChip(selected=quality==height,onClick={quality=height;playerPrefs.edit().putInt(if(audio)"audio_quality" else "video_quality",height).apply()},label={Text(label)})}} else Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){listOf(0 to "Best",320 to "320 kbps",256 to "256 kbps",192 to "192 kbps",160 to "160 kbps",96 to "96 kbps").forEach{(bitrate,label)->FilterChip(selected=quality==bitrate,onClick={quality=bitrate;playerPrefs.edit().putInt("audio_quality",bitrate).apply()},label={Text(label)})}}
    if(!audio)Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){FilterChip(selected=mp4Format,onClick={mp4Format=true;playerPrefs.edit().putBoolean("download_mp4",true).apply()},label={Text("MP4")});FilterChip(selected=!mp4Format,onClick={mp4Format=false;playerPrefs.edit().putBoolean("download_mp4",false).apply()},label={Text("Original format")})}
    if(audio)Row(horizontalArrangement=Arrangement.spacedBy(6.dp)){FilterChip(selected=!mp3Format,onClick={mp3Format=false;playerPrefs.edit().putBoolean("download_mp3",false).apply()},label={Text("Original format")});FilterChip(selected=mp3Format,onClick={mp3Format=true;playerPrefs.edit().putBoolean("download_mp3",true).apply()},label={Text("MP3 · 192 kbps")})}
-   BasicTextField(url,{url=it},modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(13.dp)).background(surface).padding(15.dp),textStyle=TextStyle(color=ink),singleLine=true,decorationBox={inner->if(url.isEmpty())Text("YouTube URL or video ID",color=muted);inner()})
+   BasicTextField(url,{url=it},modifier=Modifier.fillMaxWidth().clip(RoundedCornerShape(0.dp)).background(surface).padding(15.dp),textStyle=TextStyle(color=ink),singleLine=true,decorationBox={inner->if(url.isEmpty())Text("YouTube URL or video ID",color=muted);inner()})
   }
   Row(horizontalArrangement=Arrangement.spacedBy(6.dp),verticalAlignment=Alignment.CenterVertically){
    Text("Speed",color=muted,fontSize=10.sp)
@@ -1209,12 +1220,12 @@ private suspend fun queueLocalPickMp3Downloads(context:Context,tracks:List<Pick>
  }
 }
 @Composable private fun CardRow(p:Pick,ink:Color,muted:Color,surface:Color,saved:Set<String>,play:(Pick)->Unit,save:(String)->Unit){
- Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(17.dp)).background(surface).padding(10.dp),verticalAlignment=Alignment.CenterVertically){
+ Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(0.dp)).background(surface).border(1.dp,ink.copy(alpha=.22f)).padding(10.dp),verticalAlignment=Alignment.CenterVertically){
   Cover(p,Modifier.size(78.dp).clickable{play(p)})
   Column(Modifier.weight(1f).padding(horizontal=10.dp),verticalArrangement=Arrangement.spacedBy(3.dp)){Text(if(p.music)"Music"else"Video",color=mint,fontSize=9.sp);Text(p.title,color=ink,fontSize=14.sp,fontWeight=FontWeight.Bold,maxLines=2);Text(p.creator,color=muted,fontSize=11.sp);Text(p.reason,color=muted,fontSize=10.sp)}
   Column(horizontalAlignment=Alignment.CenterHorizontally){Text(if(p.id in saved)"♥"else"♡",color=magenta,fontSize=19.sp,modifier=Modifier.clickable{save(p.id)}.padding(5.dp));Text("▶",color=magenta,modifier=Modifier.clickable{play(p)}.padding(5.dp))}
  }
 }
-@Composable private fun Cover(p:Pick,m:Modifier=Modifier){Box(m.clip(RoundedCornerShape(14.dp)).background(Brush.linearGradient(p.colors)),contentAlignment=Alignment.Center){Text(p.title.take(1),color=Color.White.copy(alpha=.2f),fontSize=72.sp,fontWeight=FontWeight.Black);Text(if(p.music)"♫"else"▷",color=Color.White,fontSize=30.sp)}}
+@Composable private fun Cover(p:Pick,m:Modifier=Modifier){Box(m.clip(RoundedCornerShape(0.dp)).background(Brush.linearGradient(p.colors)),contentAlignment=Alignment.Center){Text(p.title.take(1),color=Color.White.copy(alpha=.2f),fontSize=72.sp,fontWeight=FontWeight.Black);Text(if(p.music)"♫"else"▷",color=Color.White,fontSize=30.sp)}}
 @Composable private fun Disc(p:Pick,m:Modifier=Modifier){Box(m.clip(CircleShape).background(Brush.radialGradient(listOf(Color(0xFF5D526B),Color(0xFF17131F),Color(0xFF050408)))),contentAlignment=Alignment.Center){Box(Modifier.fillMaxSize(.48f).clip(CircleShape).background(Brush.linearGradient(p.colors)),contentAlignment=Alignment.Center){Box(Modifier.size(9.dp).clip(CircleShape).background(bgDark))}}}
-@Composable private fun Shelf(title:String,detail:String,ink:Color){Row(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=9.dp),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Text(title,color=ink,fontSize=17.sp,fontWeight=FontWeight.Bold);Text(detail,color=mutedDark,fontSize=10.sp)}}
+@Composable private fun Shelf(title:String,detail:String,ink:Color){Column(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=12.dp),verticalArrangement=Arrangement.spacedBy(8.dp)){Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically){Text(title.uppercase(),color=ink,fontSize=17.sp,fontWeight=FontWeight.Black,letterSpacing=(-.3).sp);Text(detail.uppercase(),color=ink.copy(alpha=.55f),fontSize=9.sp,letterSpacing=.7.sp)};Box(Modifier.fillMaxWidth().height(2.dp).background(ink))}}
