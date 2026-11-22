@@ -129,6 +129,114 @@ class RushWebBridge(
     }
 
     @JavascriptInterface
+    fun searchVideos(query: String) {
+        val term = query.trim()
+        if (term.isEmpty()) return
+        activity.lifecycleScope.launch {
+            try {
+                val results = withContext(Dispatchers.IO) {
+                    LiveYouTubeSearch.search(term, music = false).filter { it.videoId.isNotBlank() }.take(30)
+                }
+                val payload = JSONArray().apply {
+                    results.forEach { item ->
+                        put(JSONObject().put("id", item.videoId).put("title", item.title)
+                            .put("artist", item.creator).put("duration", item.duration)
+                            .put("thumbnail", item.thumbnailUrl))
+                    }
+                }
+                publish("rushVideoSearchResults", payload.toString())
+            } catch (error: Exception) {
+                publish("rushVideoSearchError", JSONObject()
+                    .put("message", playbackErrorMessage(error, "Video search failed.")).toString())
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun playVideo(videoId: String, title: String, creator: String, thumbnail: String) {
+        if (!videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) return
+        activity.lifecycleScope.launch {
+            publish("rushVideoPlaybackState", JSONObject().put("state", "loading").put("title", title).toString())
+            try {
+                val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
+                val quality = prefs.getInt("video_quality", 0)
+                val preferMp4 = prefs.getBoolean("download_mp4", false)
+                val resolved = withContext(Dispatchers.IO) {
+                    resolvePlaybackMedia(videoId, audioOnly = false, maxHeight = quality.takeIf { it > 0 },
+                        preferMp4 = preferMp4, preferDash = !preferMp4, allowDashFallback = !preferMp4)
+                }
+                val controller = getController()
+                val subtitleConfigs = resolved.subtitles.map { subtitle ->
+                    MediaItem.SubtitleConfiguration.Builder(android.net.Uri.parse(subtitle.url))
+                        .setMimeType(subtitle.mimeType).setLanguage(subtitle.languageTag)
+                        .setSelectionFlags(androidx.media3.common.C.SELECTION_FLAG_DEFAULT)
+                        .setLabel(subtitle.label).build()
+                }
+                val metadata = MediaMetadata.Builder().setTitle(title).setArtist(creator)
+                    .apply { if (thumbnail.isNotBlank()) setArtworkUri(android.net.Uri.parse(thumbnail)) }
+                    .setExtras(PlaybackMetadata.extras(videoId, false, quality, preferMp4)).build()
+                val item = MediaItem.Builder().setMediaId(videoId).setUri(resolved.url)
+                    .setMimeType(resolved.mimeType).setMediaMetadata(metadata)
+                    .setSubtitleConfigurations(subtitleConfigs).build()
+                controller.setMediaItem(item)
+                controller.prepare()
+                controller.play()
+                activity.runOnUiThread { activity.showNativeVideo(controller) }
+                val listener = object : androidx.media3.common.Player.Listener {
+                    override fun onCues(cueGroup: androidx.media3.common.text.CueGroup) {
+                        val lines = cueGroup.cues.mapNotNull { it.text?.toString()?.takeIf(String::isNotBlank) }
+                        publish("rushVideoCaptions", JSONArray(lines).toString())
+                    }
+                }
+                controller.addListener(listener)
+                publish("rushVideoPlaybackState", JSONObject().put("state", "playing")
+                    .put("title", title).put("creator", creator).put("captionTracks", subtitleConfigs.size).toString())
+            } catch (error: Exception) {
+                publish("rushVideoPlaybackState", JSONObject().put("state", "error")
+                    .put("message", playbackErrorMessage(error, "Could not play this video.")).toString())
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun loadLyrics(title: String, artist: String) {
+        val track = title.trim()
+        val performer = artist.trim()
+        if (track.isEmpty()) return
+        activity.lifecycleScope.launch {
+            publish("rushMusicLyricsLoading", JSONObject().toString())
+            try {
+                val lyrics = withContext(Dispatchers.IO) {
+                    val url = okhttp3.HttpUrl.Builder().scheme("https").host("lrclib.net").addPathSegments("api/search")
+                        .addQueryParameter("track_name", track)
+                        .apply { if (performer.isNotBlank()) addQueryParameter("artist_name", performer) }
+                        .build()
+                    val request = okhttp3.Request.Builder().url(url).header("User-Agent", "Widgetly/1.0").build()
+                    WidgetlyNetwork.newBuilder().callTimeout(12, java.util.concurrent.TimeUnit.SECONDS)
+                        .build().newCall(request).execute().use { response ->
+                            if (!response.isSuccessful) throw java.io.IOException("Lyrics are unavailable for this track.")
+                            val results = JSONArray(response.body?.string().orEmpty())
+                            var best: JSONObject? = null
+                            for (i in 0 until results.length()) {
+                                val candidate = results.optJSONObject(i) ?: continue
+                                if (candidate.optString("syncedLyrics").isNotBlank()) { best = candidate; break }
+                                if (best == null && candidate.optString("plainLyrics").isNotBlank()) best = candidate
+                            }
+                            best ?: throw java.io.IOException("No lyrics are available for this track.")
+                        }
+                }
+                publish("rushMusicLyrics", JSONObject().put("synced", lyrics.optString("syncedLyrics"))
+                    .put("plain", lyrics.optString("plainLyrics")).put("title", track).put("artist", performer).toString())
+            } catch (error: Exception) {
+                publish("rushMusicLyricsError", JSONObject().put("message", error.message ?: "Lyrics are unavailable.").toString())
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun musicPosition(): Long = runCatching { controllerFuture?.get()?.currentPosition ?: 0L }.getOrDefault(0L)
+
+    @JavascriptInterface
     fun loadMusicHistory() {
         val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
         publish("rushMusicHistory", prefs.getString("music_history", "[]") ?: "[]")
