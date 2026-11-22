@@ -41,7 +41,7 @@ class RushWebBridge(
                 publish("rushMusicSearchResults", payload.toString())
             } catch (error: Exception) {
                 publish("rushMusicSearchError", JSONObject()
-                    .put("message", playbackErrorMessage(error, "Music search failed.")).toString())
+                    .put("message", error.message ?: "Music search failed.").toString())
             }
         }
     }
@@ -84,7 +84,7 @@ class RushWebBridge(
             } catch (error: Exception) {
                 publish("rushMusicPlaybackState", JSONObject()
                     .put("state", "error")
-                    .put("message", playbackErrorMessage(error, "Could not play this track.")).toString())
+                    .put("message", error.message ?: "Could not play this track.").toString())
             }
         }
     }
