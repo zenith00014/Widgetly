@@ -142,6 +142,11 @@ class RushWebBridge(
         return withContext(Dispatchers.IO) { future.get() }
     }
 
+    fun release() {
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controllerFuture = null
+    }
+
     private fun publish(callback: String, json: String) {
         webView.post {
             val safe = JSONObject.quote(json)
