@@ -59,10 +59,10 @@ class RushPlaybackService : MediaSessionService() {
         val mediaSourceFactory = RushMediaSourceFactory(cachedDataSourceFactory)
         val loadControl = DefaultLoadControl.Builder()
             .setBufferDurationsMs(
-                15_000,
-                60_000,
-                2_000,
-                4_000
+                25_000,
+                90_000,
+                3_000,
+                5_000
             )
             .setBackBuffer(15_000, true)
             .setPrioritizeTimeOverSizeThresholds(true)
