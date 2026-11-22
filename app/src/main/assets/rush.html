@@ -464,8 +464,8 @@ function refreshCurrentPage(){
 }
 document.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
- if(b.id==='topicsShortcut'||b.hasAttribute('data-open-topics')){location.hash='#topics';return}
- if(b.id==='profileShortcut'||b.hasAttribute('data-open-search')){location.hash='#search';return}
+ if(b.id==='topicsShortcut'||b.hasAttribute('data-open-topics')||b.id==='profileShortcut'){location.hash='#topics';return}
+ if(b.hasAttribute('data-open-search')){location.hash='#search';return}
  if(b.dataset.tab){homeTab=b.dataset.tab;$('#v').innerHTML=R.home();indicator();loadHomeFeed();return}
  if(b.hasAttribute('data-save-topics')){saveTopics();return}
  if(b.dataset.topic){const on=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',String(on));return}
