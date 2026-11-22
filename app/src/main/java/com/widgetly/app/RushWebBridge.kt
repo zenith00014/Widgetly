@@ -159,6 +159,7 @@ class RushWebBridge(
             publish("rushVideoPlaybackState", JSONObject().put("state", "loading").put("title", title).toString())
             try {
                 val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
+                prefs.edit().remove("music_last_id").apply()
                 val quality = prefs.getInt("video_quality", 0)
                 val preferMp4 = prefs.getBoolean("download_mp4", false)
                 val resolved = withContext(Dispatchers.IO) {
@@ -240,6 +241,15 @@ class RushWebBridge(
 
     @JavascriptInterface
     fun musicPosition(): Long = runCatching { controllerFuture?.get()?.currentPosition ?: 0L }.getOrDefault(0L)
+
+    @JavascriptInterface
+    fun loadCurrentMusicLyrics() {
+        val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
+        val id = prefs.getString("music_last_id", null)
+        val title = prefs.getString("music_last_title", null).orEmpty()
+        val artist = prefs.getString("music_last_artist", null).orEmpty()
+        if (!id.isNullOrBlank() && title.isNotBlank()) loadLyrics(title, artist)
+    }
 
     @JavascriptInterface
     fun loadMusicHistory() {
