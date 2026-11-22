@@ -120,6 +120,114 @@ class RushWebBridge(
     }
 
     @JavascriptInterface
+    fun loadNews(category: String) {
+        val query = when (category.trim().lowercase()) {
+            "world" -> "world news"
+            "technology" -> "technology news"
+            "sports" -> "sports news"
+            "entertainment" -> "entertainment news"
+            "culture" -> "culture news"
+            else -> "latest news"
+        }
+        fetchNews(query)
+    }
+
+    @JavascriptInterface
+    fun searchNews(query: String) {
+        val term = query.trim()
+        if (term.isNotEmpty()) fetchNews(term)
+    }
+
+    @JavascriptInterface
+    fun openNews(url: String) {
+        val uri = runCatching { android.net.Uri.parse(url) }.getOrNull() ?: return
+        if (uri.scheme != "https") return
+        activity.runOnUiThread {
+            runCatching {
+                activity.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, uri))
+            }.onFailure {
+                publish("rushNewsError", JSONObject().put("message", "No browser is available to open this article.").toString())
+            }
+        }
+    }
+
+    private fun fetchNews(query: String) {
+        activity.lifecycleScope.launch {
+            publish("rushNewsLoading", JSONObject().put("query", query).toString())
+            try {
+                val articles = withContext(Dispatchers.IO) { requestNews(query) }
+                publish("rushNewsResults", articles.toString())
+            } catch (error: Exception) {
+                publish("rushNewsError", JSONObject().put("message", error.message ?: "Could not load news.").toString())
+            }
+        }
+    }
+
+    private fun requestNews(query: String): JSONArray {
+        val encoded = java.net.URLEncoder.encode(query, "UTF-8")
+        val request = okhttp3.Request.Builder()
+            .url("https://news.google.com/rss/search?q=$encoded&hl=en&gl=US&ceid=US:en")
+            .header("User-Agent", "Widgetly/1.0 (Android)")
+            .build()
+        val client = WidgetlyNetwork.newBuilder()
+            .callTimeout(20, java.util.concurrent.TimeUnit.SECONDS)
+            .build()
+        client.newCall(request).execute().use { response ->
+            if (!response.isSuccessful) throw java.io.IOException("News feed failed (HTTP ${response.code}).")
+            val parser = android.util.Xml.newPullParser()
+            parser.setInput(response.body?.byteStream(), null)
+            val output = JSONArray()
+            var event = parser.eventType
+            var insideItem = false
+            var field = ""
+            var title = ""
+            var link = ""
+            var date = ""
+            var description = ""
+            var source = ""
+            while (event != org.xmlpull.v1.XmlPullParser.END_DOCUMENT && output.length() < 40) {
+                when (event) {
+                    org.xmlpull.v1.XmlPullParser.START_TAG -> {
+                        if (parser.name == "item") {
+                            insideItem = true
+                            title = ""; link = ""; date = ""; description = ""; source = ""
+                        } else if (insideItem) field = parser.name
+                    }
+                    org.xmlpull.v1.XmlPullParser.TEXT,
+                    org.xmlpull.v1.XmlPullParser.CDSECT -> if (insideItem) {
+                        val value = parser.text.orEmpty()
+                        when (field) {
+                            "title" -> title += value
+                            "link" -> link += value
+                            "pubDate" -> date += value
+                            "description" -> description += value
+                            "source" -> source += value
+                        }
+                    }
+                    org.xmlpull.v1.XmlPullParser.END_TAG -> {
+                        if (parser.name == "item") {
+                            val cleanSummary = description.replace(Regex("<[^>]+>"), " ")
+                                .replace(Regex("\\s+"), " ").trim()
+                            if (title.isNotBlank() && link.startsWith("https://")) {
+                                output.put(JSONObject()
+                                    .put("title", title.trim())
+                                    .put("url", link.trim())
+                                    .put("date", date.trim())
+                                    .put("source", source.trim().ifBlank { "News source" })
+                                    .put("summary", cleanSummary.take(280)))
+                            }
+                            insideItem = false
+                        }
+                        field = ""
+                    }
+                }
+                event = parser.next()
+            }
+            return output
+        }
+    }
+
+    @JavascriptInterface
     fun toggleMusicPlayback() {
         activity.lifecycleScope.launch {
             runCatching {
