@@ -148,7 +148,23 @@ class RushWebBridge(
                     }
                 }
             } catch (_: Exception) { }
-            val orderedVideos = videos.values.sortedByDescending { it.first }.take(30).map { it.second }
+            val rankedChannelGroups = videos.values.sortedByDescending { it.first }
+                .groupBy { it.second.optString("sourceId") }
+            val orderedVideos = buildList {
+                var round = 0
+                while (size < 30) {
+                    var added = false
+                    rankedChannelGroups.values.forEach { channelItems ->
+                        val candidate = channelItems.getOrNull(round)
+                        if (candidate != null && size < 30) {
+                            add(candidate.second)
+                            added = true
+                        }
+                    }
+                    if (!added) break
+                    round++
+                }
+            }
             publish("rushHomeFeedResults", JSONObject()
                 .put("mode", if (following) "following" else "forYou")
                 .put("videos", JSONArray(orderedVideos))
@@ -165,38 +181,117 @@ class RushWebBridge(
         val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
         activity.lifecycleScope.launch {
             val follows = FeedPreferences.sources(prefs).filter { it.kind == "artist" }
-            val history = runCatching { JSONArray(prefs.getString("music_history", "[]") ?: "[]") }.getOrDefault(JSONArray())
+            val history = runCatching { JSONArray(prefs.getString("music_history", "[]") ?: "[]") }
+                .getOrDefault(JSONArray())
+            val historyEntries = (0 until minOf(history.length(), 30))
+                .mapNotNull { history.optJSONObject(it) }
+            val playedIds = historyEntries.mapTo(mutableSetOf()) { it.optString("id") }
+                .filter(String::isNotBlank).toSet()
             val artistWeights = LinkedHashMap<String, Int>()
-            follows.forEach { artistWeights[it.name] = 30 }
-            for (index in 0 until minOf(history.length(), 20)) {
-                val artist = history.optJSONObject(index)?.optString("artist").orEmpty().trim()
-                if (artist.isNotBlank()) artistWeights[artist] = (artistWeights[artist] ?: 0) + (20 - index)
+            follows.forEach { artistWeights[it.name] = 75 }
+            historyEntries.forEachIndexed { index, track ->
+                val artist = track.optString("artist").trim()
+                if (artist.isNotBlank()) {
+                    artistWeights[artist] = (artistWeights[artist] ?: 0) + (50 - index).coerceAtLeast(5)
+                }
             }
-            if (artistWeights.isEmpty()) {
+
+            if (artistWeights.isEmpty() && historyEntries.isEmpty()) {
                 publish("rushMusicSuggestionResults", JSONObject().put("items", JSONArray())
-                    .put("message", "Play a few tracks or follow musicians to build taste-based suggestions.").toString())
+                    .put("message", "Play a few tracks or follow musicians to build your listening profile.").toString())
                 return@launch
             }
+
+            val stopWords = setOf(
+                "the", "and", "for", "with", "from", "this", "that", "your", "you", "official",
+                "audio", "video", "lyrics", "lyric", "live", "music", "song", "songs", "feat",
+                "ft", "remix", "version", "visualizer", "topic", "provided", "explicit"
+            )
+            val tokenWeights = LinkedHashMap<String, Int>()
+            historyEntries.forEachIndexed { index, track ->
+                val title = track.optString("title")
+                val artist = track.optString("artist")
+                val artistTokens = artist.lowercase(java.util.Locale.ROOT)
+                    .split(Regex("[^\\p{L}\\p{N}]+")).filter(String::isNotBlank).toSet()
+                title.lowercase(java.util.Locale.ROOT)
+                    .split(Regex("[^\\p{L}\\p{N}]+"))
+                    .filter { it.length >= 3 && it !in stopWords && it !in artistTokens }
+                    .distinct()
+                    .forEach { token ->
+                        tokenWeights[token] = (tokenWeights[token] ?: 0) + (30 - index).coerceAtLeast(2)
+                    }
+            }
+
+            val queries = LinkedHashMap<String, Int>()
+            follows.take(4).forEach { queries[it.name] = 95 }
+            artistWeights.entries.sortedByDescending { it.value }.take(5).forEach { (artist, weight) ->
+                queries[artist] = maxOf(queries[artist] ?: 0, weight)
+            }
+            historyEntries.take(3).forEachIndexed { index, track ->
+                val artist = track.optString("artist").trim()
+                val title = track.optString("title").trim()
+                if (artist.isNotBlank() && title.isNotBlank()) {
+                    val seed = "$artist $title"
+                    queries[seed] = maxOf(queries[seed] ?: 0, 65 - index * 8)
+                }
+            }
+            tokenWeights.entries.sortedByDescending { it.value }.take(2).forEach { (token, weight) ->
+                val query = "$token music"
+                queries[query] = maxOf(queries[query] ?: 0, 20 + weight)
+            }
+
             val suggestions = LinkedHashMap<String, Pair<Int, JSONObject>>()
             withContext(Dispatchers.IO) {
-                artistWeights.entries.take(8).forEach { (artist, weight) ->
+                queries.entries.take(8).forEach { (query, queryWeight) ->
                     runCatching {
-                        LiveYouTubeSearch.search(artist, music = true).forEach { item ->
-                            if (item.videoId.isNotBlank()) {
-                                val score = weight + if (item.creator.contains(artist, true)) 12 else 0
-                                val json = JSONObject().put("id", item.videoId).put("title", item.title)
-                                    .put("artist", item.creator).put("duration", item.duration)
-                                    .put("thumbnail", item.thumbnailUrl)
-                                val old = suggestions[item.videoId]
-                                if (old == null || score > old.first) suggestions[item.videoId] = score to json
-                            }
+                        LiveYouTubeSearch.search(query, music = true).forEach { item ->
+                            if (item.videoId.isBlank() || item.videoId in playedIds) return@forEach
+                            val creator = item.creator.lowercase(java.util.Locale.ROOT)
+                            val candidateText = (item.title + " " + item.creator).lowercase(java.util.Locale.ROOT)
+                            val artistScore = artistWeights.entries.maxOfOrNull { (artist, weight) ->
+                                val key = artist.lowercase(java.util.Locale.ROOT)
+                                when {
+                                    creator == key -> weight * 2
+                                    creator.contains(key) || key.contains(creator) -> weight
+                                    else -> 0
+                                }
+                            } ?: 0
+                            val tasteTermsScore = tokenWeights.entries
+                                .filter { (token, _) -> candidateText.contains(token) }
+                                .sumOf { it.value }
+                            val followedArtistBoost = if (follows.any {
+                                creator.contains(it.name.lowercase(java.util.Locale.ROOT))
+                            }) 80 else 0
+                            val score = queryWeight + artistScore + tasteTermsScore + followedArtistBoost
+                            val json = JSONObject().put("id", item.videoId).put("title", item.title)
+                                .put("artist", item.creator).put("duration", item.duration)
+                                .put("thumbnail", item.thumbnailUrl)
+                            val old = suggestions[item.videoId]
+                            if (old == null || score > old.first) suggestions[item.videoId] = score to json
                         }
                     }
                 }
             }
-            val ranked = suggestions.values.sortedByDescending { it.first }.take(24).map { it.second }
-            publish("rushMusicSuggestionResults", JSONObject().put("items", JSONArray(ranked))
-                .put("message", if (ranked.isEmpty()) "No suggestions found for your listening history yet." else "").toString())
+
+            val sorted = suggestions.values.sortedByDescending { it.first }
+            val artistCounts = LinkedHashMap<String, Int>()
+            val selected = ArrayList<JSONObject>()
+            sorted.forEach { candidate ->
+                val artist = candidate.second.optString("artist")
+                if ((artistCounts[artist] ?: 0) < 4 && selected.size < 24) {
+                    selected += candidate.second
+                    artistCounts[artist] = (artistCounts[artist] ?: 0) + 1
+                }
+            }
+            if (selected.size < 12) {
+                sorted.forEach { candidate ->
+                    if (selected.size < 24 && selected.none { it.optString("id") == candidate.second.optString("id") }) {
+                        selected += candidate.second
+                    }
+                }
+            }
+            publish("rushMusicSuggestionResults", JSONObject().put("items", JSONArray(selected))
+                .put("message", if (selected.isEmpty()) "No suggestions found for your listening profile yet." else "").toString())
         }
     }
 
