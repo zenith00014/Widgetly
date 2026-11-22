@@ -244,8 +244,8 @@ class RushWebBridge(
             withContext(Dispatchers.IO) {
                 queries.entries.take(8).forEach { (query, queryWeight) ->
                     runCatching {
-                        LiveYouTubeSearch.search(query, music = true).forEach { item ->
-                            if (item.videoId.isBlank() || item.videoId in playedIds) return@forEach
+                        LiveYouTubeSearch.search(query, music = true).forEach itemLoop@{ item ->
+                            if (item.videoId.isBlank() || item.videoId in playedIds) return@itemLoop
                             val creator = item.creator.lowercase(java.util.Locale.ROOT)
                             val candidateText = (item.title + " " + item.creator).lowercase(java.util.Locale.ROOT)
                             val artistScore = artistWeights.entries.maxOfOrNull { (artist, weight) ->
