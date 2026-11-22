@@ -66,8 +66,10 @@ class MainActivity:ComponentActivity(){
  private lateinit var rootLayout: android.widget.FrameLayout
  @androidx.media3.common.util.UnstableApi
  private var nativeVideoView: androidx.media3.ui.PlayerView? = null
+ @Volatile private var nativeVideoRequested=false
  @androidx.media3.common.util.UnstableApi
  fun showNativeVideo(player: androidx.media3.common.Player) {
+  nativeVideoRequested=true
   runOnUiThread {
    val view=nativeVideoView?:androidx.media3.ui.PlayerView(this).apply {
     useController=true
@@ -83,7 +85,7 @@ class MainActivity:ComponentActivity(){
   }
  }
  fun updateNativeVideoPosition() {
-  if(!::webView.isInitialized)return
+  if(!nativeVideoRequested||!::webView.isInitialized)return
   webView.post {
    webView.evaluateJavascript("""(function(){var e=document.getElementById('videoPlayerHost');if(!e)return null;var r=e.getBoundingClientRect();return JSON.stringify({x:r.left,y:r.top,w:r.width,h:r.height,visible:r.bottom>0&&r.top<window.innerHeight});})()"""){raw->
     runCatching {
@@ -110,6 +112,7 @@ class MainActivity:ComponentActivity(){
   }
  }
  fun hideNativeVideo() {
+  nativeVideoRequested=false
   runOnUiThread { nativeVideoView?.visibility=android.view.View.GONE }
  }
  fun setPipEligible(eligible:Boolean){
