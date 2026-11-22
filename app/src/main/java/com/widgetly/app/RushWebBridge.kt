@@ -455,6 +455,18 @@ class RushWebBridge(
     }
 
     @JavascriptInterface
+    fun showCurrentVideo() {
+        activity.lifecycleScope.launch {
+            runCatching {
+                val controller = getController()
+                val item = controller.currentMediaItem ?: return@launch
+                val audioOnly = item.mediaMetadata.extras?.getBoolean(PlaybackMetadata.AUDIO_ONLY, false) == true
+                if (!audioOnly) activity.runOnUiThread { activity.showNativeVideo(controller) }
+            }
+        }
+    }
+
+    @JavascriptInterface
     fun updateVideoPosition() {
         activity.updateNativeVideoPosition()
     }
