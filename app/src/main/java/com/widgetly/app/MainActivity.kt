@@ -134,6 +134,8 @@ class MainActivity:ComponentActivity(){
    settings.javaScriptEnabled=true
    settings.domStorageEnabled=true
    settings.loadsImagesAutomatically=true
+   settings.blockNetworkImage=false
+   settings.cacheMode=android.webkit.WebSettings.LOAD_DEFAULT
    webViewClient=android.webkit.WebViewClient()
    webChromeClient=android.webkit.WebChromeClient()
    rushWebBridge=RushWebBridge(this@MainActivity,this)
