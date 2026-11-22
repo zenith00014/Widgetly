@@ -344,6 +344,11 @@ class RushWebBridge(
                     }
                     org.xmlpull.v1.XmlPullParser.END_TAG -> {
                         if (parser.name == "item") {
+                            if (thumbnail.isBlank()) {
+                                thumbnail = description.substringAfter("src=\"", "").substringBefore("\"")
+                                    .ifBlank { description.substringAfter("src='", "").substringBefore("'") }
+                            }
+                            if (thumbnail.startsWith("//")) thumbnail = "https:$thumbnail"
                             val cleanSummary = description.replace(Regex("<[^>]+>"), " ")
                                 .replace(Regex("\\s+"), " ").trim()
                             if (title.isNotBlank() && link.startsWith("https://")) {
@@ -352,7 +357,8 @@ class RushWebBridge(
                                     .put("url", link.trim())
                                     .put("date", date.trim())
                                     .put("source", source.trim().ifBlank { "News source" })
-                                    .put("summary", cleanSummary.take(280)))
+                                    .put("summary", cleanSummary.take(280))
+                                    .put("thumbnail", thumbnail.takeIf { it.startsWith("https://") }.orEmpty()))
                             }
                             insideItem = false
                         }
