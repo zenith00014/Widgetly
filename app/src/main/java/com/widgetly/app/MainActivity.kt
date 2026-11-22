@@ -63,6 +63,33 @@ class MainActivity:ComponentActivity(){
  private var pipAspectRatio=android.util.Rational(16,9)
  private lateinit var webView:android.webkit.WebView
  private lateinit var rushWebBridge: RushWebBridge
+ private lateinit var rootLayout: android.widget.FrameLayout
+ @androidx.media3.common.util.UnstableApi
+ private var nativeVideoView: androidx.media3.ui.PlayerView? = null
+ @androidx.media3.common.util.UnstableApi
+ fun showNativeVideo(player: androidx.media3.common.Player) {
+  runOnUiThread {
+   val view=nativeVideoView?:androidx.media3.ui.PlayerView(this).apply {
+    useController=true
+    controllerAutoShow=true
+    setShowSubtitleButton(true)
+    setKeepContentOnPlayerReset(true)
+    setBackgroundColor(android.graphics.Color.BLACK)
+   }.also { nativeVideoView=it }
+   view.player=player
+   if(view.parent==null){
+    val params=android.widget.FrameLayout.LayoutParams(
+     android.widget.FrameLayout.LayoutParams.MATCH_PARENT,(240*resources.displayMetrics.density).toInt(),
+     android.view.Gravity.TOP
+    ).apply { topMargin=(76*resources.displayMetrics.density).toInt() }
+    rootLayout.addView(view,params)
+   }
+   view.visibility=android.view.View.VISIBLE
+  }
+ }
+ fun hideNativeVideo() {
+  runOnUiThread { nativeVideoView?.visibility=android.view.View.GONE }
+ }
  fun setPipEligible(eligible:Boolean){
   pipEligible.value=eligible
   if(android.os.Build.VERSION.SDK_INT>=26){
@@ -98,6 +125,7 @@ class MainActivity:ComponentActivity(){
   window.statusBarColor=android.graphics.Color.rgb(14,14,14)
   window.navigationBarColor=android.graphics.Color.rgb(14,14,14)
   window.decorView.systemUiVisibility=0
+  rootLayout=android.widget.FrameLayout(this)
   webView=android.webkit.WebView(this).apply{
    setBackgroundColor(android.graphics.Color.rgb(205,198,179))
    isVerticalScrollBarEnabled=false
@@ -111,7 +139,9 @@ class MainActivity:ComponentActivity(){
    rushWebBridge=RushWebBridge(this@MainActivity,this)
    addJavascriptInterface(rushWebBridge,"RushNative")
   }
-  setContentView(webView)
+  rootLayout.addView(webView,android.widget.FrameLayout.LayoutParams(
+   android.widget.FrameLayout.LayoutParams.MATCH_PARENT,android.widget.FrameLayout.LayoutParams.MATCH_PARENT))
+  setContentView(rootLayout)
   val html=assets.open("rush.html").bufferedReader().use{it.readText()}
   webView.loadDataWithBaseURL("https://rush.local/",html,"text/html","UTF-8",null)
   onBackPressedDispatcher.addCallback(this,object:androidx.activity.OnBackPressedCallback(true){
@@ -132,6 +162,9 @@ class MainActivity:ComponentActivity(){
  }
  override fun onDestroy(){
   if(::rushWebBridge.isInitialized)rushWebBridge.release()
+  nativeVideoView?.player=null
+  nativeVideoView?.let { (it.parent as? android.view.ViewGroup)?.removeView(it) }
+  nativeVideoView=null
   if(::webView.isInitialized){webView.stopLoading();webView.destroy()}
   super.onDestroy()
  }
