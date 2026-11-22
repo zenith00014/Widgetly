@@ -1,6 +1,7 @@
 package com.widgetly.app
 
 import android.content.Context
+import android.annotation.SuppressLint
 import android.content.ContextWrapper
 import android.os.Bundle
 import androidx.activity.ComponentActivity
@@ -60,11 +61,11 @@ class MainActivity:ComponentActivity(){
  private val pipModeState=androidx.compose.runtime.mutableStateOf(false)
  private val pipEligible=androidx.compose.runtime.mutableStateOf(false)
  private var pipAspectRatio=android.util.Rational(16,9)
+ private lateinit var webView:android.webkit.WebView
  fun setPipEligible(eligible:Boolean){
   pipEligible.value=eligible
   if(android.os.Build.VERSION.SDK_INT>=26){
-   val builder=android.app.PictureInPictureParams.Builder()
-    .setAspectRatio(pipAspectRatio)
+   val builder=android.app.PictureInPictureParams.Builder().setAspectRatio(pipAspectRatio)
    if(android.os.Build.VERSION.SDK_INT>=31)builder.setAutoEnterEnabled(eligible)
    setPictureInPictureParams(builder.build())
   }
@@ -81,8 +82,7 @@ class MainActivity:ComponentActivity(){
  }
  fun enterPlayerPip(){
   if(android.os.Build.VERSION.SDK_INT>=26&&pipEligible.value){
-   val builder=android.app.PictureInPictureParams.Builder()
-    .setAspectRatio(pipAspectRatio)
+   val builder=android.app.PictureInPictureParams.Builder().setAspectRatio(pipAspectRatio)
    if(android.os.Build.VERSION.SDK_INT>=31)builder.setAutoEnterEnabled(true)
    enterPictureInPictureMode(builder.build())
   }
@@ -91,19 +91,45 @@ class MainActivity:ComponentActivity(){
   super.onUserLeaveHint()
   if(android.os.Build.VERSION.SDK_INT>=26&&android.os.Build.VERSION.SDK_INT<31&&pipEligible.value)enterPlayerPip()
  }
+ @SuppressLint("SetJavaScriptEnabled")
  override fun onCreate(savedInstanceState:Bundle?){
   super.onCreate(savedInstanceState)
-  if(intent.getBooleanExtra("open_downloads",false))openDownloadsRequest.intValue++
-  setContent{RushApp(getSharedPreferences("rush_prefs",Context.MODE_PRIVATE),openDownloadsRequest.intValue,pipModeState.value)}
+  window.statusBarColor=android.graphics.Color.rgb(14,14,14)
+  window.navigationBarColor=android.graphics.Color.rgb(14,14,14)
+  window.decorView.systemUiVisibility=0
+  webView=android.webkit.WebView(this).apply{
+   setBackgroundColor(android.graphics.Color.rgb(205,198,179))
+   isVerticalScrollBarEnabled=false
+   isHorizontalScrollBarEnabled=false
+   overScrollMode=android.view.View.OVER_SCROLL_NEVER
+   settings.javaScriptEnabled=true
+   settings.domStorageEnabled=true
+   settings.loadsImagesAutomatically=true
+   webViewClient=android.webkit.WebViewClient()
+   webChromeClient=android.webkit.WebChromeClient()
+  }
+  setContentView(webView)
+  val html=assets.open("rush.html").bufferedReader().use{it.readText()}
+  webView.loadDataWithBaseURL("https://rush.local/",html,"text/html","UTF-8",null)
+  onBackPressedDispatcher.addCallback(this,object:androidx.activity.OnBackPressedCallback(true){
+   override fun handleOnBackPressed(){
+    if(webView.canGoBack())webView.goBack()
+    else webView.evaluateJavascript("location.hash='#home'",null)
+   }
+  })
  }
  override fun onNewIntent(intent:android.content.Intent){
   super.onNewIntent(intent)
   setIntent(intent)
-  if(intent.getBooleanExtra("open_downloads",false))openDownloadsRequest.intValue++
+  if(intent.getBooleanExtra("open_downloads",false))webView.evaluateJavascript("location.hash='#videos'",null)
  }
  override fun onPictureInPictureModeChanged(isInPictureInPictureMode:Boolean,newConfig:android.content.res.Configuration){
   super.onPictureInPictureModeChanged(isInPictureInPictureMode,newConfig)
   pipModeState.value=isInPictureInPictureMode
+ }
+ override fun onDestroy(){
+  if(::webView.isInitialized){webView.stopLoading();webView.destroy()}
+  super.onDestroy()
  }
 }
 @Composable private fun RushApp(prefs:android.content.SharedPreferences,openDownloadsRequest:Int=0,isInPipMode:Boolean=false){
