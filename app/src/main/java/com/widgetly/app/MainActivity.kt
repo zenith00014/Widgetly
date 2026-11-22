@@ -67,6 +67,9 @@ class MainActivity:ComponentActivity(){
  @androidx.media3.common.util.UnstableApi
  private var nativeVideoView: androidx.media3.ui.PlayerView? = null
  @Volatile private var nativeVideoRequested=false
+ private var nativeVideoFullscreen=false
+ private var previousRequestedOrientation=android.content.pm.ActivityInfo.SCREEN_ORIENTATION_UNSPECIFIED
+ private var fullscreenExitButton:android.widget.TextView?=null
  @androidx.media3.common.util.UnstableApi
  fun showNativeVideo(player: androidx.media3.common.Player) {
   nativeVideoRequested=true
@@ -111,8 +114,57 @@ class MainActivity:ComponentActivity(){
    }
   }
  }
+ fun setNativeVideoFullscreen(enabled:Boolean) {
+  runOnUiThread {
+   if(nativeVideoFullscreen==enabled)return@runOnUiThread
+   nativeVideoFullscreen=enabled
+   val density=resources.displayMetrics.density
+   if(enabled) {
+    previousRequestedOrientation=requestedOrientation
+    requestedOrientation=android.content.pm.ActivityInfo.SCREEN_ORIENTATION_SENSOR_LANDSCAPE
+    window.decorView.systemUiVisibility=(android.view.View.SYSTEM_UI_FLAG_FULLSCREEN
+     or android.view.View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+     or android.view.View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+     or android.view.View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+     or android.view.View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION)
+    nativeVideoView?.apply {
+     layoutParams=android.widget.FrameLayout.LayoutParams(
+      android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+      android.widget.FrameLayout.LayoutParams.MATCH_PARENT)
+     visibility=android.view.View.VISIBLE
+     bringToFront()
+    }
+    val exit=fullscreenExitButton?:android.widget.TextView(this).apply {
+     text="×"
+     textSize=30f
+     gravity=android.view.Gravity.CENTER
+     setTextColor(android.graphics.Color.WHITE)
+     background=android.graphics.drawable.GradientDrawable().apply {
+      setColor(0xCC111111.toInt())
+      cornerRadius=24f*density
+     }
+     elevation=16f*density
+     setOnClickListener { setNativeVideoFullscreen(false) }
+    }.also { fullscreenExitButton=it; rootLayout.addView(it) }
+    val size=(52*density).toInt()
+    exit.layoutParams=android.widget.FrameLayout.LayoutParams(size,size,
+     android.view.Gravity.TOP or android.view.Gravity.END).apply {
+      topMargin=(18*density).toInt()
+      marginEnd=(16*density).toInt()
+     }
+    exit.visibility=android.view.View.VISIBLE
+    exit.bringToFront()
+   } else {
+    fullscreenExitButton?.visibility=android.view.View.GONE
+    window.decorView.systemUiVisibility=0
+    requestedOrientation=previousRequestedOrientation
+    webView.post { updateNativeVideoPosition() }
+   }
+  }
+ }
  fun hideNativeVideo() {
   nativeVideoRequested=false
+  if(nativeVideoFullscreen)setNativeVideoFullscreen(false)
   runOnUiThread { nativeVideoView?.visibility=android.view.View.GONE }
  }
  fun setPipEligible(eligible:Boolean){
