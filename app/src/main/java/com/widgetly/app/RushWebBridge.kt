@@ -53,9 +53,9 @@ class RushWebBridge(
             publish("rushMusicPlaybackState", JSONObject().put("state", "loading").put("title", title).toString())
             try {
                 val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
-                val quality = prefs.getInt("audio_quality", 0)
+                val quality = prefs.getInt("audio_quality", 0).takeIf { it > 0 } ?: 160
                 val resolved = withContext(Dispatchers.IO) {
-                    resolvePlaybackMedia(videoId, audioOnly = true, maxAudioBitrate = quality.takeIf { it > 0 })
+                    resolvePlaybackMedia(videoId, audioOnly = true, maxAudioBitrate = quality)
                 }
                 val controller = getController()
                 val metadata = MediaMetadata.Builder()
@@ -104,9 +104,9 @@ class RushWebBridge(
         activity.lifecycleScope.launch {
             try {
                 val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
-                val quality = prefs.getInt("audio_quality", 0)
+                val quality = prefs.getInt("audio_quality", 0).takeIf { it > 0 } ?: 160
                 val resolved = withContext(Dispatchers.IO) {
-                    resolvePlaybackMedia(videoId, audioOnly = true, maxAudioBitrate = quality.takeIf { it > 0 })
+                    resolvePlaybackMedia(videoId, audioOnly = true, maxAudioBitrate = quality)
                 }
                 val metadata = MediaMetadata.Builder()
                     .setTitle(title).setArtist(artist)
@@ -184,7 +184,7 @@ class RushWebBridge(
                 activity.runOnUiThread { activity.showNativeVideo(controller) }
                 val listener = object : androidx.media3.common.Player.Listener {
                     override fun onCues(cueGroup: androidx.media3.common.text.CueGroup) {
-                        val lines = cueGroup.cues.mapNotNull { it.text?.toString()?.takeIf(String::isNotBlank) }
+                        val lines = cueGroup.cues.mapNotNull { it.text?.toString()?.takeIf { it.isNotBlank() } }
                         publish("rushVideoCaptions", JSONArray(lines).toString())
                     }
                 }
@@ -196,6 +196,11 @@ class RushWebBridge(
                     .put("message", playbackErrorMessage(error, "Could not play this video.")).toString())
             }
         }
+    }
+
+    @JavascriptInterface
+    fun hideVideo() {
+        activity.hideNativeVideo()
     }
 
     @JavascriptInterface
