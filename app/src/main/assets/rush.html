@@ -214,7 +214,7 @@ const ALL=[...T.v.map(x=>[x,'Video']),...T.m.map(x=>[x,'Music']),...T.n.map(x=>[
 const hit=a=>a.length?`<div>${a.slice(0,8).map(([t,y],i)=>`<div class="row">${A(i+2)}<div><b>${t}</b><span>${y}</span></div>${ic('arrow')}</div>`).join('')}</div>`:`<p class="pad meta">No matches. Try a shorter word or pick a category.</p>`;
 function sdef(){return `<h2>browse</h2><div class="gen">${['Person','Video','Music','News','Movie','Artist'].map((c,i)=>`<button class="cat" data-cat="${c}" style="background:${PAL[i%6]}"><b>${c==='Person'?'People':c==='Artist'?'Series and topics':c+'s'}</b><i aria-hidden="true">&rarr;</i></button>`).join('')}</div><h2>trending</h2>${['Monza lap record','Cassette revival','Offside rule','Lisbon travel'].map((t,i)=>`<button class="tr" data-s="${t}"><em>0${i+1}</em>${t}</button>`).join('')}<h2>recent</h2>${chips(['Hollow Pines','Dust Line','Keyboards'],-1)}<h2>suggested</h2>${hit(ALL.slice(0,4))}`}
 /* player */
-const DEF={videos:{i:1,t:'Last lap at Monza',s:'Featured \u00b7 12 min'},music:{i:3,t:'Late Shift',s:'Playlist \u00b7 42 tracks'},movies:{i:5,t:'The Quiet Season',s:'Series \u00b7 8 episodes'}};
+const DEF={videos:{i:1,t:'Last lap at Monza',s:'Featured \u00b7 12 min'},music:{i:3,t:'Search for a track',s:'YouTube Music'},movies:{i:5,t:'The Quiet Season',s:'Series \u00b7 8 episodes'}};
 let cur=DEF.videos,playing=false,started=0,pg=0,tm,page='home',bigEl=null,bigIn=true;
 const POOL=()=>({videos:T.v,movies:T.f}[page]||T.m);
 const setSp=c=>document.documentElement.style.setProperty('--sp',c);
