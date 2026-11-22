@@ -62,6 +62,7 @@ class MainActivity:ComponentActivity(){
  private val pipEligible=androidx.compose.runtime.mutableStateOf(false)
  private var pipAspectRatio=android.util.Rational(16,9)
  private lateinit var webView:android.webkit.WebView
+ private lateinit var rushWebBridge: RushWebBridge
  fun setPipEligible(eligible:Boolean){
   pipEligible.value=eligible
   if(android.os.Build.VERSION.SDK_INT>=26){
@@ -107,7 +108,8 @@ class MainActivity:ComponentActivity(){
    settings.loadsImagesAutomatically=true
    webViewClient=android.webkit.WebViewClient()
    webChromeClient=android.webkit.WebChromeClient()
-   addJavascriptInterface(RushWebBridge(this@MainActivity,this),"RushNative")
+   rushWebBridge=RushWebBridge(this@MainActivity,this)
+   addJavascriptInterface(rushWebBridge,"RushNative")
   }
   setContentView(webView)
   val html=assets.open("rush.html").bufferedReader().use{it.readText()}
@@ -129,6 +131,7 @@ class MainActivity:ComponentActivity(){
   pipModeState.value=isInPictureInPictureMode
  }
  override fun onDestroy(){
+  if(::rushWebBridge.isInitialized)rushWebBridge.release()
   if(::webView.isInitialized){webView.stopLoading();webView.destroy()}
   super.onDestroy()
  }
