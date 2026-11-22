@@ -349,6 +349,10 @@ class RushWebBridge(
                                     .ifBlank { description.substringAfter("src='", "").substringBefore("'") }
                             }
                             if (thumbnail.startsWith("//")) thumbnail = "https:$thumbnail"
+                            if (thumbnail.isBlank()) {
+                                val host = runCatching { android.net.Uri.parse(link).host }.getOrNull().orEmpty()
+                                if (host.isNotBlank()) thumbnail = "https://www.google.com/s2/favicons?domain=$host&sz=128"
+                            }
                             val cleanSummary = description.replace(Regex("<[^>]+>"), " ")
                                 .replace(Regex("\\s+"), " ").trim()
                             if (title.isNotBlank() && link.startsWith("https://")) {
