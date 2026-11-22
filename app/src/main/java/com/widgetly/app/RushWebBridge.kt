@@ -18,6 +18,7 @@ class RushWebBridge(
     private val webView: WebView
 ) {
     @Volatile private var controllerFuture: com.google.common.util.concurrent.ListenableFuture<MediaController>? = null
+    private var captionListener: androidx.media3.common.Player.Listener? = null
 
     @JavascriptInterface
     fun searchMusic(query: String) {
@@ -70,6 +71,15 @@ class RushWebBridge(
                     .setMimeType(resolved.mimeType)
                     .setMediaMetadata(metadata)
                     .build()
+                captionListener?.let { controller.removeListener(it) }
+                val listener = object : androidx.media3.common.Player.Listener {
+                    override fun onCues(cueGroup: androidx.media3.common.text.CueGroup) {
+                        val lines = cueGroup.cues.mapNotNull { it.text?.toString()?.takeIf { it.isNotBlank() } }
+                        publish("rushVideoCaptions", JSONArray(lines).toString())
+                    }
+                }
+                captionListener = listener
+                controller.addListener(listener)
                 controller.setMediaItem(item)
                 controller.prepare()
                 controller.play()
@@ -183,13 +193,6 @@ class RushWebBridge(
                 controller.prepare()
                 controller.play()
                 activity.runOnUiThread { activity.showNativeVideo(controller) }
-                val listener = object : androidx.media3.common.Player.Listener {
-                    override fun onCues(cueGroup: androidx.media3.common.text.CueGroup) {
-                        val lines = cueGroup.cues.mapNotNull { it.text?.toString()?.takeIf { it.isNotBlank() } }
-                        publish("rushVideoCaptions", JSONArray(lines).toString())
-                    }
-                }
-                controller.addListener(listener)
                 publish("rushVideoPlaybackState", JSONObject().put("state", "playing")
                     .put("title", title).put("creator", creator).put("captionTracks", subtitleConfigs.size).toString())
             } catch (error: Exception) {
@@ -409,7 +412,11 @@ class RushWebBridge(
     }
 
     fun release() {
-        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controllerFuture?.let { future ->
+            runCatching { future.get().let { player -> captionListener?.let(player::removeListener) } }
+            MediaController.releaseFuture(future)
+        }
+        captionListener = null
         controllerFuture = null
     }
 
