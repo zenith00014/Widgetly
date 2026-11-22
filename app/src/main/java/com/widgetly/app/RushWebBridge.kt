@@ -26,7 +26,7 @@ class RushWebBridge(
         activity.lifecycleScope.launch {
             try {
                 val results = withContext(Dispatchers.IO) {
-                    LiveYouTubeSearch.search(term, music = true).take(30)
+                    LiveYouTubeSearch.search(term, music = true).filter { it.videoId.isNotBlank() }.take(30)
                 }
                 val payload = JSONArray().apply {
                     results.forEach { item ->
@@ -85,6 +85,36 @@ class RushWebBridge(
                 publish("rushMusicPlaybackState", JSONObject()
                     .put("state", "error")
                     .put("message", error.message ?: "Could not play this track.").toString())
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun queueMusic(videoId: String, title: String, artist: String, thumbnail: String) {
+        if (!videoId.matches(Regex("[A-Za-z0-9_-]{11}"))) return
+        activity.lifecycleScope.launch {
+            try {
+                val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
+                val quality = prefs.getInt("audio_quality", 0)
+                val resolved = withContext(Dispatchers.IO) {
+                    resolvePlaybackMedia(videoId, audioOnly = true, maxAudioBitrate = quality.takeIf { it > 0 })
+                }
+                val metadata = MediaMetadata.Builder()
+                    .setTitle(title).setArtist(artist)
+                    .apply { if (thumbnail.isNotBlank()) setArtworkUri(android.net.Uri.parse(thumbnail)) }
+                    .setExtras(PlaybackMetadata.extras(videoId, true, quality, false))
+                    .build()
+                val item = MediaItem.Builder().setMediaId(videoId).setUri(resolved.url)
+                    .setMimeType(resolved.mimeType).setMediaMetadata(metadata).build()
+                val controller = getController()
+                controller.addMediaItem(item)
+                if (controller.mediaItemCount == 1) {
+                    controller.prepare()
+                    controller.play()
+                }
+                publish("rushMusicQueued", JSONObject().put("title", title).toString())
+            } catch (error: Exception) {
+                publish("rushMusicSearchError", JSONObject().put("message", error.message ?: "Could not add this track to the queue.").toString())
             }
         }
     }
