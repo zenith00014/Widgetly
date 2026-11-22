@@ -222,11 +222,11 @@ const accent=()=>setSp(PG[page]);
 function setItem(){const a=art(cur.i),g=playing?'Pause':'Play',i=ic(playing?'pause':'play');
 $('#mt').textContent=cur.t;$('#ms').textContent=cur.s;$('#ma').style.background=a;$('#mp').innerHTML=i;$('#mp').setAttribute('aria-label',g);
 if($('#ba')){$('#ba').style.background=a;$('#bt').textContent=cur.t;$('#bs').textContent=cur.s;$('#bp').innerHTML=i+g}accent()}
-function tick(){clearInterval(tm);if(playing)tm=setInterval(()=>{pg=(pg+1.5)%100;document.documentElement.style.setProperty('--p',pg+'%')},1000)}
+function tick(){clearInterval(tm);if(playing&&page!=='music')tm=setInterval(()=>{pg=(pg+1.5)%100;document.documentElement.style.setProperty('--p',pg+'%')},1000)}
 function vis(){const on=bigEl?!bigIn:!!started;$('#mini').classList.toggle('on',on);$('#mini').inert=!on}
 document.querySelectorAll('.mini [data-act=prev]').forEach(b=>b.innerHTML=ic('prev'));document.querySelectorAll('.mini [data-act=next]').forEach(b=>b.innerHTML=ic('next'));
 const sc=$('#sc'),io=new IntersectionObserver(([e])=>{bigIn=e.isIntersecting;vis()},{root:sc,threshold:.2});
-function act(a){if(a=='toggle'){playing=!playing;started=1}else if(a=='next'||a=='prev'){const P=POOL(),d=a=='next'?1:-1,n=(P.indexOf(cur.t)+d+P.length)%P.length;cur={i:cur.i+d,t:P[n],s:cur.s};playing=true;started=1;pg=0}setItem();tick();vis()}
+function act(a){if(page==='music'){if(a==='toggle'&&window.RushNative)RushNative.toggleMusicPlayback();return}if(a=='toggle'){playing=!playing;started=1}else if(a=='next'||a=='prev'){const P=POOL(),d=a=='next'?1:-1,n=(P.indexOf(cur.t)+d+P.length)%P.length;cur={i:cur.i+d,t:P[n],s:cur.s};playing=true;started=1;pg=0}setItem();tick();vis()}
 document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(b&&b.closest('.mini,.big'))act(b.dataset.act)});
 function pick(b){cur={i:+b.dataset.i,t:b.dataset.t,s:b.dataset.s};playing=true;started=1;pg=0;setItem();tick();vis();if(bigEl)sc.scrollTo({top:0,behavior:RM?'auto':'smooth'})}
 /* router */
@@ -252,9 +252,9 @@ else if(b.classList.contains('chip'))b.parentNode.querySelectorAll('.chip').forE
 else if(b.dataset.cat)$('#res').innerHTML=hit(ALL.filter(a=>a[1]==b.dataset.cat));
 else if(b.dataset.s){$('#q').value=b.dataset.s;$('#q').dispatchEvent(new Event('input',{bubbles:true}))}});
 $('#v').addEventListener('keydown',e=>{if(e.target.id==='musicQuery'&&e.key==='Enter'){e.preventDefault();const q=e.target.value.trim();if(q&&window.RushNative){$('#musicStatus').textContent='Searching YouTube Music…';$('#musicResults').innerHTML='';RushNative.searchMusic(q)}}});
-window.rushMusicSearchResults=items=>{const root=$('#musicResults');if(!root)return;$('#musicStatus').textContent=items.length+' tracks found';root.innerHTML=items.map(x=>{const safe=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));return `<button class="row n" data-track="${safe(x.id)}" data-title="${safe(x.title)}" data-artist="${safe(x.artist)}" data-thumbnail="${safe(x.thumbnail)}"><img src="${safe(x.thumbnail)}" alt="" loading="lazy"><div><b>${safe(x.title)}</b><span>${safe(x.artist)} · ${safe(x.duration)}</span></div>${ic('play')}</button>`}).join('')||'<p class="meta pad">No tracks found. Try another search.</p>'};
+window.rushMusicSearchResults=items=>{const root=$('#musicResults');if(!root)return;$('#musicStatus').textContent=items.length+' tracks found';root.innerHTML=items.map((x,i)=>{const safe=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));return `<button class="row n" data-track="${safe(x.id)}" data-title="${safe(x.title)}" data-artist="${safe(x.artist)}" data-thumbnail="${safe(x.thumbnail)}"><img src="${safe(x.thumbnail)}" alt="" loading="lazy"><div><b>${safe(x.title)}</b><span>${safe(x.artist)} · ${safe(x.duration)}</span></div>${ic('play')}</button>`}).join('')||'<p class="meta pad">No tracks found. Try another search.</p>'};
 window.rushMusicSearchError=error=>{const status=$('#musicStatus');if(status)status.textContent=error.message||'Music search failed.'};
-window.rushMusicPlaybackState=state=>{const status=$('#musicStatus');if(status)status.textContent=state.state==='playing'?'Now playing: '+(state.title||'track'):state.state==='loading'?'Loading '+(state.title||'track')+'…':state.message||state.state};
+window.rushMusicPlaybackState=state=>{const status=$('#musicStatus');if(status)status.textContent=state.state==='playing'?'Now playing: '+(state.title||'track'):state.state==='loading'?'Loading '+(state.title||'track')+'…':state.message||state.state;if(state.state==='playing'||state.state==='paused'){playing=state.state==='playing';started=1;if(state.title)cur={...cur,t:state.title,s:state.artist||cur.s};setItem();tick();vis()}};
 $('#v').addEventListener('input',e=>{if(e.target.id!='q')return;const q=e.target.value.trim().toLowerCase();$('#res').innerHTML=q?hit(ALL.filter(a=>a[0].toLowerCase().includes(q)||a[1].toLowerCase().includes(q))):sdef()});
 go();
 </script>
