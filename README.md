@@ -1,49 +1,50 @@
-# Rush
+# Widgetly for Android
 
-Rush is an Android-only video and music streaming client built with Kotlin, Jetpack Compose and AndroidX Media3.
+Widgetly is an Android entertainment app built with Kotlin, Jetpack Compose, AndroidX Media3 and a local HTML/CSS/JavaScript interface hosted in an Android WebView. Native Android components handle media playback, downloads, notifications, background playback and Picture-in-Picture.
 
-## Product scope
+## Current product scope
 
-- YouTube video search and playback
-- YouTube Music search and audio playback
-- Channel search, subscriptions and latest uploads
-- Public YouTube video playlist and YouTube Music album browsing, with bulk offline downloads
-- Local video/music playlists and queue playback
-- Watch and listening history
-- Background audio/video playback through a Media3 media session
-- Adaptive DASH video playback where available, source quality/format selection, speed and available captions
-- Picture-in-Picture video playback on supported Android versions
-- App-private offline downloads, offline playback, progress, cancel, resume and storage management
-- MP3 audio export using on-device FFmpeg/LAME conversion, alongside the source-native audio format
+- YouTube video and YouTube Music search and playback
+- Channel subscriptions and latest-upload feeds
+- Public video playlists and music album browsing
+- Local playlists, playback queue and watch/listening history
+- Media3 background playback and Picture-in-Picture
+- Adaptive streaming where supported by the resolved source
+- App-private offline downloads with progress, resume and storage management
+- Optional on-device MP3 conversion for audio downloads
 
-Out of scope for this phase: Movies, TV series, Shorts, Trending and custom recommendation algorithms. The interface remains functional and minimal until the streaming system is reliable; visual redesign comes later.
+Movies and TV series remain out of scope until a suitable, permitted source is selected. News integration is not yet present in this GitHub branch; do not confuse any earlier local prototype with code committed here.
 
-## Current implementation
+## Project layout
 
-The development branch includes live YouTube and YouTube Music search adapters, channel subscriptions and latest-upload feeds, public video playlist and music album browsing, local playlists and reorderable queue, ordered playback history with resume positions, Media3 background playback with wake-lock/audio-focus support, Android Picture-in-Picture video, adaptive DASH playback where the source exposes a manifest, playback controls, caption-track extraction, and a WorkManager-based private download library.
+- `app/src/main/java/com/widgetly/app/`: Android application, playback, download, search and persistence integration
+- `app/src/main/java/com/github/libretube/`: LibreTube-derived adaptive playback implementation
+- `app/src/main/assets/`: local WebView application and proof-of-origin helper assets
+- `app/src/main/proto/`: protocol schemas used by the adaptive playback implementation
+- `app/src/main/res/`: Android manifest resources, app label and themes
+- `.github/workflows/`: CI build and APK artifact workflow
+- `LICENSES/` and `THIRD_PARTY_NOTICES.md`: third-party license texts and attribution
 
-Offline downloads use direct source streams and the source's available format and extension (for example, M4A or WebM where supplied); adaptive DASH manifests are used for streaming, not saved as if they were complete media files. Audio downloads can optionally be converted on-device to MP3 using the LGPL FFmpegKit-maintained audio package with LAME. Video formats and selectable qualities depend on what the source exposes. Interrupted transfers resume from partial files where the server supports HTTP range requests; a manual resume re-resolves the source stream because signed URLs may expire.
+The WebView asset is part of the current application UI and is not safe to delete as an unused prototype. Likewise, the LibreTube-derived player and protobuf files are runtime dependencies, not disposable legacy files.
 
-Data is currently stored locally using SharedPreferences and app-private files. It is not synced to a YouTube account. Search/extraction relies on unofficial YouTube web endpoints and NewPipeExtractor, so service changes can break compatibility. A successful CI build proves compilation/package creation only; real-device playback, background operation, download reliability and source compatibility still need device testing.
-
-
-### Streaming compatibility
-
-Playback uses the LibreTube-maintained NewPipeExtractor fork and its proof-of-origin token provider. Rush tries progressive media first, then adaptive DASH/HLS, and uses the LibreTube-derived SABR/UMP Media3 source when the source exposes server-adaptive streaming metadata. Stream support remains dependent on YouTube's changing endpoints and actual device playback validation. Offline downloads continue to use complete direct media streams rather than saving adaptive manifests.
-
-## Build
+## Build locally
 
 Requirements: JDK 17, Android SDK 35 and Gradle 8.9.
 
 ```bash
-gradle :app:assembleDebug
+gradle --no-daemon :app:assembleDebug
 ```
 
 APK output: `app/build/outputs/apk/debug/app-debug.apk`.
 
-## Third-party code and compatibility
+## Build on GitHub
 
-The playback adapter is derived from LibreTube/NewPipeExtractor work. MP3 conversion uses the community-maintained FFmpegKit audio package under LGPL-3.0. See [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) and the included license texts. Check license obligations before distributing builds.
+The **Build Widgetly Android APK** workflow runs on pushes to the supported branches and can also be started manually from GitHub Actions. Download the `widgetly-debug-apk` artifact from a successful run.
 
-Offline downloads should only be used for content and methods you are permitted to keep offline. Private app storage prevents ordinary sharing by the app; it does not grant download rights or bypass platform terms.
-The SABR adaptive player is validated through CI compilation; real stream negotiation and playback still require Android-device testing.
+A successful build verifies compilation and packaging only. It does not verify live YouTube extraction, stream playback, offline download integrity or device-specific behavior; those require testing on physical Android devices.
+
+## Compatibility and licensing
+
+YouTube extraction uses unofficial endpoints and NewPipeExtractor, so upstream service changes may affect compatibility. Use offline downloads only for content and methods you are permitted to keep offline.
+
+The playback implementation adapts LibreTube/NewPipeExtractor code under GPL-3.0-or-later. MP3 conversion uses a community-maintained FFmpegKit-compatible audio package under LGPL-3.0. Read `THIRD_PARTY_NOTICES.md` and the included license texts before distributing builds.
