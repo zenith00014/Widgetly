@@ -102,7 +102,7 @@ class RushWebBridge(
             if (selectedChannels.isEmpty() && !following) {
                 publish("rushHomeFeedResults", JSONObject()
                     .put("mode", "forYou").put("videos", JSONArray()).put("music", JSONArray())
-                    .put("news", JSONArray()).put("message", "Choose productive YouTube channels in Search to start your For You feed."))
+                    .put("news", JSONArray()).put("message", "Choose productive YouTube channels in Search to start your For You feed.").toString())
                 return@launch
             }
             try {
@@ -156,7 +156,7 @@ class RushWebBridge(
                 .put("news", JSONArray(news.values.toList().take(20)))
                 .put("message", if (following && sources.isEmpty()) "Follow YouTube channels, news publishers or musicians in Search to build this feed."
                     else if (following && orderedVideos.isEmpty() && music.isEmpty() && news.isEmpty()) "No recent items were found from your followed sources."
-                    else ""))
+                    else "").toString())
         }
     }
 
@@ -248,7 +248,7 @@ class RushWebBridge(
                     .put("artwork", metadata?.artworkUri?.toString().orEmpty())
                     .put("mediaId", item?.mediaId.orEmpty())
                     .put("position", controller.currentPosition)
-                    .put("duration", controller.duration))
+                    .put("duration", controller.duration).toString())
             }.onFailure {
                 publish("rushCurrentPlayback", JSONObject().put("hasItem", false).put("isMusic", false)
                     .put("isVideo", false).put("isPlaying", false).toString())
