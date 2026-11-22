@@ -534,6 +534,9 @@ class RushWebBridge(
         val query = when (category.trim().lowercase()) {
             "world" -> "world news"
             "technology" -> "technology news"
+            "science" -> "science news"
+            "business" -> "business news"
+            "health" -> "health news"
             "sports" -> "sports news"
             "entertainment" -> "entertainment news"
             "culture" -> "culture news"
