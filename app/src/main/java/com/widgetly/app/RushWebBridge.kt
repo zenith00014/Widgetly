@@ -317,12 +317,13 @@ class RushWebBridge(
             var date = ""
             var description = ""
             var source = ""
+            var thumbnail = ""
             while (event != org.xmlpull.v1.XmlPullParser.END_DOCUMENT && output.length() < 40) {
                 when (event) {
                     org.xmlpull.v1.XmlPullParser.START_TAG -> {
                         if (parser.name == "item") {
                             insideItem = true
-                            title = ""; link = ""; date = ""; description = ""; source = ""
+                            title = ""; link = ""; date = ""; description = ""; source = ""; thumbnail = ""
                         } else if (insideItem) field = parser.name
                     }
                     org.xmlpull.v1.XmlPullParser.TEXT,
