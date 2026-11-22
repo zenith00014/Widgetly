@@ -73,14 +73,23 @@ class RushWebBridge(
                 controller.setMediaItem(item)
                 controller.prepare()
                 controller.play()
+                val history = runCatching { JSONArray(prefs.getString("music_history", "[]") ?: "[]") }.getOrDefault(JSONArray())
+                val updatedHistory = JSONArray().put(JSONObject()
+                    .put("id", videoId).put("title", title).put("artist", artist).put("thumbnail", thumbnail))
+                for (index in 0 until history.length()) {
+                    val entry = history.optJSONObject(index) ?: continue
+                    if (entry.optString("id") != videoId && updatedHistory.length() < 50) updatedHistory.put(entry)
+                }
                 prefs.edit()
                     .putString("music_last_id", videoId)
                     .putString("music_last_title", title)
                     .putString("music_last_artist", artist)
+                    .putString("music_last_thumbnail", thumbnail)
+                    .putString("music_history", updatedHistory.toString())
                     .apply()
                 publish("rushMusicPlaybackState", JSONObject()
                     .put("state", "playing").put("id", videoId)
-                    .put("title", title).put("artist", artist).toString())
+                    .put("title", title).put("artist", artist).put("thumbnail", thumbnail).toString())
             } catch (error: Exception) {
                 publish("rushMusicPlaybackState", JSONObject()
                     .put("state", "error")
@@ -117,6 +126,12 @@ class RushWebBridge(
                 publish("rushMusicSearchError", JSONObject().put("message", error.message ?: "Could not add this track to the queue.").toString())
             }
         }
+    }
+
+    @JavascriptInterface
+    fun loadMusicHistory() {
+        val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
+        publish("rushMusicHistory", prefs.getString("music_history", "[]") ?: "[]")
     }
 
     @JavascriptInterface
