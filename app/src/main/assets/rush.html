@@ -460,6 +460,7 @@ function handleFollow(kind,id,name,productive){
 function refreshCurrentPage(){
  if(page==='home')loadHomeFeed();
  if(page==='topics')renderPreferencePage();
+ if(page==='search')renderSearchResults();
 }
 document.addEventListener('click',e=>{
  const b=e.target.closest('button');if(!b)return;
@@ -476,7 +477,7 @@ document.addEventListener('click',e=>{
  if(b.dataset.musicTerm){const input=$('#musicQuery');if(input)input.value=b.dataset.musicTerm;if(window.RushNative)RushNative.searchMusic(b.dataset.musicTerm);return}
  if(b.hasAttribute('data-news-search')){const q=$('#newsQuery')?.value.trim();if(q&&window.RushNative)RushNative.searchNews(q);return}
  if(b.dataset.newsCategory){document.querySelectorAll('[data-news-category]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));if(b.dataset.newsCategory==='Personalized')RushNative.loadPersonalizedNews();else if(window.RushNative)RushNative.loadNews(b.dataset.newsCategory);return}
- if(b.dataset.followKind){handleFollow(b.dataset.followKind,b.dataset.sourceId,b.dataset.sourceName,false);return}
+ if(b.dataset.followKind){if(sourceExists(b.dataset.followKind,b.dataset.sourceId))RushNative.unfollowSource(b.dataset.followKind,b.dataset.sourceId);else handleFollow(b.dataset.followKind,b.dataset.sourceId,b.dataset.sourceName,false);return}
  if(b.hasAttribute('data-recommend-channel')){const source=sourceFor('channel',b.dataset.sourceId);if(window.RushNative)RushNative.setChannelRecommended(b.dataset.sourceId,b.dataset.sourceName,!(source&&source.productive));return}
  if(b.dataset.unfollowKind){if(window.RushNative)RushNative.unfollowSource(b.dataset.unfollowKind,b.dataset.sourceId);return}
  if(b.dataset.videoId){const d=b.dataset;const host=$('#videoPlayerHost');if(host){host.scrollIntoView({behavior:RM?'auto':'smooth',block:'start'});host.innerHTML='<span>LOADING VIDEO…</span>'}const status=$('#videoPlaybackStatus');if(status)status.textContent='Preparing video…';if(window.RushNative)RushNative.playVideo(d.videoId,d.title,d.creator,d.thumbnail);return}
