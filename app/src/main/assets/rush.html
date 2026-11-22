@@ -179,6 +179,40 @@ h1,h2,.top1 b,.cat b,.tr,.hl b,.wm{text-transform:uppercase}
 .news-controls .news-chips{padding-bottom:18px}
 /* live search + media layout polish */
 .unified-group{padding-bottom:12px}.unified-group h2{padding-top:26px;padding-bottom:12px}.unified-group h2 small{font:500 11px var(--m);color:var(--mu)}.search-filters{padding-top:16px}.search-filters .chip{min-height:40px;padding-inline:13px}.video-player-host{width:100%;min-height:190px;aspect-ratio:16/9;height:auto;max-height:260px}.video-player-tools{overflow:hidden}.video-controls .row,.music-find .row{border-top:1px solid rgba(242,242,238,.18)}.news-controls .news-feature,.news-controls .news-item{cursor:pointer}.news-controls .news-feature:active,.news-controls .news-item:active{transform:scale(.99)}
+
+/* personalized feeds and genuine source controls */
+.feed-actions{display:flex;gap:8px;flex-wrap:wrap;padding:12px 16px 6px}
+.feed-section{padding:4px 0 10px}
+.feed-section h2{padding-top:28px}
+.empty-state{margin:16px;padding:22px;border:2px solid var(--ink);background:var(--paper2);box-shadow:var(--sh)}
+.empty-state b{display:block;font:800 21px/1.1 var(--f);margin-bottom:10px}
+.empty-state p{color:var(--mu);font-size:14px;margin-bottom:16px}
+.source-card{display:flex;gap:14px;align-items:flex-start;padding:16px;border-top:1px solid rgba(242,242,238,.18)}
+.source-card>img{width:64px;height:64px;object-fit:cover;border:2px solid var(--ink);background:var(--paper2)}
+.source-info{flex:1;min-width:0}
+.source-info>b{display:block;font-weight:800;font-size:16px}
+.source-info>span{display:block;font:11px var(--m);color:var(--mu);margin-top:3px}
+.source-info>p{font-size:13px;color:var(--mu);margin-top:6px;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.source-actions,.result-actions{display:flex;gap:8px;flex-wrap:wrap;padding-top:8px}
+.source-actions .chip,.result-actions .chip{min-height:36px;padding:0 10px;font-size:10px}
+.result-wrap{border-top:1px solid rgba(242,242,238,.18);padding:0 12px 10px}
+.result-wrap .row{border-top:0;padding-inline:4px}
+.result-actions{padding:0 6px}
+.news-item{padding:14px 16px;border-top:1px solid rgba(242,242,238,.18);background:linear-gradient(110deg,rgba(255,255,255,.025),transparent)}
+.news-open{display:block;width:100%;text-align:left;padding:0;min-height:0}
+.news-open b{display:block;font:800 19px/1.12 var(--f)}
+.news-open span{display:block;font:11px var(--m);color:var(--mu);margin-top:7px}
+.news-open p{font-size:13px;line-height:1.4;margin-top:8px;color:var(--mu)}
+.news-open:after{content:'';display:block;clear:both}
+.topics-grid{display:flex;gap:8px;flex-wrap:wrap;padding:10px 16px 16px}
+.topic-chip[aria-pressed=true]{background:var(--sp);color:var(--k)}
+.video-toolbar{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 0}
+.video-toolbar .chip{min-height:38px}
+.video-player-host{position:relative;width:100%;min-height:220px;aspect-ratio:16/9;background:#050505;border:2px solid var(--ink);display:flex;align-items:center;justify-content:center;color:var(--mu);text-align:center;padding:16px}
+.video-player-host>span{font:700 12px var(--m);letter-spacing:.04em}
+.mini .a{background-color:var(--paper2);background-size:cover;background-position:center}
+.mini .a:after{display:none}
+@media(min-width:420px){.source-card>img{width:72px;height:72px}}
 </style></head>
 <body>
 <div class="app">
@@ -199,146 +233,337 @@ h1,h2,.top1 b,.cat b,.tr,.hl b,.wm{text-transform:uppercase}
   </section>
   <nav class="nav" id="nav" aria-label="Primary"></nav>
 </div>
+  <header class="top">
+    <div class="wm" aria-label="Widgetly">widgetly<i></i></div>
+    <div>
+      <button class="ib" id="topicsShortcut" aria-label="Choose feed topics">☷</button>
+      <button class="me ib" id="profileShortcut" aria-label="Manage followed sources">◎</button>
+    </div>
+  </header>
+  <div class="tk" aria-hidden="true"><div>WIDGETLY &#10022; YOUR SOURCES &#10022; YOUR TOPICS &#10022; YOUR TASTE &#10022; WIDGETLY</div></div>
+  <main id="sc"><div id="v"></div></main>
+  <section class="mini" id="mini" aria-label="Now playing" inert>
+    <div class="a" id="ma"></div>
+    <div><b id="mt"></b><span id="ms"></span></div>
+    <button class="ib p" id="mp" data-act="toggle" aria-label="Play or pause"></button>
+    <button class="ib" data-act="open" aria-label="Open player">↗</button>
+    <div class="rule"></div>
+  </section>
+  <nav class="nav" id="nav" aria-label="Primary"></nav>
 <script>
-const $=s=>document.querySelector(s),RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
-const IC={home:'M3 11l9-8 9 8v10h-6v-6H9v6H3z',vid:'M4 5h16v14H4zM10 9l5 3-5 3z',music:'M9 18V5l11-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zM20 16a3 3 0 11-6 0 3 3 0 016 0z',news:'M4 4h13v16H4zM17 8h3v10a2 2 0 01-2 2M7 8h7M7 12h7M7 16h4',film:'M4 4h16v16H4zM8 4v16M16 4v16M4 9h4M4 15h4M16 9h4M16 15h4',search:'M11 4a7 7 0 100 14 7 7 0 000-14zM20 20l-4-4',heart:'M12 20S4 14.5 4 9a4 4 0 018-1 4 4 0 018 1c0 5.5-8 11-8 11z',comment:'M4 5h16v11H9l-5 4z',repost:'M4 10V8a3 3 0 013-3h11M15 2l3 3-3 3M20 14v2a3 3 0 01-3 3H6M9 22l-3-3 3-3',eye:'M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12zM12 9a3 3 0 100 6 3 3 0 000-6z',bm:'M6 3h12v18l-6-4-6 4z',share:'M12 15V3M7 8l5-5 5 5M5 13v8h14v-8',play:'M7 4l13 8-13 8z',pause:'M7 5h3v14H7zM14 5h3v14h-3z',next:'M6 5l9 7-9 7zM18 5v14',prev:'M18 5l-9 7 9 7zM6 5v14',arrow:'M5 12h14M13 6l6 6-6 6'};
-const FILL=['play','pause','next','prev'];
-const ic=n=>`<svg class="ic${FILL.includes(n)?' f':''}" viewBox="0 0 24 24" aria-hidden="true"><path d="${IC[n]}"/></svg>`;
-const PAL=['#FF6B3D','#4D7DFF','#D8FF3F','#35E0E0','#B58CFF','#3DDC84'],PG={home:PAL[0],videos:PAL[1],music:PAL[2],news:PAL[3],movies:PAL[4],search:PAL[5]};
-/* two-ink print artwork */
-const art=i=>{i=Math.abs(i);const a=PAL[i%6];let b=PAL[(i*5+2)%6];if(a==b)b='#F2ECDD';const p=i*37%60+20,q=i*53%60+20,K='#121212',s=c=>`linear-gradient(${c},${c})`;
-return[`radial-gradient(circle at ${p}% ${q}%,${K} 0 9%,transparent 9.5%),radial-gradient(circle at ${p+8}% ${q-6}%,${a} 0 32%,transparent 32.5%),${s(b)}`,`radial-gradient(circle at 72% 30%,${K} 0 14%,transparent 14.5%),repeating-linear-gradient(90deg,${a} 0 12%,transparent 12% 24%),${s(b)}`,`radial-gradient(circle at ${p}% 100%,${K} 0 28%,transparent 28.5%),linear-gradient(${25+i%40}deg,${a} 0 50%,${b} 50% 100%)`,`radial-gradient(circle at ${100-p}% ${100-q}%,${K} 0 7%,transparent 7.5%),repeating-radial-gradient(circle at ${p}% ${q}%,${a} 0 8%,${b} 8% 16%)`][(i>>1)%4]};
-const A=(i,c='',x='')=>`<div class="a ${c}" style="background:${art(i)}">${x}</div>`;
-$('#meA').style.background=art(9);
-const k=n=>n>=1000?(n/1000).toFixed(1)+'K':n;
-const T={v:['Last lap at Monza','Inside a cassette factory','Why the pitch looks perfect','Building a keyboard from scrap','Tokyo at 5 a.m.','The offside trap, explained','Layout grids in motion','A day with the night bakers'],m:[],a:['Vela Rao','Hollow Pines','Nine Mirrors','Okoye','Tidal Union','Ines Calder'],n:[],f:['Dust Line','Harbor Nine','The Quiet Season','Paper Kings','Seventh Floor','Longwave','Saltwater Run','Cold Open']};
-const PC={X:['X',PAL[3]],Reels:['REELS',PAL[2]],YouTube:['YT',PAL[0]],Reddit:['RDT',PAL[4]],Instagram:['IG',PAL[5]]};
-const POSTS=[
-{p:'X',n:'Mara Okafor',u:'@maraplays',t:'2h',k:'img',x:'The second-half press was the whole match. Watch the line step up every time the full-back takes a touch.',l:4200,c:212,r:1100,v:'88K',f:1},
-{p:'Reels',n:'Studio Halden',u:'@studiohalden',t:'3h',k:'vid',x:'A type specimen built in one afternoon. Grid first, glyphs second.',l:1830,c:64,r:210,v:'41K'},
-{p:'X',n:'Jonas Reuter',u:'@jreuter',t:'5h',k:'txt',x:'A release note is a design document. If it takes three paragraphs to explain, the feature was not finished.',l:960,c:143,r:88,v:'19K',f:1},
-{p:'Reddit',n:'r/mechkeys',u:'u/lowprofile',t:'6h',k:'emb',x:'Quoting the thread everyone is arguing about today.',l:2400,c:530,r:301,v:'120K'},
-{p:'YouTube',n:'Tideline Audio',u:'@tidelineaudio',t:'8h',k:'lnk',x:'We rebuilt a 1978 cassette deck and recorded the whole album on it.',l:3100,c:97,r:402,v:'64K',f:1},
-{p:'Instagram',n:'Lena Voss',u:'@lenavoss',t:'1d',k:'multi',x:'Three days in Lisbon, no itinerary.',l:7600,c:301,r:150,v:'210K'}];
-const media=(p,i)=>({img:`<div class="m">${A(i+3,'r43')}</div>`,vid:`<div class="m">${A(i+1,'r169')}</div>`,multi:`<div class="m grid3">${A(i)+A(i+2)+A(i+5)}</div>`,emb:`<div class="card"><div class="ph2"><b>Nadia Fell</b><span class="meta">@nadiaf</span></div>Tried every switch on the market so you don\u2019t have to. The cheap ones win more than anyone admits.</div>`,lnk:`<a class="card lnk" href="#home">${A(i+4,'sq')}<div><b>Recording an album on a 1978 deck</b><span class="meta">tideline.audio</span></div></a>`,txt:''})[p.k];
-const post=(p,i)=>`<article class="post"><div class="ph">${A(i+2,'av')}<div><b>${p.n}</b><span>${p.u} \u00b7 ${p.t}</span></div><em class="stk pf" aria-label="${p.p}">${PC[p.p][0]}</em></div>
-<p${p.k=='txt'?' class="big"':''}>${p.x}</p>${media(p,i)}
-<div class="act"><button data-like data-n="${p.l}" aria-pressed="false" aria-label="Like">${ic('heart')}<span>${k(p.l)}</span></button><button aria-label="Comment">${ic('comment')}<span>${p.c}</span></button><button aria-label="Repost">${ic('repost')}<span>${k(p.r)}</span></button><span class="vw" aria-label="${p.v} views">${ic('eye')}${p.v}</span><button data-bm aria-pressed="false" aria-label="Bookmark">${ic('bm')}</button><button aria-label="Share">${ic('share')}</button></div></article>`;
-const tile=(i,t,s,o={})=>`<button class="t ${o.c||''}" ${o.p?`data-i="${i}" data-t="${t}" data-s="${s}"`:''} aria-label="${t}, ${s}">${A(i,o.s||'r169',(o.n?`<span class="rk">${o.n}</span>`:'')+(o.pr?`<span class="pr" style="width:${o.pr}%"></span>`:''))}<b>${t}</b><span>${s}</span></button>`;
-const sec=(h,x)=>`<section><h2>${h}</h2><div class="car">${x}</div></section>`;
-const chips=(a,sel=0)=>`<div class="chips">${a.map((c,i)=>`<button class="chip" aria-pressed="${i==sel}">${c}</button>`).join('')}</div>`;
-const big=()=>`<section class="big" id="big"><div class="a bigart" id="ba"></div><div class="bi"><em class="stk">now playing</em><h3 id="bt"></h3><span class="meta" id="bs"></span><div class="rule"></div><div class="pc"><button class="btn" id="bp" data-act="toggle"></button><button class="ib" data-act="prev" aria-label="Previous">${ic('prev')}</button><button class="ib" data-act="next" aria-label="Next">${ic('next')}</button></div></div></section>`;
-const pt=(t,s,b)=>`<header class="pt"><h1>${t}</h1><em class="stk">${s}</em></header>${b?big():''}`;
-const list=(a,f)=>a.map(f).join('');
-let tab='fy';
-const R={
-home:()=>`<h1 class="vh">Home</h1><div class="seg" role="tablist"><i></i><button role="tab" data-tab="fy" aria-selected="${tab=='fy'}">For you</button><button role="tab" data-tab="fo" aria-selected="${tab=='fo'}">Following</button></div>${chips(['Soccer','Design','Entertainment','Technology','Music'],-1)}<div>${POSTS.filter(p=>tab=='fy'||p.f).map(post).join('')}</div>`,
-videos:()=>pt('videos','watch and discover',1)+`<section class="video-controls"><div class="video-player-tools"><div id="videoPlayerHost" class="video-player-host"><span>SELECT A VIDEO TO START PLAYBACK</span></div><p class="meta" id="videoPlaybackStatus">Your selected video will play here.</p><div id="videoCaptions" class="video-captions" aria-live="polite"></div><button class="chip" data-video-close>HIDE PLAYER</button></div><h2>find videos</h2><label class="si">${ic('search')}<input id="videoQuery" type="search" placeholder="Search videos, creators and topics" aria-label="Search videos" autocomplete="off"></label><button class="btn" data-video-search>SEARCH VIDEOS</button><p class="meta pad" id="videoStatus">Search YouTube to discover videos.</p><div id="videoResults"></div></section>`,
-music:()=>pt('music','listen now',1)+`<section class="music-now"><div class="music-now-art"><img id="musicNowArtwork" src="" alt="Current track artwork"><span id="musicNowFallback">RUSH<br>PLAYING</span></div><div class="music-now-copy"><span class="stk">NOW PLAYING</span><h3 id="musicNowTitle">Choose a track</h3><p id="musicNowArtist">Search below to start listening.</p><p class="meta" id="musicStatus">Ready to play.</p><button class="btn k" data-music-toggle aria-label="Play or pause music">${ic('play')} PLAY / PAUSE</button></div></section><h2>discover music</h2><section class="music-find"><label class="si">${ic('search')}<input id="musicQuery" type="search" placeholder="Search songs, artists or albums" aria-label="Search music" autocomplete="off"></label><button class="btn" data-music-search>SEARCH MUSIC</button><div id="musicResults"></div></section><section><h2>browse genres</h2><div class="gen">${['Pop','Hip-hop','Electronic','Rock','Jazz','Ambient'].map((t,i)=>`<button class="cat" data-music-term="${t}" style="background:${PAL[(i+1)%6]}"><b>${t}</b><i aria-hidden="true">&rarr;</i></button>`).join('')}</div></section><section><h2>recently played</h2><div id="musicRecent"><p class="meta pad">Your listening history will appear here.</p></div></section><section class="lyrics-section"><h2>lyrics</h2><p class="meta" id="lyricsStatus">Play a track to load its lyrics.</p><div id="lyricsPanel" class="lyrics-panel"></div></section>`,
-news:()=>pt('news','live headlines')+`<section class="news-controls"><label class="si">${ic('search')}<input id="newsQuery" type="search" placeholder="Search headlines and topics" aria-label="Search news" autocomplete="off"></label><button class="btn" data-news-search>SEARCH NEWS</button><div class="chips news-chips">${['Top','World','Technology','Sports','Entertainment','Culture'].map((t,i)=>`<button class="chip" data-news-category="${t}" aria-pressed="${i===0}">${t}</button>`).join('')}</div><p class="meta pad" id="newsStatus">Loading latest headlines…</p><div id="newsResults"></div></section>`,
-movies:()=>pt('movies','series and film',1)+sec('for you',list(T.f.slice(0,6),(t,i)=>tile(i+2,t,['Drama','Thriller','Sci-fi','Drama','Crime','Comedy'][i],{s:'r916',p:1})))+sec('continue watching',list(T.f.slice(2,6),(t,i)=>tile(i+6,t,'S1 E'+(i+2),{c:'w',p:1,pr:30+i*15})))+sec('trending now',list(T.f.slice(1,8),(t,i)=>tile(i+1,t,'Top 10 today',{s:'r916',p:1,n:i+1})))+chips(['Action','Drama','Sci-fi','Comedy','Documentary'])+sec('new releases',list(T.f.slice(4,8).concat(T.f.slice(0,2)),(t,i)=>tile(i+3,t,'New this week',{s:'r916',p:1})))+sec('watchlist',list(T.f.slice(0,4),(t,i)=>tile(i+5,t,'Saved',{c:'w',p:1}))),
-search:()=>pt('search','one search · three feeds')+`<label class="si">${ic('search')}<input id="q" type="search" placeholder="Search videos, music, news and people" aria-label="Search all RUSH" autocomplete="off"></label><button class="btn" data-unified-search>SEARCH ALL</button><div class="chips search-filters"><button class="chip" data-search-filter="all" aria-pressed="true">All</button><button class="chip" data-search-filter="videos" aria-pressed="false">Videos</button><button class="chip" data-search-filter="music" aria-pressed="false">Music</button><button class="chip" data-search-filter="news" aria-pressed="false">News</button><button class="chip" data-search-filter="people" aria-pressed="false">People</button></div><p class="meta pad" id="unifiedStatus">Search across live video, music and news sources.</p><div id="unifiedResults">${sdef()}</div>`};
-const ALL=[...T.v.map(x=>[x,'Video']),...T.m.map(x=>[x,'Music']),...T.n.map(x=>[x,'News']),...T.f.map(x=>[x,'Movie']),...T.a.map(x=>[x,'Artist']),...POSTS.map(p=>[p.n,'Person'])];
-const hit=a=>a.length?`<div>${a.slice(0,8).map(([t,y],i)=>`<div class="row">${A(i+2)}<div><b>${t}</b><span>${y}</span></div>${ic('arrow')}</div>`).join('')}</div>`:`<p class="pad meta">No matches. Try a shorter word or pick a category.</p>`;
-function sdef(){return `<h2>browse</h2><div class="gen">${['Person','Video','Music','News','Movie','Artist'].map((c,i)=>`<button class="cat" data-cat="${c}" style="background:${PAL[i%6]}"><b>${c==='Person'?'People':c==='Artist'?'Series and topics':c+'s'}</b><i aria-hidden="true">&rarr;</i></button>`).join('')}</div><h2>trending</h2>${['Monza lap record','Cassette revival','Offside rule','Lisbon travel'].map((t,i)=>`<button class="tr" data-s="${t}"><em>0${i+1}</em>${t}</button>`).join('')}<h2>recent</h2>${chips(['Hollow Pines','Dust Line','Keyboards'],-1)}<h2>suggested</h2>${hit(ALL.slice(0,4))}`}
-/* player */
-const DEF={videos:{i:1,t:'Last lap at Monza',s:'Featured \u00b7 12 min'},music:{i:3,t:'Search for a track',s:'YouTube Music'},movies:{i:5,t:'The Quiet Season',s:'Series \u00b7 8 episodes'}};
-let cur=DEF.videos,playing=false,started=0,pg=0,tm,page='home',bigEl=null,bigIn=true;
-const POOL=()=>({videos:T.v,movies:T.f}[page]||T.m);
-const setSp=c=>document.documentElement.style.setProperty('--sp',c);
-const accent=()=>setSp(PG[page]);
-function setItem(){const a=art(cur.i),g=playing?'Pause':'Play',i=ic(playing?'pause':'play');
-$('#mt').textContent=cur.t;$('#ms').textContent=cur.s;$('#ma').style.background=a;$('#mp').innerHTML=i;$('#mp').setAttribute('aria-label',g);
-if($('#ba')){$('#ba').style.background=a;$('#bt').textContent=cur.t;$('#bs').textContent=cur.s;$('#bp').innerHTML=i+g}accent()}
-function tick(){clearInterval(tm);if(playing&&page!=='music')tm=setInterval(()=>{pg=(pg+1.5)%100;document.documentElement.style.setProperty('--p',pg+'%')},1000)}
-function vis(){const on=bigEl?!bigIn:!!started;$('#mini').classList.toggle('on',on);$('#mini').inert=!on}
-document.querySelectorAll('.mini [data-act=prev]').forEach(b=>b.innerHTML=ic('prev'));document.querySelectorAll('.mini [data-act=next]').forEach(b=>b.innerHTML=ic('next'));
-const sc=$('#sc'),io=new IntersectionObserver(([e])=>{bigIn=e.isIntersecting;vis()},{root:sc,threshold:.2});
-function act(a){if(page==='music'){if(a==='toggle'&&window.RushNative)RushNative.toggleMusicPlayback();return}if(a=='toggle'){playing=!playing;started=1}else if(a=='next'||a=='prev'){const P=POOL(),d=a=='next'?1:-1,n=(P.indexOf(cur.t)+d+P.length)%P.length;cur={i:cur.i+d,t:P[n],s:cur.s};playing=true;started=1;pg=0}setItem();tick();vis()}
-document.addEventListener('click',e=>{const b=e.target.closest('[data-act]');if(b&&b.closest('.mini,.big'))act(b.dataset.act)});
-function pick(b){cur={i:+b.dataset.i,t:b.dataset.t,s:b.dataset.s};playing=true;started=1;pg=0;setItem();tick();vis();if(bigEl)sc.scrollTo({top:0,behavior:RM?'auto':'smooth'})}
-/* router */
-const NAV=[['home','Home','home'],['videos','Videos','vid'],['music','Music','music'],['news','News','news'],['movies','Movies','film'],['search','Search','search']];
-$('#nav').innerHTML='<i class="pill"></i>'+NAV.map(([k,l,i])=>k=='search'?`<a href="#search" class="sr" data-k="search" aria-label="Search"><span class="pg">${ic(i)}</span></a>`:`<a href="#${k}" data-k="${k}">${ic(i)}<span>${l}</span></a>`).join('');
-function pos(){const a=$('#nav a[aria-current]'),n=$('#nav');if(!a)return;n.style.setProperty('--lx',a.offsetLeft+2+'px');n.style.setProperty('--lw',a.offsetWidth-4+'px');n.classList.toggle('s',a.dataset.k=='search')}
-function ind(){const s=$('.seg'),b=s&&s.querySelector('[aria-selected=true]');if(b){s.style.setProperty('--tx',b.offsetLeft+'px');s.style.setProperty('--tw',b.offsetWidth+'px')}}
-function go(){page=(location.hash||'#home').slice(1);if(!R[page])page='home';$('#v').innerHTML=R[page]();
-document.querySelectorAll('#nav a').forEach(a=>a.dataset.k==page?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current'));
-sc.scrollTop=0;io.disconnect();bigEl=$('#big');bigIn=true;if(bigEl){io.observe(bigEl);if(!playing)cur=DEF[page]}
-setItem();pos();ind();vis();if(window.RushNative&&page==='videos')RushNative.updateVideoPosition();if(page!=='videos'&&window.RushNative)RushNative.hideVideo();if(page==='news'&&window.RushNative)RushNative.loadNews('Top');if(page==='music'&&window.RushNative){RushNative.loadMusicHistory();RushNative.loadCurrentMusicLyrics()}}
-addEventListener('resize',()=>{pos();ind();if(window.RushNative&&page==='videos')RushNative.updateVideoPosition()});sc.addEventListener('scroll',()=>{if(window.RushNative&&page==='videos')RushNative.updateVideoPosition()},{passive:true});addEventListener('hashchange',go);document.fonts&&document.fonts.ready.then(()=>{pos();ind()});
-/* unified live search */
-const unifiedData={videos:[],music:[],news:[]};let unifiedMode='all',unifiedQuery='';
-const esc=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
-function renderUnifiedSearch(){
+const $=s=>document.querySelector(s);
+const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const IC={
+ home:'M3 11l9-8 9 8v10h-6v-6H9v6H3z',
+ vid:'M4 5h16v14H4zM10 9l5 3-5 3z',
+ music:'M9 18V5l11-2v13M9 18a3 3 0 11-6 0 3 3 0 016 0zM20 16a3 3 0 11-6 0 3 3 0 016 0z',
+ news:'M4 4h13v16H4zM17 8h3v10a2 2 0 01-2 2M7 8h7M7 12h7M7 16h4',
+ search:'M11 4a7 7 0 100 14 7 7 0 000-14zM20 20l-4-4',
+ play:'M7 4l13 8-13 8z', pause:'M7 5h3v14H7zM14 5h3v14h-3z',
+ arrow:'M5 12h14M13 6l6 6-6 6', follow:'M12 5v14M5 12h14'
+};
+const FILL=['play','pause'];
+const ic=n=>'<svg class="ic'+(FILL.includes(n)?' f':'')+'" viewBox="0 0 24 24" aria-hidden="true"><path d="'+(IC[n]||IC.arrow)+'"/></svg>';
+const PAL=['#FF6B3D','#4D7DFF','#D8FF3F','#35E0E0','#B58CFF','#3DDC84'];
+const TOPICS=['Science','Technology','History','Education','Design','Engineering','Economics','Culture','Environment','Sports','Music','Health','Language','Business','Art','Documentaries','Books','Philosophy','Current affairs','World news','Cooking','Travel','Architecture','Psychology','Space','Mathematics','Programming','Photography','Film analysis','Gaming','Memes','Viral clips','Celebrity gossip','Pranks','Internet drama','Reality TV','Shorts'];
+const esc=v=>String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let prefs={topics:['Science','Technology','History','Education','Design','Engineering','Economics','Culture','Environment','Sports','Music','Health','Language','Business','Art','Documentaries'],sources:[]};
+let page='home',homeTab='fy',unifiedMode='all',unifiedQuery='',mediaState={hasItem:false,isMusic:false,isVideo:false,isPlaying:false,title:'',artist:'',artwork:''};
+const unifiedData={videos:[],music:[],news:[],channels:[]};
+const selectedTopics=()=>prefs.topics||[];
+function loadPrefs(){
+ try{if(window.RushNative){const raw=RushNative.getFeedPreferences();if(raw)prefs=JSON.parse(raw)}}catch(e){}
+}
+function saveTopics(){
+ const selected=[...document.querySelectorAll('[data-topic][aria-pressed="true"]')].map(b=>b.dataset.topic);
+ if(!selected.length){const s=$('#topicStatus');if(s)s.textContent='Choose at least one topic.';return}
+ if(window.RushNative)RushNative.saveFeedTopics(JSON.stringify(selected));
+}
+function sourceExists(kind,id){return prefs.sources.some(s=>s.kind===kind&&s.id===id)}
+function sourceFor(kind,id){return prefs.sources.find(s=>s.kind===kind&&s.id===id)}
+function sourceButton(kind,id,name,label){
+ const found=sourceExists(kind,id);
+ return '<button class="chip source-follow" data-follow-kind="'+esc(kind)+'" data-source-id="'+esc(id)+'" data-source-name="'+esc(name)+'">'+(found?'FOLLOWING':(label||'FOLLOW'))+'</button>';
+}
+function channelCard(x){
+ const found=sourceFor('channel',x.id),selected=!!(found&&found.productive);
+ return '<article class="source-card"><img src="'+esc(x.thumbnail)+'" alt="" loading="lazy"><div class="source-info"><b>'+esc(x.name)+'</b><span>'+esc(x.subscribers||'YouTube channel')+'</span><p>'+esc(x.description||'')+'</p><div class="source-actions">'+sourceButton('channel',x.id,x.name,'FOLLOW')+'<button class="chip" data-recommend-channel data-source-id="'+esc(x.id)+'" data-source-name="'+esc(x.name)+'" aria-pressed="'+selected+'">'+(selected?'IN FOR YOU':'ADD TO FOR YOU')+'</button></div></div></article>';
+}
+function videoRow(x){
+ return '<button class="row n" data-video-id="'+esc(x.id)+'" data-title="'+esc(x.title)+'" data-creator="'+esc(x.artist||x.creator)+'" data-thumbnail="'+esc(x.thumbnail)+'"><img src="'+esc(x.thumbnail)+'" alt="" loading="lazy"><div><b>'+esc(x.title)+'</b><span>'+esc(x.artist||x.creator||'YouTube')+' · '+esc(x.duration||'')+'</span></div>'+ic('play')+'</button>';
+}
+function musicRow(x){
+ return '<div class="result-wrap">'+videoLikeMusic(x) + '<div class="result-actions">'+sourceButton('artist',x.artist,x.artist,'FOLLOW ARTIST')+'</div></div>';
+}
+function videoLikeMusic(x){
+ return '<button class="row n" data-track="'+esc(x.id)+'" data-title="'+esc(x.title)+'" data-artist="'+esc(x.artist)+'" data-thumbnail="'+esc(x.thumbnail)+'"><img src="'+esc(x.thumbnail)+'" alt="" loading="lazy"><div><b>'+esc(x.title)+'</b><span>'+esc(x.artist)+' · '+esc(x.duration||'')+'</span></div>'+ic('play')+'</button>';
+}
+function newsCard(x){
+ return '<article class="news-item"><button class="news-open" data-news-url="'+esc(x.url)+'">'+(x.thumbnail?'<img class="news-thumb" src="'+esc(x.thumbnail)+'" alt="" loading="lazy">':'')+'<b>'+esc(x.title)+'</b><span>'+esc(x.source)+' · '+esc(x.date)+'</span><p>'+esc(x.summary||'')+'</p></button><div class="result-actions">'+sourceButton('news',x.source,x.source,'FOLLOW PUBLISHER')+'</div></article>';
+}
+function section(title,body){
+ return '<section class="feed-section"><h2>'+title+'</h2>'+(body||'<p class="meta pad">Nothing to show yet.</p>')+'</section>';
+}
+function pageTop(title,kicker){
+ return '<header class="pt"><h1>'+title+'</h1><em class="stk">'+kicker+'</em></header>';
+}
+function renderHome(){
+ return pageTop('Home','your feed')+
+ '<div class="seg" role="tablist"><i></i><button role="tab" data-tab="fy" aria-selected="'+(homeTab==='fy')+'">For you</button><button role="tab" data-tab="fo" aria-selected="'+(homeTab==='fo')+'">Following</button></div>'+
+ '<div class="feed-actions"><button class="chip" data-open-topics>CHOOSE TOPICS</button><button class="chip" data-open-search>FIND CHANNELS & SOURCES</button></div>'+
+ '<p class="meta pad" id="homeFeedStatus">Building your feed…</p><div id="homeFeedResults"></div>';
+}
+function renderVideoPage(){
+ return pageTop('Videos','YouTube')+
+ '<section class="video-controls"><div class="video-player-tools"><div id="videoPlayerHost" class="video-player-host"><span>Choose a video to start watching.</span></div><div class="video-toolbar"><p class="meta" id="videoPlaybackStatus">Your selected video will play here.</p><button class="chip" data-video-fullscreen>FULL SCREEN</button></div><div id="videoCaptions" class="video-captions" aria-live="polite"></div></div>'+
+ '<h2>Find videos</h2><label class="si">'+ic('search')+'<input id="videoQuery" type="search" placeholder="Search videos, creators and topics" aria-label="Search videos" autocomplete="off"></label><button class="btn" data-video-search>SEARCH YOUTUBE</button><p class="meta pad" id="videoStatus">Search all of YouTube. Recommendations are filtered separately.</p><div id="videoResults"></div></section>';
+}
+function renderMusicPage(){
+ return pageTop('Music','your listening taste')+
+ '<section class="music-now" id="musicNowPlaying"><div class="music-now-art"><img id="musicNowArtwork" src="" alt="Current track artwork"><span id="musicNowFallback">NO<br>MUSIC</span></div><div class="music-now-copy"><span class="stk">NOW PLAYING</span><h3 id="musicNowTitle">No music playing</h3><p id="musicNowArtist">Video playback will not appear here.</p><p class="meta" id="musicStatus">Start a track or browse music.</p><button class="btn k" data-music-toggle aria-label="Play or pause music">'+ic('play')+' PLAY / PAUSE</button></div></section>'+
+ '<h2>Picked for your taste</h2><p class="meta pad" id="musicSuggestionStatus">Using your listening history and followed musicians.</p><div id="musicSuggestions"></div>'+
+ '<h2>Discover music</h2><section class="music-find"><label class="si">'+ic('search')+'<input id="musicQuery" type="search" placeholder="Search songs, artists or albums" aria-label="Search music" autocomplete="off"></label><button class="btn" data-music-search>SEARCH MUSIC</button><div id="musicResults"></div></section>'+
+ '<section><h2>Browse genres</h2><div class="gen">'+['Pop','Hip-hop','Electronic','Rock','Jazz','Ambient','Classical','Folk'].map((t,i)=>'<button class="cat" data-music-term="'+t+'" style="background:'+PAL[(i+1)%PAL.length]+'"><b>'+t+'</b><i aria-hidden="true">→</i></button>').join('')+'</div></section>'+
+ '<section><h2>Recently played</h2><div id="musicRecent"><p class="meta pad">Your listening history will appear here.</p></div></section>'+
+ '<section class="lyrics-section"><h2>Lyrics</h2><p class="meta" id="lyricsStatus">Play a track to load its lyrics.</p><div id="lyricsPanel" class="lyrics-panel"></div></section>';
+}
+function renderNewsPage(){
+ return pageTop('News','useful reporting')+
+ '<section class="news-controls"><div class="chips news-chips">'+['Personalized','World','Technology','Science','Business','Sports','Culture','Health'].map((t,i)=>'<button class="chip" data-news-category="'+t+'" aria-pressed="'+(i===0)+'">'+t+'</button>').join('')+'</div><label class="si">'+ic('search')+'<input id="newsQuery" type="search" placeholder="Search headlines and publishers" aria-label="Search news" autocomplete="off"></label><button class="btn" data-news-search>SEARCH NEWS</button><p class="meta pad" id="newsStatus">Ranking reporting from your topics and followed publishers…</p><div id="newsResults"></div></section>';
+}
+function renderSearchPage(){
+ return pageTop('Search','open discovery')+
+ '<label class="si">'+ic('search')+'<input id="q" type="search" placeholder="Search videos, music, news, channels or artists" aria-label="Search all Widgetly" autocomplete="off"></label><button class="btn" data-unified-search>SEARCH ALL SOURCES</button>'+
+ '<div class="chips search-filters"><button class="chip" data-search-filter="all" aria-pressed="true">All</button><button class="chip" data-search-filter="videos" aria-pressed="false">Videos</button><button class="chip" data-search-filter="music" aria-pressed="false">Music</button><button class="chip" data-search-filter="news" aria-pressed="false">News</button><button class="chip" data-search-filter="channels" aria-pressed="false">Channels</button></div>'+
+ '<p class="meta pad" id="unifiedStatus">Search is broad. Recommendation rules do not restrict these results.</p><div id="unifiedResults"></div>';
+}
+function renderTopicsPage(){
+ return pageTop('Your topics','personalize recommendations')+
+ '<p class="pad meta">Choose any subjects you care about. Low-focus topics remain searchable, but receive less weight in recommendations.</p><div class="topics-grid" id="topicOptions">'+TOPICS.map((t,i)=>'<button class="chip topic-chip" data-topic="'+esc(t)+'" aria-pressed="'+selectedTopics().includes(t)+'">'+esc(t)+'</button>').join('')+'</div>'+
+ '<div class="feed-actions"><button class="btn k" data-save-topics>SAVE TOPICS</button><span class="meta" id="topicStatus">'+selectedTopics().length+' topics selected</span></div>'+
+ '<h2>Followed sources</h2><p class="meta pad">Follow any channel, publisher or musician. YouTube channels need the “Add to For You” flag to enter the productive recommendation pool.</p><div id="followedSources"></div>';
+}
+const R={home:renderHome,videos:renderVideoPage,music:renderMusicPage,news:renderNewsPage,search:renderSearchPage,topics:renderTopicsPage};
+const NAV=[['home','Home','home'],['videos','Videos','vid'],['music','Music','music'],['news','News','news'],['search','Search','search']];
+$('#nav').innerHTML='<i class="pill"></i>'+NAV.map(([key,label,icon])=>'<a href="#'+key+'" data-k="'+key+'">'+ic(icon)+'<span>'+label+'</span></a>').join('');
+function navPosition(){
+ const active=$('#nav a[aria-current]'),nav=$('#nav');if(!active)return;
+ nav.style.setProperty('--lx',active.offsetLeft+2+'px');nav.style.setProperty('--lw',active.offsetWidth-4+'px');
+}
+function indicator(){
+ const seg=$('.seg'),button=seg&&seg.querySelector('[aria-selected="true"]');
+ if(button){seg.style.setProperty('--tx',button.offsetLeft+'px');seg.style.setProperty('--tw',button.offsetWidth+'px')}
+}
+function renderSources(){
+ const root=$('#followedSources');if(!root)return;
+ root.innerHTML=prefs.sources.length?prefs.sources.map(s=>{
+  return '<article class="source-card"><div class="source-info"><b>'+esc(s.name)+'</b><span>'+esc(s.kind)+(s.kind==='channel'?(s.productive?' · included in For You':' · Following only'):' · Following')+'</span><div class="source-actions">'+
+   (s.kind==='channel'?'<button class="chip" data-recommend-channel data-source-id="'+esc(s.id)+'" data-source-name="'+esc(s.name)+'" aria-pressed="'+!!s.productive+'">'+(s.productive?'REMOVE FROM FOR YOU':'ADD TO FOR YOU')+'</button>':'')+
+   '<button class="chip" data-unfollow-kind="'+esc(s.kind)+'" data-source-id="'+esc(s.id)+'">UNFOLLOW</button></div></div></article>';
+ }).join(''):'<p class="meta pad">You are not following any sources yet. Search for channels, publishers or musicians to add them.</p>';
+}
+function applyPrefs(data){
+ if(data&&data.topics&&data.sources)prefs=data;
+ const root=$('#topicOptions');
+ if(root)root.querySelectorAll('[data-topic]').forEach(b=>b.setAttribute('aria-pressed',selectedTopics().includes(b.dataset.topic)));
+ const status=$('#topicStatus');if(status)status.textContent=selectedTopics().length+' topics selected';
+ renderSources();
+}
+function loadFeedPreferences(){
+ try{if(window.RushNative){const raw=RushNative.getFeedPreferences();if(raw)applyPrefs(JSON.parse(raw))}}catch(e){}
+}
+function go(){
+ page=(location.hash||'#home').slice(1);
+ if(!R[page])page='home';
+ $('#v').innerHTML=R[page]();
+ document.querySelectorAll('#nav a').forEach(a=>a.dataset.k===page?a.setAttribute('aria-current','page'):a.removeAttribute('aria-current'));
+ $('#sc').scrollTop=0;navPosition();indicator();loadFeedPreferences();
+ if(window.RushNative){RushNative.loadCurrentPlayback();
+  if(page==='home')loadHomeFeed();
+  if(page==='videos')RushNative.showCurrentVideo();
+  else RushNative.hideVideo();
+  if(page==='music'){RushNative.loadMusicHistory();RushNative.loadMusicSuggestions();RushNative.loadCurrentMusicLyrics()}
+  if(page==='news')RushNative.loadPersonalizedNews();
+ }
+}
+function loadHomeFeed(){
+ const status=$('#homeFeedStatus');if(status)status.textContent=homeTab==='fy'?'Finding videos from your selected productive channels…':'Loading posts from sources you follow…';
+ if(window.RushNative)RushNative.loadHomeFeed(homeTab==='fy'?'forYou':'following');
+}
+function renderFeedResults(data){
+ if(page!=='home')return;
+ const root=$('#homeFeedResults'),status=$('#homeFeedStatus');if(!root)return;
+ const videos=(data.videos||[]),music=(data.music||[]),news=(data.news||[]);
+ const v=videos.map(videoRow).join(''),m=music.map(musicRow).join(''),n=news.map(newsCard).join('');
+ root.innerHTML=(v?section(homeTab==='fy'?'Recommended from your selected channels':'Latest from followed channels',v):'')+
+  (m?section('From musicians you follow',m):'')+(n?section('From publishers you follow',n):'')+
+  (!v&&!m&&!n?'<div class="empty-state"><b>'+esc(data.message||'No recommendations yet.')+'</b><p>Use Search to follow sources. Choose which YouTube channels are eligible for For You.</p><button class="btn k" data-open-search>FIND SOURCES</button></div>':'');
+ if(status)status.textContent=data.message||((videos.length+music.length+news.length)+' items · '+(homeTab==='fy'?'productive channel selection':'following'));
+}
+function renderChannels(items){
+ const root=$('#channelResults');if(!root)return;
+ root.innerHTML=items.map(channelCard).join('')||'<p class="meta pad">No channels found. Try the channel name or handle.</p>';
+}
+function renderSearchResults(){
  const root=$('#unifiedResults');if(!root||page!=='search')return;
- const q=unifiedQuery.toLowerCase();
  const groups={
-  videos:unifiedData.videos.filter(x=>!q||String(x.title+' '+x.artist).toLowerCase().includes(q)).slice(0,8),
-  music:unifiedData.music.filter(x=>!q||String(x.title+' '+x.artist).toLowerCase().includes(q)).slice(0,8),
-  news:unifiedData.news.filter(x=>!q||String(x.title+' '+x.source+' '+x.summary).toLowerCase().includes(q)).slice(0,8),
-  people:ALL.filter(x=>x[1]==='Person'||x[1]==='Artist').filter(x=>!q||x[0].toLowerCase().includes(q)).slice(0,8)
+  videos:unifiedData.videos,
+  music:unifiedData.music,
+  news:unifiedData.news,
+  channels:unifiedData.channels
  };
- const section=(name,items,type)=>{if(unifiedMode!=='all'&&unifiedMode!==type)return '';let body='';
- if(type==='videos')body=items.map((x,i)=>'<button class="row n" data-video-id="'+esc(x.id)+'" data-title="'+esc(x.title)+'" data-creator="'+esc(x.artist)+'" data-thumbnail="'+esc(x.thumbnail)+'"><em>'+(i+1)+'</em><img src="'+esc(x.thumbnail)+'" alt="" loading="lazy"><div><b>'+esc(x.title)+'</b><span>'+esc(x.artist)+' · '+esc(x.duration)+'</span></div>'+ic('play')+'</button>').join('');
- if(type==='music')body=items.map((x,i)=>'<button class="row n" data-track="'+esc(x.id)+'" data-title="'+esc(x.title)+'" data-artist="'+esc(x.artist)+'" data-thumbnail="'+esc(x.thumbnail)+'"><em>'+(i+1)+'</em><img src="'+esc(x.thumbnail)+'" alt="" loading="lazy"><div><b>'+esc(x.title)+'</b><span>'+esc(x.artist)+' · '+esc(x.duration)+'</span></div>'+ic('play')+'</button>').join('');
- if(type==='news')body=items.map((x,i)=>'<button class="news-item" data-news-url="'+esc(x.url)+'">'+(x.thumbnail?'<img class="news-thumb" src="'+esc(x.thumbnail)+'" alt="" loading="lazy">':'')+'<b>'+esc(x.title)+'</b><span>'+esc(x.source)+' · '+esc(x.date)+'</span><p>'+esc(x.summary)+'</p><i>OPEN ARTICLE →</i></button>').join('');
- if(type==='people')body=items.map((x,i)=>'<div class="row"><em>'+(i+1)+'</em><div><b>'+esc(x[0])+'</b><span>'+esc(x[1])+'</span></div></div>').join('');
- return '<section class="unified-group"><h2>'+name+' <small>'+items.length+'</small></h2>'+(body||'<p class="meta pad">No '+name.toLowerCase()+' matches.</p>')+'</section>';
- };
- root.innerHTML=section('Videos',groups.videos,'videos')+section('Music',groups.music,'music')+section('News',groups.news,'news')+section('People',groups.people,'people');
- const total=groups.videos.length+groups.music.length+groups.news.length+groups.people.length;
- const status=$('#unifiedStatus');if(status)status.textContent=total+' matching results · '+(unifiedMode==='all'?'all categories':unifiedMode);
+ const names={videos:'Videos',music:'Music',news:'News',channels:'YouTube channels'};
+ const renderers={videos:items=>items.map(videoRow).join(''),music:items=>items.map(musicRow).join(''),news:items=>items.map(newsCard).join(''),channels:items=>items.map(channelCard).join('')};
+ root.innerHTML=Object.keys(groups).filter(k=>unifiedMode==='all'||unifiedMode===k).map(k=>{
+  const items=groups[k];return section(names[k]+' · '+items.length,renderers[k](items));
+ }).join('')||'<p class="meta pad">No results in this category.</p>';
+ const total=Object.values(groups).reduce((sum,items)=>sum+items.length,0);
+ const status=$('#unifiedStatus');if(status)status.textContent=total+' results · search keeps broader discovery open';
 }
 function runUnifiedSearch(){
- const input=$('#q');const q=input?.value.trim();if(!q)return;
- unifiedQuery=q;unifiedData.videos=[];unifiedData.music=[];unifiedData.news=[];
- const status=$('#unifiedStatus');if(status)status.textContent='Searching videos, music and news…';
+ const q=$('#q')?.value.trim();if(!q)return;
+ unifiedQuery=q;Object.keys(unifiedData).forEach(k=>unifiedData[k]=[]);
+ const status=$('#unifiedStatus');if(status)status.textContent='Searching YouTube, YouTube Music and news sources…';
  $('#unifiedResults').innerHTML='';
- if(window.RushNative){RushNative.searchVideos(q);RushNative.searchMusic(q);RushNative.searchNews(q)}
- renderUnifiedSearch();
+ if(window.RushNative){RushNative.searchVideos(q);RushNative.searchMusic(q);RushNative.searchNews(q);RushNative.searchChannels(q)}
 }
-/* interactions */
-$('#v').addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
-if(b.hasAttribute('data-unified-search')){runUnifiedSearch();return}
-if(b.dataset.searchFilter){unifiedMode=b.dataset.searchFilter;document.querySelectorAll('[data-search-filter]').forEach(c=>c.setAttribute('aria-pressed',c===b));renderUnifiedSearch();return}
-if(b.hasAttribute('data-video-search')){const q=$('#videoQuery')?.value.trim();if(q&&window.RushNative){$('#videoStatus').textContent='Searching YouTube…';$('#videoResults').innerHTML='';RushNative.searchVideos(q)}return}
-if(b.hasAttribute('data-video-close')){if(window.RushNative)RushNative.hideVideo();const host=$('#videoPlayerHost');if(host)host.innerHTML='<span>SELECT A VIDEO TO START PLAYBACK</span>';return}
-if(b.hasAttribute('data-music-toggle')){if(window.RushNative)RushNative.toggleMusicPlayback();return}
-if(b.dataset.videoId){const d=b.dataset;$('#videoPlaybackStatus').textContent='Preparing video…';const host=$('#videoPlayerHost');if(host){host.scrollIntoView({behavior:RM?'auto':'smooth',block:'start'});host.innerHTML='<span>LOADING VIDEO…</span>'}if(window.RushNative)RushNative.playVideo(d.videoId,d.title,d.creator,d.thumbnail);return}
-if(b.hasAttribute('data-news-search')){const q=$('#newsQuery')?.value.trim();if(q&&window.RushNative)RushNative.searchNews(q);return}
-if(b.dataset.newsCategory){document.querySelectorAll('[data-news-category]').forEach(c=>c.setAttribute('aria-pressed',c===b));if(window.RushNative)RushNative.loadNews(b.dataset.newsCategory);return}
-if(b.dataset.newsUrl){if(window.RushNative)RushNative.openNews(b.dataset.newsUrl);return}
-if(b.hasAttribute('data-music-search')){const q=$('#musicQuery')?.value.trim();if(q&&window.RushNative){$('#musicStatus').textContent='Searching YouTube Music…';$('#musicResults').innerHTML='';RushNative.searchMusic(q)}return}
-if(b.dataset.musicTerm){$('#musicQuery').value=b.dataset.musicTerm;$('#musicStatus').textContent='Searching YouTube Music…';$('#musicResults').innerHTML='';if(window.RushNative)RushNative.searchMusic(b.dataset.musicTerm);return}
-if(b.dataset.track){const d=b.dataset;cur={i:4,t:d.title,s:d.artist};playing=true;started=1;pg=0;setItem();vis();updateMusicNowPlaying(d.title,d.artist,d.thumbnail);if(window.RushNative)RushNative.playMusic(d.track,d.title,d.artist,d.thumbnail||'');return}
-if(b.dataset.tab){tab=b.dataset.tab;$('#v').innerHTML=R.home();ind();return}
-if(b.dataset.i!=null){pick(b);return}
-if('like' in b.dataset){const on=b.getAttribute('aria-pressed')!='true';b.setAttribute('aria-pressed',on);b.querySelector('span').textContent=k(+b.dataset.n+(on?1:0))}
-else if('bm' in b.dataset)b.setAttribute('aria-pressed',b.getAttribute('aria-pressed')!='true');
-else if(b.classList.contains('chip'))b.parentNode.querySelectorAll('.chip').forEach(c=>c.setAttribute('aria-pressed',c==b));
-else if(b.dataset.cat)$('#res').innerHTML=hit(ALL.filter(a=>a[1]==b.dataset.cat));
-else if(b.dataset.s){$('#q').value=b.dataset.s;$('#q').dispatchEvent(new Event('input',{bubbles:true}))}});
-$('#v').addEventListener('keydown',e=>{if(e.target.id==='q'&&e.key==='Enter'){e.preventDefault();runUnifiedSearch()}if(e.target.id==='videoQuery'&&e.key==='Enter'){e.preventDefault();const q=e.target.value.trim();if(q&&window.RushNative)RushNative.searchVideos(q)}if(e.target.id==='newsQuery'&&e.key==='Enter'){e.preventDefault();const q=e.target.value.trim();if(q&&window.RushNative)RushNative.searchNews(q)}if(e.target.id==='musicQuery'&&e.key==='Enter'){e.preventDefault();const q=e.target.value.trim();if(q&&window.RushNative){$('#musicStatus').textContent='Searching YouTube Music…';$('#musicResults').innerHTML='';RushNative.searchMusic(q)}}});
-window.rushVideoSearchResults=items=>{unifiedData.videos=items;renderUnifiedSearch();const root=$('#videoResults');if(!root)return;const s=$('#videoStatus');if(s)s.textContent=items.length+' videos found';const safe=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));root.innerHTML=items.map((x,i)=>`<button class="row n" data-video-id="${safe(x.id)}" data-title="${safe(x.title)}" data-creator="${safe(x.artist)}" data-thumbnail="${safe(x.thumbnail)}"><em>${i+1}</em><img src="${safe(x.thumbnail)}" alt="" loading="lazy" decoding="async"><div><b>${safe(x.title)}</b><span>${safe(x.artist)} · ${safe(x.duration)}</span></div>${ic('play')}</button>`).join('')||'<p class="meta pad">No videos found.</p>'};
-window.rushVideoSearchError=error=>{const message=error.message||'Video search failed.';const s=$('#videoStatus');if(s)s.textContent=message;const u=$('#unifiedStatus');if(u&&page==='search')u.textContent='Video search: '+message};
-window.rushVideoPlaybackState=state=>{const s=$('#videoPlaybackStatus');if(s)s.textContent=state.state==='playing'?'NOW PLAYING · '+state.title+(state.captionTracks?' · CAPTIONS AVAILABLE':' · NO CAPTIONS PROVIDED'):state.message||state.state;if(state.state==='loading'){const host=$('#videoPlayerHost');if(host)host.innerHTML='<span>LOADING VIDEO…</span>';$('#videoCaptions').textContent=''}};
+function updateMini(){
+ const mini=$('#mini');if(!mini)return;
+ const show=!!mediaState.hasItem&&!(!mediaState.title);
+ mini.classList.toggle('on',show);mini.inert=!show;
+ if(!show)return;
+ $('#mt').textContent=mediaState.title||'Now playing';
+ $('#ms').textContent=(mediaState.isMusic?'MUSIC':(mediaState.isVideo?'VIDEO':'MEDIA'))+(mediaState.artist?' · '+mediaState.artist:'');
+ const a=$('#ma');if(a)a.style.backgroundImage=mediaState.artwork?'url("'+esc(mediaState.artwork)+'")':'none';
+ $('#mp').innerHTML=ic(mediaState.isPlaying?'pause':'play');
+}
+function updateCurrentPlayback(data){
+ mediaState=Object.assign({},mediaState,data||{});
+ updateMini();
+ if(page==='music'){
+  const isMusic=mediaState.hasItem&&mediaState.isMusic;
+  const title=$('#musicNowTitle'),artist=$('#musicNowArtist'),status=$('#musicStatus'),img=$('#musicNowArtwork'),box=img&&img.parentElement;
+  if(title)title.textContent=isMusic?(mediaState.title||'Unknown track'):'No music playing';
+  if(artist)artist.textContent=isMusic?(mediaState.artist||'Unknown artist'):'Video playback will not appear here.';
+  if(status)status.textContent=isMusic?(mediaState.isPlaying?'PLAYING':'PAUSED'):'Start a track or follow a musician.';
+  if(img&&box){if(isMusic&&mediaState.artwork){img.src=mediaState.artwork;box.classList.add('has-art')}else{img.removeAttribute('src');box.classList.remove('has-art')}}
+  const toggle=$('[data-music-toggle]');if(toggle)toggle.innerHTML=ic(isMusic&&mediaState.isPlaying?'pause':'play')+(isMusic&&mediaState.isPlaying?' PAUSE':' PLAY');
+ }
+}
+function renderPreferencePage(){
+ applyPrefs(prefs);renderSources();
+}
+function handleFollow(kind,id,name,productive){
+ if(!window.RushNative)return;
+ RushNative.followSource(kind,id,name,!!productive);
+}
+function refreshCurrentPage(){
+ if(page==='home')loadHomeFeed();
+ if(page==='topics')renderPreferencePage();
+}
+document.addEventListener('click',e=>{
+ const b=e.target.closest('button');if(!b)return;
+ if(b.id==='topicsShortcut'||b.hasAttribute('data-open-topics')){location.hash='#topics';return}
+ if(b.id==='profileShortcut'||b.hasAttribute('data-open-search')){location.hash='#search';return}
+ if(b.dataset.tab){homeTab=b.dataset.tab;$('#v').innerHTML=R.home();indicator();loadHomeFeed();return}
+ if(b.hasAttribute('data-save-topics')){saveTopics();return}
+ if(b.dataset.topic){const on=b.getAttribute('aria-pressed')!=='true';b.setAttribute('aria-pressed',String(on));return}
+ if(b.hasAttribute('data-unified-search')){runUnifiedSearch();return}
+ if(b.dataset.searchFilter){unifiedMode=b.dataset.searchFilter;document.querySelectorAll('[data-search-filter]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));renderSearchResults();return}
+ if(b.hasAttribute('data-video-search')){const q=$('#videoQuery')?.value.trim();if(q&&window.RushNative){$('#videoStatus').textContent='Searching YouTube…';$('#videoResults').innerHTML='';RushNative.searchVideos(q)}return}
+ if(b.hasAttribute('data-channel-search')){const q=$('#channelQuery')?.value.trim();if(q&&window.RushNative){$('#channelStatus').textContent='Searching channels…';$('#channelResults').innerHTML='';RushNative.searchChannels(q)}return}
+ if(b.hasAttribute('data-music-search')){const q=$('#musicQuery')?.value.trim();if(q&&window.RushNative){$('#musicStatus').textContent='Searching YouTube Music…';$('#musicResults').innerHTML='';RushNative.searchMusic(q)}return}
+ if(b.dataset.musicTerm){const input=$('#musicQuery');if(input)input.value=b.dataset.musicTerm;if(window.RushNative)RushNative.searchMusic(b.dataset.musicTerm);return}
+ if(b.hasAttribute('data-news-search')){const q=$('#newsQuery')?.value.trim();if(q&&window.RushNative)RushNative.searchNews(q);return}
+ if(b.dataset.newsCategory){document.querySelectorAll('[data-news-category]').forEach(x=>x.setAttribute('aria-pressed',String(x===b)));if(b.dataset.newsCategory==='Personalized')RushNative.loadPersonalizedNews();else if(window.RushNative)RushNative.loadNews(b.dataset.newsCategory);return}
+ if(b.dataset.followKind){handleFollow(b.dataset.followKind,b.dataset.sourceId,b.dataset.sourceName,false);return}
+ if(b.hasAttribute('data-recommend-channel')){const source=sourceFor('channel',b.dataset.sourceId);if(window.RushNative)RushNative.setChannelRecommended(b.dataset.sourceId,b.dataset.sourceName,!(source&&source.productive));return}
+ if(b.dataset.unfollowKind){if(window.RushNative)RushNative.unfollowSource(b.dataset.unfollowKind,b.dataset.sourceId);return}
+ if(b.dataset.videoId){const d=b.dataset;const host=$('#videoPlayerHost');if(host){host.scrollIntoView({behavior:RM?'auto':'smooth',block:'start'});host.innerHTML='<span>LOADING VIDEO…</span>'}const status=$('#videoPlaybackStatus');if(status)status.textContent='Preparing video…';if(window.RushNative)RushNative.playVideo(d.videoId,d.title,d.creator,d.thumbnail);return}
+ if(b.dataset.track){const d=b.dataset;const status=$('#musicStatus');if(status)status.textContent='Preparing track…';if(window.RushNative)RushNative.playMusic(d.track,d.title,d.artist,d.thumbnail);return}
+ if(b.dataset.newsUrl){if(window.RushNative)RushNative.openNews(b.dataset.newsUrl);return}
+ if(b.hasAttribute('data-video-fullscreen')){if(window.RushNative)RushNative.setVideoFullscreen(true);return}
+ if(b.hasAttribute('data-video-close')){if(window.RushNative)RushNative.hideVideo();return}
+ if(b.hasAttribute('data-music-toggle')){if(mediaState.hasItem&&mediaState.isMusic&&window.RushNative)RushNative.togglePlayback();return}
+ if(b.dataset.act==='toggle'){if(window.RushNative)RushNative.togglePlayback();return}
+ if(b.dataset.act==='open'){location.hash=mediaState.isMusic?'#music':'#videos';return}
+});
+document.addEventListener('keydown',e=>{
+ if(e.key!=='Enter')return;
+ if(e.target.id==='q'){e.preventDefault();runUnifiedSearch()}
+ if(e.target.id==='videoQuery'){e.preventDefault();const b=$('[data-video-search]');if(b)b.click()}
+ if(e.target.id==='channelQuery'){e.preventDefault();const b=$('[data-channel-search]');if(b)b.click()}
+ if(e.target.id==='musicQuery'){e.preventDefault();const b=$('[data-music-search]');if(b)b.click()}
+ if(e.target.id==='newsQuery'){e.preventDefault();const b=$('[data-news-search]');if(b)b.click()}
+});
+window.rushFeedPreferences=data=>{applyPrefs(data);refreshCurrentPage()};
+window.rushFeedPreferencesError=error=>{const t=$('#topicStatus');if(t)t.textContent=error.message||'Could not save preferences.'};
+window.rushCurrentPlayback=updateCurrentPlayback;
+window.rushHomeFeedResults=renderFeedResults;
+window.rushChannelSearchResults=items=>{renderChannels(items);if(page==='search'){unifiedData.channels=items;renderSearchResults()}};
+window.rushChannelSearchError=error=>{const s=$('#channelStatus')||$('#unifiedStatus');if(s)s.textContent=error.message||'Channel search failed.'};
+window.rushVideoSearchResults=items=>{
+ unifiedData.videos=items;renderSearchResults();
+ const root=$('#videoResults');if(root)root.innerHTML=items.map(videoRow).join('')||'<p class="meta pad">No videos found. Try another search.</p>';
+ const status=$('#videoStatus');if(status)status.textContent=items.length+' videos found';
+};
+window.rushVideoSearchError=error=>{const s=$('#videoStatus')||$('#unifiedStatus');if(s)s.textContent=error.message||'Video search failed.'};
+window.rushVideoPlaybackState=state=>{
+ const s=$('#videoPlaybackStatus');if(s)s.textContent=state.state==='playing'?'NOW PLAYING · '+state.title+(state.captionTracks?' · CAPTIONS AVAILABLE':''):state.message||state.state;
+ if(state.state==='loading'){const host=$('#videoPlayerHost');if(host)host.innerHTML='<span>LOADING VIDEO…</span>'}
+ if(state.state==='playing'&&window.RushNative)RushNative.loadCurrentPlayback();
+};
 window.rushVideoCaptions=lines=>{const root=$('#videoCaptions');if(root)root.textContent=lines.join(' ')};
-window.rushNewsLoading=state=>{const s=$('#newsStatus');if(s)s.textContent='Loading: '+state.query+'…'};
-window.rushNewsError=error=>{const message=error.message||'Could not load news.';const s=$('#newsStatus');if(s)s.textContent=message;const u=$('#unifiedStatus');if(u&&page==='search')u.textContent='News search: '+message};
-window.rushNewsResults=items=>{unifiedData.news=items;renderUnifiedSearch();const root=$('#newsResults');if(!root)return;const s=$('#newsStatus');if(s)s.textContent=items.length+' articles';const safe=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));root.innerHTML=items.map((x,i)=>i===0?`<button class="news-feature" data-news-url="${safe(x.url)}">${x.thumbnail?`<img src="${safe(x.thumbnail)}" alt="" loading="eager" decoding="async">`:''}<div class="news-feature-copy"><i>TOP STORY · ${safe(x.source)}</i><b>${safe(x.title)}</b><span>${safe(x.date)}</span><p>${safe(x.summary)}</p><i>READ FULL STORY →</i></div></button>`:`<button class="news-item" data-news-url="${safe(x.url)}">${x.thumbnail?`<img class="news-thumb" src="${safe(x.thumbnail)}" alt="" loading="lazy" decoding="async">`:''}<b>${safe(x.title)}</b><span>${safe(x.source)} · ${safe(x.date)}</span><p>${safe(x.summary)}</p><i>OPEN ARTICLE →</i></button>`).join('')||'<p class="meta pad">No articles found for this topic.</p>'};
-window.rushMusicHistory=items=>{const root=$('#musicRecent');if(!root)return;const safe=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));root.innerHTML=items.slice(0,8).map((x,i)=>`<button class="row n" data-track="${safe(x.id)}" data-title="${safe(x.title)}" data-artist="${safe(x.artist)}" data-thumbnail="${safe(x.thumbnail)}"><em>${i+1}</em><img src="${safe(x.thumbnail)}" alt="" loading="lazy"><div><b>${safe(x.title)}</b><span>${safe(x.artist)}</span></div>${ic('play')}</button>`).join('')||'<p class="meta pad">No tracks played yet.</p>'};
-window.rushMusicSearchResults=items=>{unifiedData.music=items;renderUnifiedSearch();const root=$('#musicResults');if(!root)return;$('#musicStatus').textContent=items.length+' tracks found';root.innerHTML=items.map((x,i)=>{const safe=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));return `<button class="row n" data-track="${safe(x.id)}" data-title="${safe(x.title)}" data-artist="${safe(x.artist)}" data-thumbnail="${safe(x.thumbnail)}"><em>${i+1}</em><img src="${safe(x.thumbnail)}" alt="" loading="lazy"><div><b>${safe(x.title)}</b><span>${safe(x.artist)} · ${safe(x.duration)}</span></div>${ic('play')}</button>`}).join('')||'<p class="meta pad">No tracks found. Try another search.</p>'};
-window.rushMusicSearchError=error=>{const message=error.message||'Music search failed.';const status=$('#musicStatus');if(status)status.textContent=message;const u=$('#unifiedStatus');if(u&&page==='search')u.textContent='Music search: '+message};
-function updateMusicNowPlaying(title,artist,thumbnail){const t=$('#musicNowTitle'),a=$('#musicNowArtist'),img=$('#musicNowArtwork'),box=img?.parentElement;if(t)t.textContent=title||'Choose a track';if(a)a.textContent=artist||'Unknown artist';if(img&&thumbnail){img.src=thumbnail;img.onerror=()=>{box?.classList.remove('has-art')};box?.classList.add('has-art')}else if(!img?.getAttribute('src'))box?.classList.remove('has-art')}
-window.rushMusicPlaybackState=state=>{const status=$('#musicStatus');if(status)status.textContent=state.state==='playing'?'PLAYING · '+(state.title||'track'):state.state==='loading'?'LOADING · '+(state.title||'track'):state.message||state.state;if(state.title){cur={...cur,t:state.title,s:state.artist||cur.s};updateMusicNowPlaying(state.title,state.artist||cur.s,'')}const toggle=$('[data-music-toggle]');if(toggle)toggle.innerHTML=ic(state.state==='playing'?'pause':'play')+(state.state==='playing'?' PAUSE':' PLAY');if(state.state==='playing'||state.state==='paused'||state.state==='error'){playing=state.state==='playing';started=state.state!=='error';if(state.state==='playing'&&window.RushNative){RushNative.loadMusicHistory();RushNative.loadLyrics(state.title||cur.t,state.artist||cur.s||'')}setItem();tick();vis()}};
+window.rushMusicSearchResults=items=>{
+ unifiedData.music=items;renderSearchResults();
+ const root=$('#musicResults');if(root)root.innerHTML=items.map(musicRow).join('')||'<p class="meta pad">No tracks found. Try another search.</p>';
+ const status=$('#musicStatus');if(status)status.textContent=items.length+' tracks found';
+};
+window.rushMusicSearchError=error=>{const s=$('#musicStatus')||$('#unifiedStatus');if(s)s.textContent=error.message||'Music search failed.'};
+window.rushMusicHistory=items=>{const root=$('#musicRecent');if(root)root.innerHTML=items.slice(0,8).map(musicRow).join('')||'<p class="meta pad">No tracks played yet.</p>'};
+window.rushMusicSuggestionResults=data=>{
+ const items=data.items||[],root=$('#musicSuggestions'),status=$('#musicSuggestionStatus');
+ if(root)root.innerHTML=items.map(musicRow).join('')||'<p class="meta pad">'+esc(data.message||'Play music or follow an artist to establish your taste profile.')+'</p>';
+ if(status)status.textContent=data.message||'Ranked using followed musicians and recent listening history.';
+};
+window.rushMusicPlaybackState=state=>{
+ const status=$('#musicStatus');if(status&&page==='music')status.textContent=state.state==='playing'?'PLAYING · '+(state.title||'track'):state.state==='loading'?'LOADING · '+(state.title||'track'):state.message||state.state;
+ if(state.state==='playing'||state.state==='paused'||state.state==='error'){if(window.RushNative)RushNative.loadCurrentPlayback()}
+};
 window.rushMusicLyricsLoading=()=>{const s=$('#lyricsStatus');if(s)s.textContent='Loading lyrics…'};
-window.rushMusicLyricsError=error=>{const s=$('#lyricsStatus');if(s)s.textContent=error.message||'Lyrics unavailable.';$('#lyricsPanel').innerHTML=''};
-window.rushMusicLyrics=data=>{const status=$('#lyricsStatus'),root=$('#lyricsPanel');if(!root)return;const lines=(data.synced||'').split(/\r?\n/).map(line=>{const matches=[...line.matchAll(/\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g)];const text=line.slice(matches.length?matches[matches.length-1].index+matches[matches.length-1][0].length:0).trim();return matches.map(m=>({time:(+m[1]*60)+(+m[2])+(+(m[3]||0)/1000),text})).filter(x=>x.text)}).flat().sort((a,b)=>a.time-b.time);const safe=v=>String(v||'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));if(lines.length){root.innerHTML=lines.map((x,i)=>'<button class="lyric-line" data-lyric-index="'+i+'">'+safe(x.text)+'</button>').join('');window._rushLyrics=lines;status.textContent='Synced lyrics · '+(data.title||'')}else if(data.plain){root.textContent=data.plain;window._rushLyrics=[];status.textContent='Lyrics · not timed'}else{root.textContent='';status.textContent='No lyrics available.'}};
-setInterval(()=>{if(page!=='music'||!window._rushLyrics?.length||!window.RushNative)return;const pos=RushNative.musicPosition()/1000;let active=-1;window._rushLyrics.forEach((x,i)=>{if(x.time<=pos)active=i});document.querySelectorAll('.lyric-line').forEach((line,i)=>{const on=i===active;line.classList.toggle('active',on);if(on&&line.dataset.visible!=='1'){line.dataset.visible='1';line.scrollIntoView({block:'nearest',behavior:RM?'auto':'smooth'})}else if(!on)line.dataset.visible='0'})},350);
-
-document.addEventListener('error',e=>{const img=e.target;if(!(img instanceof HTMLImageElement)||img.dataset.fallback)return;const marker='/vi/',at=img.src.indexOf(marker);if(at>=0){const id=img.src.slice(at+marker.length).split('/')[0];if(/^[A-Za-z0-9_-]{11}$/.test(id)){img.dataset.fallback='1';img.src='https://i.ytimg.com/vi/'+id+'/hqdefault.jpg'}}},true);
-$('#v').addEventListener('input',e=>{if(e.target.id!=='q')return;unifiedQuery=e.target.value.trim();if(!unifiedQuery){unifiedData.videos=[];unifiedData.music=[];unifiedData.news=[];$('#unifiedResults').innerHTML=sdef();$('#unifiedStatus').textContent='Search across live video, music and news sources.'}});
+window.rushMusicLyricsError=error=>{const s=$('#lyricsStatus');if(s)s.textContent=error.message||'Lyrics unavailable.';const root=$('#lyricsPanel');if(root)root.innerHTML=''};
+window.rushMusicLyrics=data=>{
+ const status=$('#lyricsStatus'),root=$('#lyricsPanel');if(!root)return;
+ const lines=(data.synced||'').split(/\r?\n/).map(line=>{
+  const matches=[...line.matchAll(/\[(\d{1,2}):(\d{2})(?:\.(\d{1,3}))?\]/g)];
+  const text=line.slice(matches.length?matches[matches.length-1].index+matches[matches.length-1][0].length:0).trim();
+  return matches.map(m=>({time:(+m[1]*60)+(+m[2])+(+(m[3]||0)/1000),text})).filter(x=>x.text);
+ }).flat().sort((a,b)=>a.time-b.time);
+ if(lines.length){root.innerHTML=lines.map((x,i)=>'<button class="lyric-line" data-lyric-index="'+i+'">'+esc(x.text)+'</button>').join('');window._widgetlyLyrics=lines;status.textContent='Synced lyrics · '+(data.title||'')}
+ else if(data.plain){root.textContent=data.plain;window._widgetlyLyrics=[];status.textContent='Lyrics · not timed'}
+ else{root.textContent='';status.textContent='No lyrics available.'}
+};
+window.rushNewsLoading=state=>{const s=$('#newsStatus');if(s)s.textContent='Loading: '+state.query+'…'};
+window.rushNewsError=error=>{const s=$('#newsStatus')||$('#unifiedStatus');if(s)s.textContent=error.message||'Could not load news.'};
+window.rushNewsResults=items=>{
+ unifiedData.news=items;renderSearchResults();
+ const root=$('#newsResults');if(root)root.innerHTML=items.map(newsCard).join('')||'<p class="meta pad">No articles found.</p>';
+ const status=$('#newsStatus');if(status)status.textContent=items.length+' articles · ranked by your topics and publisher follows';
+};
+window.rushMusicLyricsLoading=window.rushMusicLyricsLoading;
+setInterval(()=>{
+ if(page!=='music'||!window._widgetlyLyrics?.length||!window.RushNative||!mediaState.isMusic)return;
+ const pos=RushNative.musicPosition()/1000;let active=-1;
+ window._widgetlyLyrics.forEach((x,i)=>{if(x.time<=pos)active=i});
+ document.querySelectorAll('.lyric-line').forEach((line,i)=>{
+  const on=i===active;line.classList.toggle('active',on);
+  if(on&&line.dataset.visible!=='1'){line.dataset.visible='1';line.scrollIntoView({block:'nearest',behavior:RM?'auto':'smooth'})}
+  else if(!on)line.dataset.visible='0';
+ });
+},350);
+window.addEventListener('hashchange',go);
+window.addEventListener('resize',()=>{navPosition();indicator();if(window.RushNative&&page==='videos')RushNative.updateVideoPosition()});
+loadPrefs();
 go();
 </script>
 </body></html>
