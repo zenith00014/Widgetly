@@ -20,6 +20,258 @@ class RushWebBridge(
     @Volatile private var controllerFuture: com.google.common.util.concurrent.ListenableFuture<MediaController>? = null
     private var captionListener: androidx.media3.common.Player.Listener? = null
 
+
+    @JavascriptInterface
+    fun getFeedPreferences(): String =
+        FeedPreferences.asJson(activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)).toString()
+
+    @JavascriptInterface
+    fun saveFeedTopics(topicsJson: String) {
+        val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
+        runCatching { FeedPreferences.saveTopics(prefs, topicsJson) }
+            .onSuccess { publish("rushFeedPreferences", FeedPreferences.asJson(prefs).toString()) }
+            .onFailure { publish("rushFeedPreferencesError", JSONObject().put("message", it.message ?: "Could not save topics.").toString()) }
+    }
+
+    @JavascriptInterface
+    fun followSource(kind: String, id: String, name: String, productive: Boolean) {
+        val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
+        runCatching { FeedPreferences.follow(prefs, kind, id, name, productive) }
+            .onSuccess { publish("rushFeedPreferences", FeedPreferences.asJson(prefs).toString()) }
+            .onFailure { publish("rushFeedPreferencesError", JSONObject().put("message", it.message ?: "Could not follow this source.").toString()) }
+    }
+
+    @JavascriptInterface
+    fun unfollowSource(kind: String, id: String) {
+        val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
+        runCatching { FeedPreferences.unfollow(prefs, kind, id) }
+            .onSuccess { publish("rushFeedPreferences", FeedPreferences.asJson(prefs).toString()) }
+            .onFailure { publish("rushFeedPreferencesError", JSONObject().put("message", it.message ?: "Could not unfollow this source.").toString()) }
+    }
+
+    @JavascriptInterface
+    fun setChannelRecommended(id: String, name: String, enabled: Boolean) {
+        val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
+        runCatching { FeedPreferences.setProductive(prefs, id, name, enabled) }
+            .onSuccess { publish("rushFeedPreferences", FeedPreferences.asJson(prefs).toString()) }
+            .onFailure { publish("rushFeedPreferencesError", JSONObject().put("message", it.message ?: "Could not update this channel.").toString()) }
+    }
+
+    @JavascriptInterface
+    fun searchChannels(query: String) {
+        val term = query.trim()
+        if (term.isEmpty()) return
+        activity.lifecycleScope.launch {
+            try {
+                val channels = withContext(Dispatchers.IO) {
+                    LiveYouTubeSearch.search(term, channels = true)
+                        .filter { it.isChannel && it.channelId.isNotBlank() }
+                        .distinctBy { it.channelId }
+                        .take(20)
+                }
+                val payload = JSONArray().apply {
+                    channels.forEach { channel ->
+                        put(JSONObject()
+                            .put("id", channel.channelId)
+                            .put("name", channel.title)
+                            .put("subscribers", channel.creator)
+                            .put("description", channel.description)
+                            .put("thumbnail", channel.thumbnailUrl))
+                    }
+                }
+                publish("rushChannelSearchResults", payload.toString())
+            } catch (error: Exception) {
+                publish("rushChannelSearchError", JSONObject()
+                    .put("message", playbackErrorMessage(error, "Channel search failed.")).toString())
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun loadHomeFeed(mode: String) {
+        val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
+        activity.lifecycleScope.launch {
+            val sources = FeedPreferences.sources(prefs)
+            val topics = FeedPreferences.topics(prefs)
+            val videos = LinkedHashMap<String, Pair<Int, JSONObject>>()
+            val music = LinkedHashMap<String, JSONObject>()
+            val news = LinkedHashMap<String, JSONObject>()
+            val following = mode.equals("following", true)
+            val selectedChannels = if (following) sources.filter { it.kind == "channel" }
+                else sources.filter { it.kind == "channel" && it.productive }
+            if (selectedChannels.isEmpty() && !following) {
+                publish("rushHomeFeedResults", JSONObject()
+                    .put("mode", "forYou").put("videos", JSONArray()).put("music", JSONArray())
+                    .put("news", JSONArray()).put("message", "Choose productive YouTube channels in Search to start your For You feed."))
+                return@launch
+            }
+            try {
+                withContext(Dispatchers.IO) {
+                    selectedChannels.take(10).forEach { source ->
+                        runCatching {
+                            LiveYouTubeSearch.search(source.name, music = false)
+                                .filter { it.videoId.isNotBlank() && (it.creator.equals(source.name, true) || it.creator.contains(source.name, true)) }
+                                .forEach { item ->
+                                    val score = FeedPreferences.rank(item.title, item.description, topics)
+                                    val json = JSONObject().put("id", item.videoId).put("title", item.title)
+                                        .put("artist", item.creator).put("duration", item.duration)
+                                        .put("thumbnail", item.thumbnailUrl)
+                                        .put("sourceId", source.id).put("sourceName", source.name)
+                                    val previous = videos[item.videoId]
+                                    if (previous == null || score > previous.first) videos[item.videoId] = score to json
+                                }
+                        }
+                    }
+                    if (following) {
+                        sources.filter { it.kind == "artist" }.take(6).forEach { source ->
+                            runCatching {
+                                LiveYouTubeSearch.search(source.name, music = true).forEach { item ->
+                                    if (item.videoId.isNotBlank()) music.putIfAbsent(item.videoId,
+                                        JSONObject().put("id", item.videoId).put("title", item.title)
+                                            .put("artist", item.creator).put("duration", item.duration)
+                                            .put("thumbnail", item.thumbnailUrl))
+                                }
+                            }
+                        }
+                        sources.filter { it.kind == "news" }.take(6).forEach { source ->
+                            runCatching {
+                                val items = requestNews(source.name)
+                                for (index in 0 until items.length()) {
+                                    val article = items.optJSONObject(index) ?: continue
+                                    val publisher = article.optString("source")
+                                    if (publisher.contains(source.name, true) || source.name.contains(publisher, true)) {
+                                        news.putIfAbsent(article.optString("url"), article)
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch (_: Exception) { }
+            val orderedVideos = videos.values.sortedByDescending { it.first }.take(30).map { it.second }
+            publish("rushHomeFeedResults", JSONObject()
+                .put("mode", if (following) "following" else "forYou")
+                .put("videos", JSONArray(orderedVideos))
+                .put("music", JSONArray(music.values.toList().take(20)))
+                .put("news", JSONArray(news.values.toList().take(20)))
+                .put("message", if (following && sources.isEmpty()) "Follow YouTube channels, news publishers or musicians in Search to build this feed."
+                    else if (following && orderedVideos.isEmpty() && music.isEmpty() && news.isEmpty()) "No recent items were found from your followed sources."
+                    else ""))
+        }
+    }
+
+    @JavascriptInterface
+    fun loadMusicSuggestions() {
+        val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
+        activity.lifecycleScope.launch {
+            val follows = FeedPreferences.sources(prefs).filter { it.kind == "artist" }
+            val history = runCatching { JSONArray(prefs.getString("music_history", "[]") ?: "[]") }.getOrDefault(JSONArray())
+            val artistWeights = LinkedHashMap<String, Int>()
+            follows.forEach { artistWeights[it.name] = 30 }
+            for (index in 0 until minOf(history.length(), 20)) {
+                val artist = history.optJSONObject(index)?.optString("artist").orEmpty().trim()
+                if (artist.isNotBlank()) artistWeights[artist] = (artistWeights[artist] ?: 0) + (20 - index)
+            }
+            if (artistWeights.isEmpty()) {
+                publish("rushMusicSuggestionResults", JSONObject().put("items", JSONArray())
+                    .put("message", "Play a few tracks or follow musicians to build taste-based suggestions.").toString())
+                return@launch
+            }
+            val suggestions = LinkedHashMap<String, Pair<Int, JSONObject>>()
+            withContext(Dispatchers.IO) {
+                artistWeights.entries.take(8).forEach { (artist, weight) ->
+                    runCatching {
+                        LiveYouTubeSearch.search(artist, music = true).forEach { item ->
+                            if (item.videoId.isNotBlank()) {
+                                val score = weight + if (item.creator.contains(artist, true)) 12 else 0
+                                val json = JSONObject().put("id", item.videoId).put("title", item.title)
+                                    .put("artist", item.creator).put("duration", item.duration)
+                                    .put("thumbnail", item.thumbnailUrl)
+                                val old = suggestions[item.videoId]
+                                if (old == null || score > old.first) suggestions[item.videoId] = score to json
+                            }
+                        }
+                    }
+                }
+            }
+            val ranked = suggestions.values.sortedByDescending { it.first }.take(24).map { it.second }
+            publish("rushMusicSuggestionResults", JSONObject().put("items", JSONArray(ranked))
+                .put("message", if (ranked.isEmpty()) "No suggestions found for your listening history yet." else "").toString())
+        }
+    }
+
+    @JavascriptInterface
+    fun loadPersonalizedNews() {
+        val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
+        activity.lifecycleScope.launch {
+            val topics = FeedPreferences.topics(prefs)
+            val followedPublishers = FeedPreferences.sources(prefs).filter { it.kind == "news" }
+            val queries = (topics.take(3) + followedPublishers.take(2).map { it.name }).distinct()
+            val merged = LinkedHashMap<String, Pair<Int, JSONObject>>()
+            withContext(Dispatchers.IO) {
+                queries.forEach { query ->
+                    runCatching {
+                        val items = requestNews(query)
+                        for (index in 0 until items.length()) {
+                            val item = items.optJSONObject(index) ?: continue
+                            val publisher = item.optString("source")
+                            val followBoost = if (followedPublishers.any { publisher.contains(it.name, true) || it.name.contains(publisher, true) }) 18 else 0
+                            val score = FeedPreferences.rank(item.optString("title"), item.optString("summary"), topics) + followBoost
+                            val key = item.optString("url")
+                            val previous = merged[key]
+                            if (previous == null || score > previous.first) merged[key] = score to item
+                        }
+                    }
+                }
+            }
+            val articles = merged.values.sortedByDescending { it.first }.take(40).map { it.second }
+            publish("rushNewsResults", JSONArray(articles).toString())
+        }
+    }
+
+    @JavascriptInterface
+    fun loadCurrentPlayback() {
+        activity.lifecycleScope.launch {
+            runCatching {
+                val controller = getController()
+                val item = controller.currentMediaItem
+                val metadata = item?.mediaMetadata
+                val hasItem = item != null
+                val audioOnly = metadata?.extras?.getBoolean(PlaybackMetadata.AUDIO_ONLY, false) == true
+                publish("rushCurrentPlayback", JSONObject()
+                    .put("hasItem", hasItem)
+                    .put("isMusic", hasItem && audioOnly)
+                    .put("isVideo", hasItem && !audioOnly)
+                    .put("isPlaying", controller.isPlaying)
+                    .put("title", metadata?.title?.toString().orEmpty())
+                    .put("artist", metadata?.artist?.toString().orEmpty())
+                    .put("artwork", metadata?.artworkUri?.toString().orEmpty())
+                    .put("mediaId", item?.mediaId.orEmpty())
+                    .put("position", controller.currentPosition)
+                    .put("duration", controller.duration))
+            }.onFailure {
+                publish("rushCurrentPlayback", JSONObject().put("hasItem", false).put("isMusic", false)
+                    .put("isVideo", false).put("isPlaying", false).toString())
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun togglePlayback() {
+        activity.lifecycleScope.launch {
+            runCatching {
+                val controller = getController()
+                if (controller.isPlaying) controller.pause() else controller.play()
+                loadCurrentPlayback()
+            }
+        }
+    }
+
+    @JavascriptInterface
+    fun setVideoFullscreen(enabled: Boolean) {
+        activity.setNativeVideoFullscreen(enabled)
+    }
+
     @JavascriptInterface
     fun searchMusic(query: String) {
         val term = query.trim()
