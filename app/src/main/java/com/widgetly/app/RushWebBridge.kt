@@ -141,7 +141,7 @@ class RushWebBridge(
                     results.forEach { item ->
                         put(JSONObject().put("id", item.videoId).put("title", item.title)
                             .put("artist", item.creator).put("duration", item.duration)
-                            .put("thumbnail", item.thumbnailUrl))
+                            .put("thumbnail", thumbnailFor(item.videoId, item.thumbnailUrl)))
                     }
                 }
                 publish("rushVideoSearchResults", payload.toString())
