@@ -75,16 +75,38 @@ class MainActivity:ComponentActivity(){
     setShowSubtitleButton(true)
     setKeepContentOnPlayerReset(true)
     setBackgroundColor(android.graphics.Color.BLACK)
+    elevation=resources.displayMetrics.density*8
    }.also { nativeVideoView=it }
    view.player=player
-   if(view.parent==null){
-    val params=android.widget.FrameLayout.LayoutParams(
-     android.widget.FrameLayout.LayoutParams.MATCH_PARENT,(240*resources.displayMetrics.density).toInt(),
-     android.view.Gravity.TOP
-    ).apply { topMargin=(76*resources.displayMetrics.density).toInt() }
-    rootLayout.addView(view,params)
+   if(view.parent==null)rootLayout.addView(view,android.widget.FrameLayout.LayoutParams(1,1))
+   updateNativeVideoPosition()
+  }
+ }
+ fun updateNativeVideoPosition() {
+  if(!::webView.isInitialized)return
+  webView.post {
+   webView.evaluateJavascript("""(function(){var e=document.getElementById('videoPlayerHost');if(!e)return null;var r=e.getBoundingClientRect();return JSON.stringify({x:r.left,y:r.top,w:r.width,h:r.height,visible:r.bottom>0&&r.top<window.innerHeight});})()"""){raw->
+    runCatching {
+     if(raw==null||raw=="null"){nativeVideoView?.visibility=android.view.View.GONE;return@runCatching}
+     val jsonText=org.json.JSONTokener(raw).nextValue() as? String ?: return@runCatching
+     val rect=org.json.JSONObject(jsonText)
+     val view=nativeVideoView?:return@runCatching
+     if(!rect.optBoolean("visible",false)){view.visibility=android.view.View.GONE;return@runCatching}
+     val density=resources.displayMetrics.density
+     val webLocation=IntArray(2);val rootLocation=IntArray(2)
+     webView.getLocationOnScreen(webLocation);rootLayout.getLocationOnScreen(rootLocation)
+     val left=webLocation[0]+(rect.optDouble("x")*density).toInt()-rootLocation[0]
+     val top=webLocation[1]+(rect.optDouble("y")*density).toInt()-rootLocation[1]
+     val width=(rect.optDouble("w")*density).toInt().coerceAtLeast(1)
+     val height=(rect.optDouble("h")*density).toInt().coerceAtLeast(1)
+     val params=(view.layoutParams as? android.widget.FrameLayout.LayoutParams)
+      ?:android.widget.FrameLayout.LayoutParams(width,height)
+     params.width=width;params.height=height;params.leftMargin=left;params.topMargin=top
+     params.gravity=android.view.Gravity.TOP or android.view.Gravity.LEFT
+     view.layoutParams=params
+     view.visibility=android.view.View.VISIBLE
+    }.onFailure { android.util.Log.w("RUSH","Could not align native player with media slot",it) }
    }
-   view.visibility=android.view.View.VISIBLE
   }
  }
  fun hideNativeVideo() {
@@ -143,6 +165,7 @@ class MainActivity:ComponentActivity(){
   }
   rootLayout.addView(webView,android.widget.FrameLayout.LayoutParams(
    android.widget.FrameLayout.LayoutParams.MATCH_PARENT,android.widget.FrameLayout.LayoutParams.MATCH_PARENT))
+  webView.setOnScrollChangeListener { _,_,_,_,_-> updateNativeVideoPosition() }
   setContentView(rootLayout)
   val html=assets.open("rush.html").bufferedReader().use{it.readText()}
   webView.loadDataWithBaseURL("https://rush.local/",html,"text/html","UTF-8",null)
