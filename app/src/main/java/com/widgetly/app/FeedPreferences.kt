@@ -23,13 +23,21 @@ object FeedPreferences {
     )
 
     val topicCatalog = listOf(
-        "Science", "Technology", "History", "Education", "Design", "Engineering",
-        "Economics", "Culture", "Environment", "Sports", "Music", "Health",
-        "Language", "Business", "Art", "Documentaries", "Books", "Philosophy",
-        "Current affairs", "World news", "Cooking", "Travel", "Architecture",
-        "Psychology", "Space", "Mathematics", "Programming", "Photography",
-        "Film analysis", "Gaming", "Memes", "Viral clips", "Celebrity gossip",
-        "Pranks", "Internet drama", "Reality TV", "Shorts"
+        "Science", "Technology", "AI and machine learning", "Programming", "Cybersecurity",
+        "History", "Geography", "Education", "Languages", "Literature", "Books",
+        "Philosophy", "Psychology", "Mathematics", "Space", "Engineering", "Economics",
+        "Business", "Startups", "Personal finance", "Investing", "Politics", "Current affairs",
+        "World news", "Environment", "Climate", "Health", "Medicine", "Fitness", "Sports",
+        "Football", "Basketball", "Cricket", "Esports", "Gaming", "Game development",
+        "Design", "Art", "Photography", "Architecture", "Fashion", "Beauty", "Makeup",
+        "Cooking", "Food", "Travel", "Cars", "Motorcycles", "Nature", "Wildlife", "Pets",
+        "Gardening", "Home improvement", "Music", "Music production", "Classical music",
+        "Hip-hop", "K-pop", "Film analysis", "Anime", "Manga", "Podcasts", "Documentaries",
+        "Vlogs", "Comedy", "Memes", "Viral clips", "Celebrity gossip", "Pranks",
+        "Internet drama", "Rage bait", "Reality TV", "Shorts", "ASMR", "Luxury",
+        "Shopping", "Product reviews", "Relationships", "Parenting", "Lifestyle",
+        "Meditation", "Self-improvement", "Romance", "Horror", "Internet culture",
+        "Streaming", "Live streams", "Board games", "Collecting", "Crafts"
     )
 
     private val lowAttentionTerms = listOf(
