@@ -162,6 +162,7 @@ class MainActivity:ComponentActivity(){
   super.onPictureInPictureModeChanged(isInPictureInPictureMode,newConfig)
   pipModeState.value=isInPictureInPictureMode
  }
+ @androidx.media3.common.util.UnstableApi
  override fun onDestroy(){
   if(::rushWebBridge.isInitialized)rushWebBridge.release()
   nativeVideoView?.player=null
