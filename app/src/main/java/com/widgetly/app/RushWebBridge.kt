@@ -413,7 +413,7 @@ class RushWebBridge(
 
     fun release() {
         controllerFuture?.let { future ->
-            runCatching { future.get().let { player -> captionListener?.let(player::removeListener) } }
+            if (future.isDone) runCatching { future.get().let { player -> captionListener?.let(player::removeListener) } }
             MediaController.releaseFuture(future)
         }
         captionListener = null
