@@ -324,7 +324,12 @@ class RushWebBridge(
                         if (parser.name == "item") {
                             insideItem = true
                             title = ""; link = ""; date = ""; description = ""; source = ""; thumbnail = ""
-                        } else if (insideItem) field = parser.name
+                        } else if (insideItem) {
+                            field = parser.name
+                            if (parser.name == "media:thumbnail" || parser.name == "media:content" || parser.name == "enclosure") {
+                                thumbnail = parser.getAttributeValue(null, "url").orEmpty()
+                            }
+                        }
                     }
                     org.xmlpull.v1.XmlPullParser.TEXT,
                     org.xmlpull.v1.XmlPullParser.CDSECT -> if (insideItem) {
