@@ -281,16 +281,20 @@ class RushWebBridge(
 
     private fun fetchNews(query: String) {
         activity.lifecycleScope.launch {
-            publish("rushNewsLoading", JSONObject().put("query", query).toString())
+            val prefs = activity.getSharedPreferences("rush_prefs", android.content.Context.MODE_PRIVATE)
+            val cacheKey = "news_cache_" + query.trim().lowercase().replace(Regex("\\s+"), "_")
+            val cached = prefs.getString(cacheKey, null)
+            if (!cached.isNullOrBlank()) runCatching { JSONArray(cached) }.getOrNull()?.let { publish("rushNewsResults", it.toString()) }
+            else publish("rushNewsLoading", JSONObject().put("query", query).toString())
             try {
                 val articles = withContext(Dispatchers.IO) { requestNews(query) }
+                prefs.edit().putString(cacheKey, articles.toString()).apply()
                 publish("rushNewsResults", articles.toString())
             } catch (error: Exception) {
-                publish("rushNewsError", JSONObject().put("message", error.message ?: "Could not load news.").toString())
+                if (cached.isNullOrBlank()) publish("rushNewsError", JSONObject().put("message", playbackErrorMessage(error, "Could not load news.")).toString())
             }
         }
     }
-
     private fun requestNews(query: String): JSONArray {
         val encoded = java.net.URLEncoder.encode(query, "UTF-8")
         val request = okhttp3.Request.Builder()
