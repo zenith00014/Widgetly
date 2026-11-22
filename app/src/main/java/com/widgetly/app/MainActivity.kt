@@ -107,6 +107,7 @@ class MainActivity:ComponentActivity(){
    settings.loadsImagesAutomatically=true
    webViewClient=android.webkit.WebViewClient()
    webChromeClient=android.webkit.WebChromeClient()
+   addJavascriptInterface(RushWebBridge(this@MainActivity,this),"RushNative")
   }
   setContentView(webView)
   val html=assets.open("rush.html").bufferedReader().use{it.readText()}
